@@ -1,0 +1,4 @@
+python310 daily_statistics.py
+pause
+mergeKMZandRender.py
+pause
