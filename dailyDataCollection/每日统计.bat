@@ -1,4 +1,4 @@
 python310 daily_statistics.py
 pause
-mergeKMZandRender.py
+python310 mergeKMZandRender.py
 pause

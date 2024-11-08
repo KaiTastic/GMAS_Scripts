@@ -4,10 +4,13 @@ import os
 import glob
 import re
 from lxml import etree
+from pyparsing import line
 import xmlschema
 import logging
 import shutil
 from datetime import datetime, timedelta
+from osgeo import ogr, osr
+
 
 
 # 验证KMZ文件是否符合KML的XSD模式
@@ -64,13 +67,13 @@ def merge_and_render_KMZ(input_folder, output_kmz_file):
     linestringCoords_list = []
 # 遍历文件夹中的所有KMZ文件，提取线要素
     for kmz_file in glob.glob(os.path.join(input_folder, '*.kmz')):
-        logging.info(f"准备验证KMZ文件(线要素): {kmz_file}")
+        # logging.info(f"准备验证KMZ文件(线要素): {kmz_file}")
         with zipfile.ZipFile(kmz_file, 'r') as kmz:
             for file_name in kmz.namelist():
                 if file_name.endswith('.kml'):
                     with kmz.open(file_name) as kml_file:
                         kml_content = kml_file.read()
-                        validateKMZ(kml_content)
+                        # validateKMZ(kml_content)
                         root = etree.fromstring(kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
                     # 查找所有的Placemark元素下的LineString元素
                         for placemark in root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'):
@@ -213,8 +216,50 @@ def merge_and_render_KMZ(input_folder, output_kmz_file):
 
     logging.info(f"KMZ文件已保存到: {output_kmz_file}")
 
-    return len(points_dict)
+    return len(points_dict), points_dict, len(linestringCoords_list), linestringCoords_list
 
+def generate_shp_from_points(points_dict, shp_file):
+    # 创建 SHP 文件驱动
+    shp_driver = ogr.GetDriverByName('ESRI Shapefile')
+    if os.path.exists(shp_file):
+        shp_driver.DeleteDataSource(shp_file)
+    shp_ds = shp_driver.CreateDataSource(shp_file)
+    if shp_ds is None:
+        raise RuntimeError("Failed to create SHP file")
+
+    # 创建 SHP 图层
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(4326)  # WGS84
+    shp_layer = shp_ds.CreateLayer('points', srs, ogr.wkbPoint)
+
+    # 创建字段
+    field_name = ogr.FieldDefn('Name', ogr.OFTString)
+    field_name.SetWidth(24)
+    shp_layer.CreateField(field_name)
+
+    field_longitude = ogr.FieldDefn('Longitude', ogr.OFTReal)
+    shp_layer.CreateField(field_longitude)
+
+    field_latitude = ogr.FieldDefn('Latitude', ogr.OFTReal)
+    shp_layer.CreateField(field_latitude)
+
+    # 创建要素并添加到图层
+    for obspid, coords in points_dict.items():
+        feature = ogr.Feature(shp_layer.GetLayerDefn())
+        feature.SetField('Name', obspid)
+        feature.SetField('Longitude', float(coords['longitude']))
+        feature.SetField('Latitude', float(coords['latitude']))
+
+        point = ogr.Geometry(ogr.wkbPoint)
+        point.AddPoint(float(coords['longitude']), float(coords['latitude']))
+        feature.SetGeometry(point)
+
+        shp_layer.CreateFeature(feature)
+        feature = None  # 清理要素
+
+    # 清理
+    shp_ds = None
+    print(f"点要素已成功生成 SHP 文件: {shp_file}")
 
 def parse_args():
     # 无参数输入时，默认date_str为当天，有参数时，为指定参数
@@ -258,7 +303,37 @@ def main():
     # logger.addHandler(console_handler)
     # logger.propagate = False        # 防止日志消息被传递到根日志记录器
 
-    merge_and_render_KMZ(input_folder, output_kmz_file)
+    pointNum, pointCoords, lineNum, LineCoords = merge_and_render_KMZ(input_folder, output_kmz_file)
+
+    # 如果当天是周日，则将 KMZ 文件转换为 SHP 文件
+    if date.weekday() == 6:  # 周日的 weekday() 返回值为 6
+        output_shp_file = os.path.join(workspace, yearAndmonth_str, date_str, f"GMAS_points_until_{date_str}.shp")
+        generate_shp_from_points(pointCoords, output_shp_file)
+        logger.info(f"KMZ 文件已转换为 SHP 文件: {output_shp_file}")
+
+
+# ----------------------------操作shp文件并清理shp文件--------------------------------
+    # 如果zip文件已存在，则删除该文件
+    if os.path.exists(output_shp_file.replace('.shp', '.zip')):
+        os.remove(output_shp_file.replace('.shp', '.zip'))
+        logger.info(f"已删除旧的ZIP文件: {output_shp_file.replace('.shp', '.zip')}")
+
+    # 将shp文件压缩为zip文件
+    zip_file = os.path.join(workspace, yearAndmonth_str, date_str, f"GMAS_points_until_{date_str}.zip")
+    with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(output_shp_file, os.path.basename(output_shp_file))
+        zipf.write(output_shp_file.replace('.shp', '.shx'), os.path.basename(output_shp_file).replace('.shp', '.shx'))
+        zipf.write(output_shp_file.replace('.shp', '.dbf'), os.path.basename(output_shp_file).replace('.shp', '.dbf'))
+        zipf.write(output_shp_file.replace('.shp', '.prj'), os.path.basename(output_shp_file).replace('.shp', '.prj'))
+        # zipf.write(output_shp_file.replace('.shp', '.shp'), os.path.basename(output_shp_file).replace('.shp', '.shp'))
+    logger.info(f"SHP 文件已压缩为 ZIP 文件: {zip_file}")
+    # 删除shp文件及相应的shx、dbf、prj文件
+    os.remove(output_shp_file)
+    os.remove(output_shp_file.replace('.shp', '.shx'))
+    os.remove(output_shp_file.replace('.shp', '.dbf'))
+    os.remove(output_shp_file.replace('.shp', '.prj'))
+# ----------------------------结束操作shp文件并清理shp文件--------------------------------
+
     
     # 关闭处理器
     file_handler.close()
