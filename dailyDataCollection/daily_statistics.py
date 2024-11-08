@@ -13,12 +13,6 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.styles import *
 
 
-# -----------增加环境变量----------------
-## 将WinRAR添加到环境变量
-os.environ['PATH'] = r'C:\Program Files\WinRAR'
-## 将GlobalMapper添加到环境变量
-os.environ['PYTHONPATH'] = r'C:\Program Files\GlobalMapper25.1_64bit'
-
 ## 解压当前目录下所有的压缩文件至特定目录
 def extract_all_files_in_directory(directory: str, output_directory: str) -> None:
     for filename in os.listdir(directory):
@@ -167,7 +161,7 @@ def is_valid_filename(filename):
     # 检查路径是否包含无效字符
     invalid_chars = set('<>:"/\\|?*')
     if any(char in invalid_chars for char in filename):
-        print(f"文件名 {path} 包含无效字符")
+        print(f"文件名 {filename} 包含无效字符")
         return False
     return True
 
@@ -509,7 +503,7 @@ def daily_statistics(date_str: str) -> None:
     workspace = r"D:\RouteDesigen"
     # 设置需要统计的图幅的最小和最大序号
     minSequenceValue = 1
-    maxSequenceValue = 20
+    maxSequenceValue = 22
     # 设置每日统计点的Excel文件名，例如：20211010点统计.xlsx
     dailyReportExcelFilename = date_str + "点统计.xlsx"
     _100kSheetNames = (r"D:\RouteDesigen\100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx")

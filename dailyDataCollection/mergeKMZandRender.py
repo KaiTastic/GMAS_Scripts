@@ -16,8 +16,8 @@ from osgeo import ogr, osr
 # 验证KMZ文件是否符合KML的XSD模式
 def validateKMZ(kml_content, defaultSchema = "schema22"):
 
-    schema_file_path_22 = r'D:\MacBook\MacBookDocument\VSCode\SourceCode\KML-lib\kml_xsd\2.2.0\ogckml22.xsd'
-    schema_file_path_23 = r'D:\MacBook\MacBookDocument\VSCode\SourceCode\KML-lib\kml_xsd\2.3.0\ogckml23.xsd'
+    schema_file_path_22 = r'dailyDataCollection\kml_xsd\2.2.0\ogckml22.xsd'
+    schema_file_path_23 = r'dailyDataCollection\kml_xsd\2.3.0\ogckml23.xsd'
 
     if defaultSchema == "schema22":
         schema = xmlschema.XMLSchema(schema_file_path_22)
@@ -49,6 +49,7 @@ def extract_point_data_from_description(description_content):
     latitude = float(latitude_match.group(1)) if latitude_match else None
 
     return obspid, longitude, latitude
+
 
 
 def merge_and_render_KMZ(input_folder, output_kmz_file):
@@ -267,6 +268,35 @@ def parse_args():
     parser.add_argument("date_str", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="日期字符串，格式为 YYYYMMDD")
     return parser.parse_args()
 
+def read_shp_to_dict(shp_file):
+    points_dict = {}
+
+    # 打开 SHP 文件
+    shp_driver = ogr.GetDriverByName('ESRI Shapefile')
+    shp_ds = shp_driver.Open(shp_file, 0)  # 0 表示只读模式
+    if shp_ds is None:
+        raise RuntimeError(f"Failed to open SHP file: {shp_file}")
+
+    # 获取图层
+    shp_layer = shp_ds.GetLayer()
+
+    # 遍历要素
+    for feature in shp_layer:
+        obspid = feature.GetField('Name')
+        longitude = feature.GetField('Longitude')
+        latitude = feature.GetField('Latitude')
+
+        points_dict[obspid] = {
+            'longitude': longitude,
+            'latitude': latitude
+        }
+
+    # 清理
+    shp_ds = None
+    print(f"已成功读取 SHP 文件: {shp_file}")
+
+    return points_dict
+
 def main():
     args = parse_args()
     date_str = args.date_str
@@ -306,35 +336,77 @@ def main():
     pointNum, pointCoords, lineNum, LineCoords = merge_and_render_KMZ(input_folder, output_kmz_file)
 
     # 如果当天是周日，则将 KMZ 文件转换为 SHP 文件
-    if date.weekday() == 6:  # 周日的 weekday() 返回值为 6
+    # 周一是0，周二是1，周三是2，周四是3，周五是4，周六是5，周日是6
+    if date.weekday() == 5: 
         output_shp_file = os.path.join(workspace, yearAndmonth_str, date_str, f"GMAS_points_until_{date_str}.shp")
         generate_shp_from_points(pointCoords, output_shp_file)
         logger.info(f"KMZ 文件已转换为 SHP 文件: {output_shp_file}")
 
+# ---------------------------将shp文件拷贝至制图工程的今日文件夹--------------------------------------------------------------------
+# 在制图文件下创建新文件夹
+        new_folder = os.path.join(workspace, "Finished observation points of Group1", f"Finished_ObsPoints_Until_{date_str}")
+        os.makedirs(new_folder, exist_ok=True)
+        logger.info(f"创建新文件夹: {new_folder}")
+
+        # 拷贝今日的shp文件及相关文件至新文件夹
+        shutil.copy(output_shp_file, new_folder)
+        shutil.copy(output_shp_file.replace('.shp', '.shx'), new_folder)
+        shutil.copy(output_shp_file.replace('.shp', '.dbf'), new_folder)
+        shutil.copy(output_shp_file.replace('.shp', '.prj'), new_folder)
+        logger.info(f"已拷贝今日的 SHP 文件及相关文件至: {new_folder}")
 
 # ----------------------------操作shp文件并清理shp文件--------------------------------
-    # 如果zip文件已存在，则删除该文件
-    if os.path.exists(output_shp_file.replace('.shp', '.zip')):
-        os.remove(output_shp_file.replace('.shp', '.zip'))
-        logger.info(f"已删除旧的ZIP文件: {output_shp_file.replace('.shp', '.zip')}")
+        # 如果zip文件已存在，则删除该文件
+        if os.path.exists(output_shp_file.replace('.shp', '.zip')):
+            os.remove(output_shp_file.replace('.shp', '.zip'))
+            logger.info(f"已删除旧的ZIP文件: {output_shp_file.replace('.shp', '.zip')}")
 
-    # 将shp文件压缩为zip文件
-    zip_file = os.path.join(workspace, yearAndmonth_str, date_str, f"GMAS_points_until_{date_str}.zip")
-    with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(output_shp_file, os.path.basename(output_shp_file))
-        zipf.write(output_shp_file.replace('.shp', '.shx'), os.path.basename(output_shp_file).replace('.shp', '.shx'))
-        zipf.write(output_shp_file.replace('.shp', '.dbf'), os.path.basename(output_shp_file).replace('.shp', '.dbf'))
-        zipf.write(output_shp_file.replace('.shp', '.prj'), os.path.basename(output_shp_file).replace('.shp', '.prj'))
-        # zipf.write(output_shp_file.replace('.shp', '.shp'), os.path.basename(output_shp_file).replace('.shp', '.shp'))
-    logger.info(f"SHP 文件已压缩为 ZIP 文件: {zip_file}")
-    # 删除shp文件及相应的shx、dbf、prj文件
-    os.remove(output_shp_file)
-    os.remove(output_shp_file.replace('.shp', '.shx'))
-    os.remove(output_shp_file.replace('.shp', '.dbf'))
-    os.remove(output_shp_file.replace('.shp', '.prj'))
+        # 将shp文件压缩为zip文件
+        zip_file = os.path.join(workspace, yearAndmonth_str, date_str, f"GMAS_points_until_{date_str}.zip")
+        with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(output_shp_file, os.path.basename(output_shp_file))
+            zipf.write(output_shp_file.replace('.shp', '.shx'), os.path.basename(output_shp_file).replace('.shp', '.shx'))
+            zipf.write(output_shp_file.replace('.shp', '.dbf'), os.path.basename(output_shp_file).replace('.shp', '.dbf'))
+            zipf.write(output_shp_file.replace('.shp', '.prj'), os.path.basename(output_shp_file).replace('.shp', '.prj'))
+            # zipf.write(output_shp_file.replace('.shp', '.shp'), os.path.basename(output_shp_file).replace('.shp', '.shp'))
+        logger.info(f"SHP 文件已压缩为 ZIP 文件: {zip_file}")
+        # 删除shp文件及相应的shx、dbf、prj文件
+        os.remove(output_shp_file)
+        os.remove(output_shp_file.replace('.shp', '.shx'))
+        os.remove(output_shp_file.replace('.shp', '.dbf'))
+        os.remove(output_shp_file.replace('.shp', '.prj'))
 # ----------------------------结束操作shp文件并清理shp文件--------------------------------
 
-    
+# 读取一周前的shp文件
+        one_week_ago = date - timedelta(days=7)
+        one_week_ago_str = one_week_ago.strftime("%Y%m%d")
+        one_week_ago_yearAndmonth_str = one_week_ago.strftime("%Y%m")
+        one_week_ago_shp_file = os.path.join(workspace, one_week_ago_yearAndmonth_str, one_week_ago_str, f"GMAS_points_until_{one_week_ago_str}.zip")
+        if not os.path.exists(one_week_ago_shp_file):
+            logger.error(f"一周前的 ZIP 文件不存在: {one_week_ago_shp_file}")
+            return
+        
+# 解压一周前的zip文件至制图文件夹中
+        with zipfile.ZipFile(one_week_ago_shp_file, 'r') as zip_ref:
+            zip_ref.extractall(new_folder)
+        logger.info(f"已解压一周前的 ZIP 文件到: {new_folder}")
+
+        one_week_ago_points_dict = read_shp_to_dict(os.path.join(new_folder, f"GMAS_points_until_{one_week_ago_str}.shp"))
+        count_one_week_ago_points_dict = len(one_week_ago_points_dict)
+        logger.info(f"一周前{one_week_ago_str}的点要素总数: {count_one_week_ago_points_dict}")
+        diff_dict = {k: v for k, v in pointCoords.items() if k not in one_week_ago_points_dict}
+        diff_dict_num = len(diff_dict)
+        logger.info(f"去掉重复项后的点要素: {diff_dict_num}")
+
+        one_week_ago_nextday = date - timedelta(days=6)
+        one_week_ago_nextday_str = one_week_ago_nextday.strftime("%Y%m%d")
+
+        weekly_increase_shp_file = os.path.join(new_folder, f"GMAS_points_{one_week_ago_nextday_str}_{date_str}.shp")
+        generate_shp_from_points(diff_dict, weekly_increase_shp_file)
+
+        logger.info(f"GMAS_points_{one_week_ago_nextday_str}_{date_str}.shp创建成功")
+
+
     # 关闭处理器
     file_handler.close()
     # console_handler.close()
