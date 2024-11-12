@@ -332,9 +332,13 @@ def get_columns_in_range(df, minSequenceValue, maxSequenceValue):
     filtered_df = df[
         (df['Sequence'] >= minSequenceValue) & (df['Sequence'] <= maxSequenceValue)
     ]
+
+    # 按照 'Sequence' 列值从小到大排序
+    sorted_df = filtered_df.sort_values(by='Sequence')
+
     return (
-        filtered_df['Roman Name'].tolist(),
-        filtered_df['File Name'].tolist()
+        sorted_df['Roman Name'].tolist(),
+        sorted_df['File Name'].tolist()
     )
 
 def create_daily_statistics_excel(
@@ -506,7 +510,7 @@ def daily_statistics(date_str: str) -> None:
     maxSequenceValue = 22
     # 设置每日统计点的Excel文件名，例如：20211010点统计.xlsx
     dailyReportExcelFilename = date_str + "点统计.xlsx"
-    _100kSheetNames = (r"D:\RouteDesigen\100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx")
+    _100kSheetNames = (r"D:\RouteDesigen\PythonRun\100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx")
     df = pd.read_excel(_100kSheetNames, sheet_name="Sheet1", header=0, index_col=0)
 
 
