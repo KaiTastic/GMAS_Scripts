@@ -507,7 +507,7 @@ def daily_statistics(date_str: str) -> None:
     workspace = r"D:\RouteDesigen"
     # 设置需要统计的图幅的最小和最大序号
     minSequenceValue = 1
-    maxSequenceValue = 22
+    maxSequenceValue = 24
     # 设置每日统计点的Excel文件名，例如：20211010点统计.xlsx
     dailyReportExcelFilename = date_str + "点统计.xlsx"
     _100kSheetNames = (r"D:\RouteDesigen\PythonRun\100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx")
