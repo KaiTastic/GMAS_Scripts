@@ -1,14 +1,16 @@
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
-from os import close
-import re
 import sys
+from dataclasses import dataclass
+from datetime import datetime
+import os
+import time
+from functools import wraps
 
 
 """
 初始设置（常量）
 """
-
 
 # 工作文件夹
 WORKSPACE = r"D:\RouteDesigen"
@@ -16,7 +18,7 @@ WORKSPACE = r"D:\RouteDesigen"
 # 一般为"文档\WeChat Files\WeChat Files\微信号\FileStorage\File"
 WECHAT_FOLDER = r"D:\Users\lenovo\Documents\WeChat Files\WeChat Files\bringsmile\FileStorage\File"
 
-# 100K图幅名称信息等查询表格（lookup table）
+# 100K图幅名称信息等查询表格（lookup table） 
 SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
 
 # 图标文件
@@ -41,20 +43,33 @@ COLLECTION_WEEKDAYS = [5]
 # 设置需要统计的图幅的最小和最大序号，包括最小和最大序号
 # 例如，SEQUENCE_MIN = 1, SEQUENCE_MAX = 22，表示统计1-22图幅，序号来源于100K图幅名称信息等查询表格lookup table
 SEQUENCE_MIN = 1
-SEQUENCE_MAX = 22
+SEQUENCE_MAX = 24
 
 
+# 100K图幅名称信息等
+SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
+# 图标文件
+ICON = os.path.join(WORKSPACE, 'resource', ICON_FILE)
+
+# KML文件的XSD模式，分别为2.2和2.3版本
+KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
+KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
 
 
-
-
-
-
-
-
+def timer(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Function '{func.__name__}' executed in {elapsed_time:.4f} seconds")
+        return result
+    return wrapper
 
 
 class Logger:
+
     _instance = None
 
     EMAIL_CONFIG = {
@@ -68,38 +83,24 @@ class Logger:
     }
 
     def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(cls).__new__(cls, *args, **kwargs)
+        if cls._instance is None:
+            cls._instance = super(Logger, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, name='global_logger', log_file='app.log', level=logging.INFO, max_bytes=5*1024*1024, backup_count=2, email_config=None):
         if 'logger' not in self.__dict__:
             self.logger = logging.getLogger(name)
             self.logger.setLevel(level)
-
-            # 控制台日志处理器
-            console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(self.loggerFormat())
-            self.logger.addHandler(console_handler)
-
-            # 文件日志处理器，带有日志轮转功能
-            file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
-            file_handler.setFormatter(self.loggerFormat())
-            self.logger.addHandler(file_handler)
-
-            # 如果提供了电子邮件配置，添加电子邮件处理器
+            self._add_handler(logging.StreamHandler(sys.stdout), self._logger_format())
+            self._add_handler(RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count), self._logger_format())
             if email_config:
-                self.mail_handler(email_config)
+                self._add_mail_handler(email_config)
 
-    def loggerFormat(self, format_='default'):
-        # 设置日志格式
-        if format_ == 'default':
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        elif format_ == 'simple':
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        return formatter
+    def _add_handler(self, handler, formatter):
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-    def mail_handler(self, email_config=None):
+    def _add_mail_handler(self, email_config):
         mail_handler = SMTPHandler(
             mailhost=(email_config['mailhost'], email_config['port']),
             fromaddr=email_config['fromaddr'],
@@ -109,9 +110,14 @@ class Logger:
             secure=()
         )
         mail_handler.setLevel(logging.ERROR)
-        mail_handler.setFormatter(self.loggerFormat())
-        self.logger.addHandler(mail_handler)
-        
+        self._add_handler(mail_handler, self._logger_format())
+
+    def _logger_format(self, format_='default'):
+        if format_ == 'default':
+            return logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        elif format_ == 'simple':
+            return logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
     def debug(self, message):
         self.logger.debug(message)
 
@@ -135,15 +141,45 @@ class Logger:
             self.logger.removeHandler(handler)
 
 
-# 示例用法, 请根据实际情况修改, 例如邮件配置
+@dataclass
+class DateType:
+
+    date_datetime: datetime = None
+    yyyymmdd_str: str = ''
+    yymmdd_str: str = ''
+    yyyy_str: str = ''
+    yyyy_mm_str: str = ''
+    yy_str: str = ''
+    mm_str: str = ''
+    dd_str: str = ''
+    yymm_str: str = ''
+
+    def __post_init__(self):
+        if self.yyyymmdd_str:
+            self.date_datetime = datetime.strptime(self.yyyymmdd_str, "%Y%m%d")
+        elif self.date_datetime:
+            self.yyyymmdd_str = self.date_datetime.strftime("%Y%m%d")
+        self._set_date_strings()
+
+    def _set_date_strings(self):
+        self.yymmdd_str = self.date_datetime.strftime("%y%m%d")
+        self.yyyymm_str = self.date_datetime.strftime("%Y%m")
+        self.yyyy_str = self.date_datetime.strftime("%Y")
+        self.yy_str = self.date_datetime.strftime("%y")
+        self.mm_str = self.date_datetime.strftime("%m")
+        self.dd_str = self.date_datetime.strftime("%d")
+        self.yyyy_mm_str = self.date_datetime.strftime("%Y-%m")
+        self.yymm_str = self.date_datetime.strftime("%y%m")
+
+    def __str__(self):
+        return self.yyyymmdd_str
+
+
 if __name__ == "__main__":
-
-
     logger = Logger(name='my_logger', log_file='my_app.log', level=logging.DEBUG, email_config=Logger.EMAIL_CONFIG)
-
     logger.debug('这是一个调试消息')
     logger.info('这是一个信息消息')
     logger.warning('这是一个警告消息')
     logger.error('这是一个错误消息')
     logger.critical('这是一个严重错误消息')
-
+    logger.close(message="日志记录器关闭, 程序结束")

@@ -1,3 +1,4 @@
+from math import e
 import os
 import re
 import zipfile
@@ -6,26 +7,27 @@ import hashlib
 import xmlschema
 import logging
 import time
+import json
 import pandas as pd
-from attr import dataclass
+from dataclasses import dataclass, field
 from lxml import etree
 from datetime import datetime, timedelta
 from config import *
 from abc import ABC, abstractmethod
 from osgeo import ogr, osr
-from datetime import datetime, timedelta
 from openpyxl.styles import *
 from openpyxl import Workbook, load_workbook
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import stat
 
 
-# 100K图幅名称信息等
-SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
-# 图标文件
-ICON = os.path.join(WORKSPACE, 'resource', ICON_FILE)
-
-# KML文件的XSD模式，分别为2.2和2.3版本
-KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
-KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
+# 创建 logger 实例
+logger = logging.getLogger('dailyfilegenerator')
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 #返回当前目录下所有含多个特定字符串(不区分大小写)列表的文件全路径
@@ -66,11 +68,21 @@ def find_files_with_max_number(directory: str) -> dict:
     # 输出包含相同基础文件名中括号内数字最大的文件
     return files_dict
 
+def process_date(date):
+    collection = CurrentDateFiles(date)
+    return f"{date}新增点数：{collection.totalDaiyIncreasePointNum}"
 
 class FileIO(ABC):
 
-    def __init__(self, filepath):
-        self.filepath = filepath
+    def __init__(self, filepath=None):
+        if filepath is None:
+            logger.error(f"文件路径无效: {filepath}")
+            self.filepath = None
+        if filepath is not None and os.path.exists(filepath) and os.path.isfile(filepath):
+            self.filepath = filepath
+        else:
+            logger.error(f"文件路径无效: {filepath}")
+            self.filepath = None
 
     @abstractmethod
     def read(self):
@@ -90,7 +102,7 @@ class FileIO(ABC):
 
 class GeneralIO(FileIO):
 
-    def __init__(self, filepath, mode='r', encoding = 'utf-8'):
+    def __init__(self, filepath=None, mode='r', encoding = 'utf-8'):
         super().__init__(filepath)
         self.data = None
         self.mode = mode
@@ -105,6 +117,23 @@ class GeneralIO(FileIO):
         if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
             with open(self.filepath, 'w', encoding='utf-8') as file:
                 file.write(content)
+
+    def writeAS(self, newpath):
+        """
+        writeAS 另存为新文件
+        另存为新文件，将当前文件复制到新路径，将内存中的文件更新并更新当前文件路径
+        :param newpath: 新文件路径
+        :type newpath: str
+        :raises FileNotFoundError: _description_
+        """
+        #TODO: 另存为新文件，需要利用os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)解决权限问题？
+        if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
+            shutil.copy(self.filepath, newpath)
+        else:
+            print(f"File copy fail: file \'{self.filepath}\' do not exist")
+            raise FileNotFoundError(f"File \'{self.filepath}\' do not exist")
+        self.write(newpath)
+        self.filepath = newpath
 
     def delete(self):
         if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
@@ -128,27 +157,113 @@ class GeneralIO(FileIO):
 
 
 class FileAttributes(object):
-    def __init__(self, filepath):
-        if not (os.path.exists(filepath) and os.path.isfile(filepath)):
-            print(f"File \'{filepath}\' do not exist")
-            exception = FileNotFoundError(f"File \'{filepath}\' do not exist")
-            raise exception
-        else:
-            self.filepath = filepath
+    def __init__(self, filepath=None):
+        self._filepath = None
+        if filepath is None:
+            logger.error(f"文件路径无效: {filepath}")
+            self.filepath = None
         # Basic file attributes
-        self.filename = os.path.basename(filepath)
-        self.file_dir = os.path.dirname(filepath)
-        self.size = os.path.getsize(filepath)
-        self.creation_time = time.ctime(os.path.getctime(filepath))
-        self.modification_time = time.ctime(os.path.getmtime(filepath))
-        self.access_time = time.ctime(os.path.getatime(filepath))
-        self.file_type = self.__get_file_type()
+        if filepath is not None and os.path.exists(filepath) and os.path.isfile(filepath):
+            self._filepath = filepath
+            self._filename = os.path.basename(filepath)
+            self._file_dir = os.path.dirname(filepath)
+            self._size = os.path.getsize(filepath)
+            self._creation_time = time.ctime(os.path.getctime(filepath))
+            self._modification_time = time.ctime(os.path.getmtime(filepath))
+            self._access_time = time.ctime(os.path.getatime(filepath))
+            self._file_type = self.__get_file_type()
+        else:
+            self._filepath = None
+            self._filename = None
+            self._file_dir = None
+            self._size = None
+            self._creation_time = None
+            self._modification_time = None
+            self._access_time = None
+            self._file_type = None
+        # File content
+        self._data = None
         # hash value
         self._hashMD5 = None
         self._hashSHA265 = None
 
+
+    def __getattr__(self, name):
+        if name == 'filepath':
+            if self._filepath is not None:
+                if os.path.exists(self._filepath) and os.path.isfile(self._filepath):
+                    return self._filepath
+            else:
+                self._filepath = None
+                return self._filepath
+        if name == 'filename':
+            if self._filename is None and self.filepath is not None:
+                self._filename = os.path.basename(self.filepath)
+            return self._filename
+        elif name == 'file_dir':
+            if self._file_dir is None and self.filepath is not None:
+                self._file_dir = os.path.dirname(self.filepath)
+            return self._file_dir
+        elif name == 'size':
+            if self._size is None and self.filepath is not None:
+                self._size = os.path.getsize(self.filepath)
+            return self._size
+        elif name == 'creation_time':
+            if self._creation_time is None and self.filepath is not None:
+                self._creation_time = time.ctime(os.path.getctime(self.filepath))
+            return self._creation_time
+        elif name == 'modification_time':
+            if self._modification_time is None and self.filepath is not None:
+                self._modification_time = time.ctime(os.path.getmtime(self.filepath))
+            return self._modification_time
+        elif name == 'access_time':
+            if self._access_time is None and self.filepath is not None:
+                self._access_time = time.ctime(os.path.getatime(self.filepath))
+            return self._access_time
+        elif name == 'file_type':
+            if self._file_type is None and self.filepath is not None:
+                self._file_type = self.__get_file_type()
+            return self._file_type
+        elif name == 'data':
+            if self._data is None and self.filepath is not None:
+                with open(self.filepath, 'r') as file:
+                    self._data = file.read()
+            return self._data
+        elif name == 'hashMD5':
+            if self.filepath:
+                if self._hashMD5 is None and self._data is None:
+                    # Read file content
+                    with open(self.filepath, 'rb') as file:
+                        self._data = file.read()
+                    self._hashMD5 = hashlib.md5(self._data).hexdigest()
+            else:
+                print(f"File path is None, hashMD5 is None")
+                return None
+            return self._hashMD5
+        elif name == 'hashSHA265':
+            if self.filepath:
+                if self._hashSHA265 is None and self._data is None:
+                    # Read file content
+                    with open(self.filepath, 'rb') as file:
+                        self._data = file.read()
+                    self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
+            else:
+                print(f"File path is None, hashSHA265 is None")
+                return None
+            return self._hashSHA265
+        else:
+            # print(f"AttributeError: {name} is not a valid attribute")
+            return None
+
+
     def __get_file_type(self):
-        return os.path.splitext(self.filename)[1]
+        if self.filepath is not None and os.path.exists(self.filepath) and os.path.isfile(self.filepath):
+            if os.path.splitext(self.filepath)[1]:
+                return os.path.splitext(self.filepath)[1]
+            else:
+                return None
+        else:
+            return None
     
     def __str__(self):
         return f"File Name: \t\t{self.filename}\n" \
@@ -161,53 +276,60 @@ class FileAttributes(object):
                f"MD5: \t\t\t{self.hashMD5}\n" \
                f"SHA265: \t\t{self.hashSHA265}"
     
-    @property
-    def hashMD5(self):
-        if self._hashMD5 is None:
-            self._hashMD5 = hashlib.md5(self._data).hexdigest()
-        return self._hashMD5
+    # @property
+    # def hashMD5(self):
+    #     if self._hashMD5 is None and self._data is None:
+    #         # Read file content
+    #         with open(self.filepath, 'rb') as file:
+    #             self._data = file.read()
+    #         self._hashMD5 = hashlib.md5(self._data).hexdigest()
+    #     return self._hashMD5
     
-    @property
-    def hashSHA265(self):
-        if self._hashSHA265 is None:
-            self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
-        return self._hashSHA265
-
+    # @property
+    # def hashSHA265(self):
+    #     if self._hashSHA265 is None and self._data is None:
+    #         # Read file content
+    #         with open(self.filepath, 'rb') as file:
+    #             self._data = file.read()
+    #         self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
+    #     return self._hashSHA265
 
 
 
 @dataclass
-class KMLData:
+class PlacemarkerData:
 
     OSPID_PATTERN = r'\d{5}[A-Za-z]\d{3}'
     LONGITUDE_PATTERN = r'<td>Longitude</td>\s*<td>(-?\d+\.\d+)</td>'
     LATITUDE_PATTERN = r'<td>Latitude</td>\s*<td>(-?\d+\.\d+)</td>'
 
-    points: dict = {}
+    points: dict = field(default_factory=dict)
     pointsCount: int = 0
-    routes: list = []
+    routes: list = field(default_factory=list)
     routesCount: int = 0
-    errorMsg = []
+    errorMsg: list = field(default_factory=list)
 
-    def __post_init__(self, kml_content):
-        self.__getPoints(kml_content)
-        self.__getRoutes(kml_content)
+    kml_content: str = None
 
-    def __getPoints(self, kml_content: str) -> None: 
+    def __post_init__(self):
+        if self.kml_content is not None:
+            self.__getPoints()
+            self.__getRoutes()
+            # 在解析KML内容后删除KML内容，以释放内存
+            del self.kml_content
+
+    def __getPoints(self) -> None: 
         """
-        __getPoints 从KML文件中提取点要素，包括OBSID、经度和纬度
-        _extended_summary_
-        :param kml_content: KML文件内容
+        从KML内容中提取点要素，包括OBSID、经度和纬度
         """
-        kml_content = kml_content.read()
-        root = etree.fromstring(kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
+        root = etree.fromstring(self.kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
         # Step 1: 通过Point元素提取点要素，Point元素下的name元素为OBSID，coordinates元素为经纬度，name元素可能为空或不符合命名规范，coordinates元素一定存在
         for placemark in root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'):
             point = placemark.find('.//{http://www.opengis.net/kml/2.2}Point')
             if point is not None:
                 name = placemark.find('.//{http://www.opengis.net/kml/2.2}name')
                 if name is not None and name.text:
-                    obspid_pattern = re.compile(KMLData.OSPID_PATTERN)
+                    obspid_pattern = re.compile(PlacemarkerData.OSPID_PATTERN)
                     if obspid_pattern.match(name.text):
                         obspid = name.text
                         coordinates = point.find('.//{http://www.opengis.net/kml/2.2}coordinates').text.split(',')
@@ -216,17 +338,17 @@ class KMLData:
                     else:
                         error = f"点要素{name.text}格式不符合OBSID命名格式"
                         self.errorMsg.append(error)
-                        print(error)
+                        logger.warning(error)
         # Step 2: 通过Description元素提取点要素，Description元素下的内容可能包含OBSID、经度和纬度3个要素，OBSID、经度或纬度均可能为空
         for description in root.findall('.//{http://www.opengis.net/kml/2.2}description'):
             if description is not None and description.text:
-                obspidPattern = re.compile(KMLData.OSPID_PATTERN)
-                longitudePattern = re.compile(KMLData.LONGITUDE_PATTERN)
-                latitudePattern = re.compile(KMLData.LATITUDE_PATTERN)
+                obspidPattern = re.compile(PlacemarkerData.OSPID_PATTERN)
+                longitudePattern = re.compile(PlacemarkerData.LONGITUDE_PATTERN)
+                latitudePattern = re.compile(PlacemarkerData.LATITUDE_PATTERN)
                 obspid_match = obspidPattern.search(description.text)
                 longitude_match = longitudePattern.search(description.text)
                 latitude_match = latitudePattern.search(description.text)
-                obspid = obspid_match.group(1) if obspid_match else None
+                obspid = obspid_match.group(0) if obspid_match else None
                 longitude = float(longitude_match.group(1)) if longitude_match else None
                 latitude = float(latitude_match.group(1)) if latitude_match else None
             # if obspid == None or longitude == None or latitude == None:
@@ -238,7 +360,7 @@ class KMLData:
                 if obspid and not longitude and not latitude:
                     error = f"点要素{obspid}缺少经度或纬度"
                     self.errorMsg.append(error)
-                    print(error)
+                    logger.warning(error)
         # Step 3: 删除缺少经度或纬度的点要素
         # for obspid, coords in self.points.items():
         #     if coords['longitude'] == None or coords['latitude'] == None:
@@ -248,9 +370,9 @@ class KMLData:
         #         print(error)
         self.pointsCount = len(self.points)
 
-    def __getRoutes(self, kml_content: str) -> None:
+    def __getRoutes(self) -> None:
         # 查找所有的Placemark元素下的LineString元素下的coordinates元素，提取线要素
-        root = etree.fromstring(kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
+        root = etree.fromstring(self.kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
         for placemark in root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'):
             linestring = placemark.find('.//{http://www.opengis.net/kml/2.2}LineString')
             if linestring is not None:
@@ -259,12 +381,12 @@ class KMLData:
                     self.routes.append(coordinates.text.strip())
         self.routesCount = len(self.routes)
     
-    def __add__(self: 'KMLData', other: 'KMLData') -> 'KMLData':
+    def __add__(self: 'PlacemarkerData', other: 'PlacemarkerData') -> 'PlacemarkerData':
         """用加法操作实现两个文件数据合并，得到一个新的字典"""
-        if not isinstance(other, KMLData):
-            raise TypeError("Operands must be of type 'KMLData'")
-        # 创建新的KMLData对象
-        new_file = KMLData()
+        if not isinstance(other, PlacemarkerData):
+            raise TypeError("Operands must be of type 'PlacemarkerData'")
+        # 创建新的PlacemarkerData对象
+        new_file = PlacemarkerData()
         # 合并点要素（相同的键进行了覆盖）
         new_file.points = {**self.points, **other.points}
         new_file.pointsCount = len(new_file.points)
@@ -273,42 +395,62 @@ class KMLData:
         new_file.routesCount = len(new_file.routes)
         return new_file
 
-    def __sub__(self, other: 'KMLData') -> 'KMLData':
+    def __sub__(self, other: 'PlacemarkerData') -> 'PlacemarkerData':
         """用减法操作实现两个文件数据的差异，得到一个新的字典"""
-        if not isinstance(other, KMLData):
-            raise TypeError("文件类型必须为KML")
+        if not isinstance(other, PlacemarkerData):
+            logger.error("数据类型必须是'PlacemarkerData'")
+            return None
         # 验证一个字典的键是否是另一个字典键的子集
         if not (self.points.keys() <= other.points.keys() or other.points.keys() <= self.points.keys()):
-            raise ValueError("KML文件中的点要素不是另一个的子集")
-        if not (set(self.routes) <= set(other.routes) or set(other.routes) <= set(self.routes)):
-            raise ValueError("KML文件中的线要素不是另一个的子集")
-                # 创建新的KMLFile对象
-        new_file = KMLData()
+            logger.error("KML文件中的点要素不是另一个的子集")
+            return None
+        # if not (set(self.routes) <= set(other.routes) or set(other.routes) <= set(self.routes)):
+        #     raise ValueError("KML文件中的线要素不是另一个的子集")
+        # 创建新的KMLFile对象
+        new_file = PlacemarkerData()
         # 计算点要素的差异
         new_file.points = {key: value for key, value in self.points.items() if key not in other.points}
         new_file.points.update({key: value for key, value in other.points.items() if key not in self.points})
         new_file.pointsCount = len(new_file.points)
         # 计算线要素的差异并去重
-        new_file.routes = list(set(self.routes).symmetric_difference(set(other.routes)))
-        new_file.routesCount = len(new_file.routes)
+        # new_file.routes = list(set(self.routes).symmetric_difference(set(other.routes)))
+        # new_file.routesCount = len(new_file.routes)
         return new_file
+    
+    def __str__(self):
+        return f"点要素数量: {self.pointsCount}\n" \
+               f"线要素数量: {self.routesCount}\n" \
+               f"错误信息: {self.errorMsg}"
 
 
-class KMZFile(FileAttributes, FileIO):
+class KMZFile(FileAttributes, GeneralIO):
 
     SCHEMA_22 = KML_SCHEMA_22
     SCHEMA_23 = KML_SCHEMA_23
 
     
-    def __init__(self, kmz_path: str = None):
-        super().__init__(kmz_path)
+    def __init__(self, filepath: str = None, placemarks: PlacemarkerData = None):
+        super().__init__(filepath)
+        self.filepath = filepath
+        if self.filepath:
+            if self.filepath.endswith(".kmz"):
+                self.filepath = filepath
+            else:
+                self.filepath = None
+                logger.error(f"文件后缀名无效: {filepath}")
 
-        self.kml_content = None
-        self.placemarks: KMLData = None
-        self.resources: dict = {}
+        self._kml_content = None
+        self._resources: dict = {}
+        self._placemarks: PlacemarkerData = placemarks
+        self._points: dict = {}
+        self._pointsCount: int = 0
+        self._routes: list = []
+        self._routesCount: int = 0
+        # 用于存储错误信息
+        self._errorMsg: list = []
 
-        if kmz_path is not None:
-            self.read(kmz_path)
+        if self.filepath:
+            self.read()
 
     def __validateKMZ(self, defaultSchema = "schema22") -> bool:
         """
@@ -319,46 +461,142 @@ class KMZFile(FileAttributes, FileIO):
         elif defaultSchema == "schema23":
             schema = xmlschema.XMLSchema(KMZFile.SCHEMA_22)
         else:
-            return print("无效的输入参数")
-        
-        if self.kml_content is None:
+            return print(f"无效的输入参数, 将使用默认的'{defaultSchema}'")
+        if self._kml_content is None:
             return print("KML内容为空")
         else:
             try:
-                schema.validate(self.kml_content)
-                logging.info("XML文件与XSD验证通过")
+                print(f"开始验证XML文件与'{defaultSchema}'模式")
+                schema.validate(self._kml_content)
+                logger.info(f"XXML文件与XSD'{defaultSchema}'验证通过")
                 return True
             except xmlschema.validators.exceptions.XMLSchemaValidationError as e:
-                logging.error("XML文件与XSD验证不符")
-                # logging.error(f"{kml_content}XML文件与XSD验证不符")
-                # logging.error(f"XML文件与XSD验证不符: {e}")
+                error = f"XML文件与XSD'{defaultSchema}'验证不符: {e}"
+                logger.error(error)
+                self._errorMsg.append(error)
                 return False
     
-    def read(self, kmz_path: str, validate = False, defaultSchema = "schema22"):
+    def read(self, filepath: str = None, validate = False, defaultSchema = "schema22"):
         """ 解压 KMZ 文件并提取 KML 内容 """
-        with zipfile.ZipFile(kmz_path, 'r') as kmz:
+        if filepath is not None:
+            if not os.path.exists(filepath) or not os.path.isfile(filepath):
+                logger.error(f"文件路径不存在: {filepath}")
+                return False
+            if not filepath.endswith(".kmz"):
+                logger.error(f"文件后缀名无效: {filepath}")
+                return False
+            if self.filepath is None:
+                self.filepath = filepath
+        elif self.filepath is None:
+            logger.error("文件路径为空")
+            return False
+        else:
+            filepath = self.filepath
+
+        with zipfile.ZipFile(filepath, 'r') as kmz:
+            # print(f"解压 KMZ 文件: {filepath}")
             # 查找 KML 文件
             kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
+            # print(f"KMZ 文件中的 KML 文件: {kml_files}")
             if kml_files:
                 kml_file = kml_files[0]
                 # 读取 KML 文件内容
                 with kmz.open(kml_file) as kml:
                     self.kml_content = kml.read()
-                    self.placemarks = KMLData(self.kml_content)
-                if validate:
-                    self.__validateKMZ(defaultSchema)
+                    # 验证KML文件是否符合XSD模式
+                    if validate:
+                        self.__validateKMZ(defaultSchema)
+                    # 解析KML内容
+                    placemarks = PlacemarkerData(kml_content=self.kml_content)
+                    # self.placemarks = PlacemarkerData(kml_content=self.kml_content)
+                    self._points = placemarks.points
+                    self._pointsCount = placemarks.pointsCount
+                    self._routes = placemarks.routes
+                    self._routesCount = placemarks.routesCount
+                    self._errorMsg.append(placemarks.errorMsg)
+                    self._placemarks = placemarks
             else:
-                raise ValueError("KMZ文件中没有找到 KML文件")
+                logger.error("在KMZ文件中没有找到 KML文件")
 
-    def write(self, output_path):
+    def write(self, type='kmz'):
+        if self._filepath is not None:
+            os.makedirs(os.path.dirname(self._filepath), exist_ok=True)
+            if type == 'kmz':
+                if self.__toKMZ(self._filepath):
+                    print(f"KMZ文件已保存到: {self._filepath}")
+                    return True
+                else:
+                    print(f"KMZ文件保存失败")
+                    logger.error(f"KMZ文件保存失败{self._filepath}")
+                    return False
+            elif type == 'shp':
+                if self.__toShp(self._filepath):
+                    print(f"SHP文件已保存到: {self._filepath}")
+                    return True
+                else:
+                    print(f"SHP文件保存失败")
+                    logger.error(f"SHP文件保存失败{self._filepath}")
+                    return False
+            else:
+                print(f"无效的输出文件类型: {type}")
+                logger.error(f"无效的输出文件类型: {type}")
+                return False
+        else:
+            print("文件路径为空")
+            logger.error("文件路径为空")
+            return False
+
+    def writeAS(self, newpath: str, type='kmz'):
+        if newpath:
+            if os.path.exists(newpath) and os.path.isfile(newpath):
+                logger.warning(f"文件路径{newpath}可能覆盖原文件")
+            elif os.makedirs(os.path.dirname(newpath), exist_ok=True):
+                if type == 'kmz':
+                    if self.__toKMZ(newpath):
+                        print(f"KMZ文件已保存到: {newpath}")
+                        return True
+                    else:
+                        print(f"KMZ文件保存失败")
+                        logger.error(f"KMZ文件保存失败{newpath}")
+                        return False
+                elif type == 'shp':
+                    if self.__toShp(newpath):
+                        print(f"SHP文件已保存到: {newpath}")
+                        return True
+                    else:
+                        print(f"SHP文件保存失败")
+                        logger.error(f"SHP文件保存失败{newpath}")
+                        return False
+                else:
+                    print(f"无效的输出文件类型: {type}")
+                    logger.error(f"无效的输出文件类型: {type}")
+                    return False
+            else:
+                print(f"文件路径创建失败{newpath}")
+                logger.error(f"文件路径创建失败{newpath}")
+                return False
+        else:
+            print(f"文件路径为空{newpath}")
+            logger.error(f"文件路径为空{newpath}")
+            return False
+    
+    def delete(self):
+        return super().delete()
+    
+    def update(self, content):
+        return super().update(content)
+    
+    def __toKMZ(self, output_path):
         """ 将 KML 数据写入 KMZ 文件 """
         if self.placemarks is None:
-            raise ValueError("KMLData is empty")
+            logger.error("PlacemarkerData is empty")
+            return False
         # 创建输出目录
         if os.path.exists(output_path) and os.path.isfile(output_path):
             # 验证output_path是否已.kmz结尾
             if not output_path.endswith('.kmz'):
-                raise ValueError("Output file must be a KMZ file")
+                logger.error("Output file must be a KMZ file")
+                return False
         # 在输出目录下创建临时目录
         temp_dir = os.path.join(output_path, "temp_kmz")
         os.makedirs(temp_dir, exist_ok=True)
@@ -407,6 +645,7 @@ class KMZFile(FileAttributes, FileIO):
         tree.write(temp_kml_file, pretty_print=True, xml_declaration=True, encoding="UTF-8")
         # 将PNG文件移动到files文件夹中
         shutil.copy(ICON, files_dir)
+        os.chmod(files_dir, stat.S_IWRITE | stat.S_IREAD)
         # 压缩为KMZ文件
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as kmz:
         # 将doc.kml文件添加到KMZ文件中
@@ -422,16 +661,9 @@ class KMZFile(FileAttributes, FileIO):
         # 删除临时KML文件
         os.remove(temp_kml_file)
         print(f"KMZ文件已保存到: {output_path}")
-        return self
+        return True
     
-    def delete(self):
-        return super().delete()
-    
-    def update(self, content):
-        return super().update(content)
-    
-    def toShpfile(self, output_path):
-
+    def __toShp(self, output_path):
         # 创建 SHP 文件驱动
         shp_driver = ogr.GetDriverByName('ESRI Shapefile')
         if os.path.exists(output_path):
@@ -439,41 +671,52 @@ class KMZFile(FileAttributes, FileIO):
         shp_ds = shp_driver.CreateDataSource(output_path)
         if shp_ds is None:
             raise RuntimeError("Failed to create SHP file")
-
         # 创建 SHP 图层
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
         shp_layer = shp_ds.CreateLayer('points', srs, ogr.wkbPoint)
-
         # 创建字段
         field_name = ogr.FieldDefn('Name', ogr.OFTString)
         field_name.SetWidth(24)
         shp_layer.CreateField(field_name)
-
         field_longitude = ogr.FieldDefn('Longitude', ogr.OFTReal)
         shp_layer.CreateField(field_longitude)
-
         field_latitude = ogr.FieldDefn('Latitude', ogr.OFTReal)
         shp_layer.CreateField(field_latitude)
-
         # 创建要素并添加到图层
         for obspid, coords in self.placemarks.points.items():
             feature = ogr.Feature(shp_layer.GetLayerDefn())
             feature.SetField('Name', obspid)
             feature.SetField('Longitude', float(coords['longitude']))
             feature.SetField('Latitude', float(coords['latitude']))
-
+            # 创建点要素
             point = ogr.Geometry(ogr.wkbPoint)
             point.AddPoint(float(coords['longitude']), float(coords['latitude']))
             feature.SetGeometry(point)
-
+            # 添加要素
             shp_layer.CreateFeature(feature)
             feature = None  # 清理要素
-
         # 清理
         shp_ds = None
         print(f"点要素已成功生成 SHP 文件: {output_path}")
-
+        return True
+    
+    def __getattr__(self, name):
+        super().__getattr__(name)
+        if name == 'placemarks':
+            return self._placemarks
+        elif name == 'points':
+            return self._points
+        elif name == 'pointsCount':
+            return self._pointsCount
+        elif name == 'routes':
+            return self._routes
+        elif name == 'routesCount':
+            return self._routesCount
+        elif name == 'errorMsg':
+            return self._errorMsg
+        else:
+            return None
     
     def __str__(self):
         super().__str__()
@@ -491,13 +734,13 @@ class KMZFile(FileAttributes, FileIO):
         new_file = KMZFile()
         new_file.placemarks = self.placemarks - other.placemarks
         return new_file
-    
 
 
 class lineStyle(object):
     def __init__(self, color, width):
         self.color = color
         self.width = width
+
 
 class pointStyle(object):
     def __init__(self, icon):
@@ -513,12 +756,11 @@ class XMLWrapper(object):
         self.children = []  # 用于存储子元素（支持嵌套）
         self.text = None  # 标签的文本内容
 
-    def add_child(self, child, HTMLTag):
-        """向当前标签添加子元素"""
-        if isinstance(child, HTMLTag):
+    def add_child(self, child):
+        if isinstance(child, XMLWrapper):
             self.children.append(child)
         else:
-            raise ValueError("Child must be an instance of HTMLTag")
+            raise ValueError("Child must be an instance of XMLWrapper")
 
     def set_text(self, text):
         """设置标签的文本内容"""
@@ -604,189 +846,520 @@ class DateIterator(object):
 
 class MapsheetDailyFile(object):
 
-    mapsheet_info: dict = {}
+    maps_info: dict = {}
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, 'instance'):
+            cls.mapsInfo()
+        cls.instance = super(MapsheetDailyFile, cls).__new__(cls)
+        # cls.instance.__init__(*args, **kwargs)
+        return cls.instance
 
     def __init__(self, mapsheetFileName: str, date: 'DateType'):
 
+        # print(f"MapsheetDailyFile实例开始初始化，图幅文件名称: {mapsheetFileName}，日期: {date.yyyymmdd_str}")
+
         self.mapsheetFileName:str = mapsheetFileName
         self.sequence: int = None
-        self.romanName: str = self.__class__.mapsheet_info[self.sequence]['Roman Name']
-        self.latinName: str = self.__class__.mapsheet_info[self.sequence]['Latin Name']
+        self.romanName: str = None
+        self.latinName: str = None
+        self.__mapsheetInfo(mapsheetFileName)
 
-        self.currentDate: 'DateType' = date
+        # 当前日期的文件属性
+        self.currentDate: DateType = date
         self.currentfilename = None
         self.currentfilepath = None
-        self.currentPlacemarks: KMLData = None
-
-        self.previousDate: 'DateType' =  None
+        self.currentPlacemarks: PlacemarkerData = None
+        # 上一次提交的文件属性
+        self.previousDate: DateType =  None
         self.previousfilename = None
         self.previousfilepath = None
-        self.previousPlacemarks: KMLData = None
-
-        self.nextDate: 'DateType' =  None
+        self.previousPlacemarks: PlacemarkerData = None
+        # 下一次提交的工作计划文件属性
+        self.nextDate: DateType =  None
         self.nextfilename = None
         self.nextfilepath = None
+        # 本日新增点数、线路数、点要素和线要素
+        self.dailyincreasePointNum: int = None
+        self.dailyincreaseRouteNum: int = None
+        self.dailyincreasePoints: dict = {}
+        self.dailyincreaseRoutes: list = []
+        # 包含的错误信息
+        self.errorMsg: dict = {}
 
-        self.dailyincreaseNum: int = None
-        self.dailyincreasePlacemarks: KMLData = None
+        self.__mapsheetfiles()
 
-    def mapsheetValue(self, roman_name):
+    def __mapsheetInfo(self, mapsheetFileName):
         """
-        根据 Roman Name 从 mapsheet_info 字典中获取 Sequence 并赋值给实例变量 self.sequence
+        根据 File Name 从 mapsheet_info 字典中获取 Sequence 并赋值给实例变量 self.sequence
         """
-        for sequence, info in self.__class__.mapsheet_info.items():
-            if info['Roman Name'] == roman_name:
-                self.sequence = sequence
-                break
+        if self.__class__.maps_info:
+            for sequence, info in self.__class__.maps_info.items():
+                if info['File Name'] == mapsheetFileName:
+                    self.sequence = sequence
+                    break
+            else:
+                print(f"文件名称未找到\n请查证是否文件名 '{mapsheetFileName}' 有误？\文件名列表如下：")
+                print(json.dumps(self.__class__.maps_info, indent=4, ensure_ascii=False))
+                print("程序退出")
+                exit()
+                # raise ValueError(f"File Name {mapsheetFileName} not found in mapsheet_info")
+            self.romanName = self.__class__.maps_info[self.sequence]['Roman Name']
+            self.latinName = self.__class__.maps_info[self.sequence]['Latin Name']
         else:
-            print(f"Roman Name {roman_name} not found in mapsheet_info")
-
-        """
-        根据 sequence 从 mapsheet_info 字典中获取 Roman Name 并赋值给实例变量 self.romanName
-        """
-        if self.sequence in self.__class__.mapsheet_info:
-            self.romanName = self.__class__.mapsheet_info[self.sequence]['Roman Name']
-        else:
-            print(f"Sequence {self.sequence} not found in mapsheet_info")
-        if self.sequence in self.__class__.mapsheet_info:
-            self.latinName = self.__class__.mapsheet_info[self.sequence]['Latin Name']
-        else:
-            print(f"Sequence {self.sequence} not found in mapsheet_info")
+            print(f"类属性maps_info不存在，请先通过类方法'MapsheetDailyFile.mapsInfo()'获取图幅信息")
+        return self
 
     @classmethod
-    def MapInfo(cls):
+    def mapsInfo(cls):
         """
         从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
         """
+        # print("开始获取图幅信息...")
         df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, index_col=0)
         # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
         filtered_df = df[ (df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
+        # 确保 'Sequence' 列为 int 类型
+        filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].astype(int)
+        # 判断是否有重复值
+        if filtered_df['Sequence'].duplicated().any():
+            print("图幅信息表中存在重复的图幅序号，请检查图幅信息表\n程序退出")
+            exit()
         # # 按照 'Sequence' 列值从小到大排序
         sorted_df = filtered_df.sort_values(by='Sequence')
         # # 获取图幅名称、罗马名称和拉丁名称，并存储为字典
         # 构建以 'Sequence' 为键的字典
-        cls.mapsheet_info = {
+        cls.maps_info = {
             row['Sequence']: {
+                # 'Sheet ID': row['Alternative sheet ID'],
+                'Group': row['Group'],
+                'File Name': row['File Name'],
                 'Roman Name': row['Roman Name'],
-                'Latin Name': row['Latin Name'],
-                'File Name': row['File Name']
+                'Latin Name': row['Latin Name']
             }
             for _, row in sorted_df.iterrows()
         }
+        if len(cls.maps_info) != SEQUENCE_MAX - SEQUENCE_MIN + 1:
+            print("图幅信息有误，请检查图幅信息表\n程序退出")
+            exit()
+        # print("图幅信息获取完成")
+        return cls.maps_info
 
     @classmethod
-    def getCurrentDateFile(cls, self):
+    def getCurrentDateFile(cls, instance):
         """
-        __getCurrentDateFile 获取当天的文件，文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
-
-        _extended_summary_ 一般情况下，当天的文件是最新的文件，因此优先查找当天的文件，但微信中可能会有多个文件，后缀名为(1),(2)...等，因此需要进一步处理
+        获取当天的文件，文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
+        一般情况下，当天的文件是最新的文件，因此优先查找当天的文件，但微信中可能会有多个文件，后缀名为(1),(2)...等，因此需要进一步处理
                             处理方式为：()中的数字最大的文件为当天最新的文件，或者时间最新的文件为当天最新的文件？？？
 
-        :return: _description_
-        :rtype: _type_
         """
-        file_path = os.path.join(WORKSPACE, self.currentDate.yymmdd_str, "Finished points", f"{self.mapsheetFileName}_finished_points_and_tracks_{self.currentDate.yymmdd_str}.kmz")
+        file_path = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.currentDate.yyyymmdd_str}.kmz")
+        # print(f"开始查找{instance.currentDate.yyyymmdd_str}当天的文件")
+        # Step 1: 在当天的工作文件夹中查找当天的文件
         if os.path.exists(file_path):
-            # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
-            Monthdate = DateIterator(self.currentDate.yymmdd_str, 'backward')
-            folder = os.path.join(WECHAT_FOLDER, self.currentDate.yyyy_mm_str)
-            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [self.currentDate.strftime("%Y%m%d"), self.mapsheetFileName, "finished_points_and_tracks"]) 
-            if searchedFile_list:
-                self.currentfilepath = max(searchedFile_list, key=os.path.getctime)
-                self.currentfilename = os.path.basename(self.currentfilepath)
-                self.currentPlacemarks = KMZFile(self.currentfilepath).placemarks
-                print(f"找到当天的文件: {self.currentfilename}")
-        return self
+            instance.currentfilepath = file_path
+        # Step 2: 在微信聊天记录文件夹中查找当天的文件，如果有更新的文件，则拷贝至工作文件夹，替换原有文件
+        # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
+        folder = os.path.join(WECHAT_FOLDER)
+        searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
+        # print(f"在微信记录中查找查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list) 
+        if searchedFile_list:
+            #TODO: 用find_files_with_max_number函数二次验证获取的文件
+            # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+            fetched_file = max(searchedFile_list, key=os.path.getctime)
+            # 如果工作文件夹中的文件不存在
+            if not os.path.exists(file_path):
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                shutil.copy(fetched_file, file_path)
+                os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                instance.currentfilepath = file_path
+            else:
+                if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=fetched_file).hashMD5:
+                    # 将获取的文件拷贝至工作文件夹，并进行了重命名
+                    shutil.copy(fetched_file, file_path)
+                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                    instance.currentfilepath = file_path
+                else:
+                    instance.currentfilepath = file_path
+        if instance.currentfilepath:
+            instance.currentfilename = os.path.basename(instance.currentfilepath)
+            file = KMZFile(filepath=instance.currentfilepath)
+            instance.currentPlacemarks = file.placemarks
+            instance.errorMsg[instance.currentfilepath] = file.errorMsg
+        return cls
     
     @classmethod
-    def findPreviousFinished(cls, self):
+    def findPreviousFinished(cls, instance):
         """
-        __findPreviousFinished _summary_
-
-        _extended_summary_
-
-        :return: _description_
-        :rtype: _type_
         """
-        date = self.currentDate
-        while date > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-            date -= timedelta(days=1)
-            search_date_str = date.strftime("%Y%m%d")
-            # file_path = os.path.join(WORKSPACE, date_str, "Finished points", f"{self.mapsheetFileName}_finished_points_and_tracks_{date_str}.kmz")
-            # if os.path.exists(file_path):
-            # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
-            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, self.mapsheetFileName, "finished_points_and_tracks"]) 
-            if searchedFile_list:
-                latestFile = max(searchedFile_list, key=os.path.getctime)
-                print(f"找到前一天的文件: {latestFile}")
-                self.previousDate = date
-                self.previousfilename = os.path.basename(latestFile)
-                self.previousfilepath = latestFile
-                self.previousPlacemarks = KMZFile(latestFile).placemarks
-        return self
+        # print(f"开始查找{instance.currentDate.yyyymmdd_str}之前的文件")
+        previousDate_datetime1 = instance.currentDate.date_datetime
+        while previousDate_datetime1 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+            # Step 1: 在工作文件夹（当前日期）中直接查找，在对应的时间日期直接快速查找
+            previousDate_datetime2 = instance.currentDate.date_datetime
+            while previousDate_datetime2 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                previousDate_datetime2 -= timedelta(days=1)
+                search_date_str = previousDate_datetime2.strftime("%Y%m%d")
+                file_path = os.path.join(WORKSPACE, previousDate_datetime1.strftime("%Y%m"), previousDate_datetime1.strftime("%Y%m%d"), "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{search_date_str}.kmz")
+                # print(f"在工作文件夹中查找{instance.mapsheetFileName}日期{file_path}的文件")
+                if os.path.exists(file_path):
+                    instance.previousDate = DateType(date_datetime=previousDate_datetime2)
+                    #TODO: 将文件拷贝至当前日期文件夹中，需要补充
+                    if instance.currentfilename is None:
+                        dest = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", os.path.basename(file_path))
+                        if file_path != dest:
+                            os.makedirs(os.path.dirname(dest), exist_ok=True)
+                            shutil.copy(file_path, dest)
+                            os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)
+                            instance.previousfilepath = dest
+                    else:
+                        instance.previousfilepath = file_path
+                    # print(f"在工作文件夹中找到{instance.previousDate.yyyymmdd_str}的文件: {instance.previousfilepath}")
+                    break
+            if instance.previousfilepath:
+                break
+            previousDate_datetime1 -= timedelta(days=1)
+        else:
+            # print(f"Step 1: 完成\n在工作文件夹中未找到上次{instance.mapsheetFileName}日期{search_date_str}的文件")
+            # Step 2: 工作文件夹开启搜索
+            previousDate_datetime = instance.currentDate.date_datetime
+            folder = os.path.join(WORKSPACE)
+            while previousDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                previousDate_datetime -= timedelta(days=1)
+                # 定位到年月日文件夹中的Finished points文件夹
+                date_folder = os.path.join(WORKSPACE, previousDate_datetime.strftime("%Y%m"), previousDate_datetime.strftime("%Y%m%d"), "Finished points")
+                # 列出文件夹中包含图幅名称和finished_points的文件
+                searchedFile_list = list_fullpath_of_files_with_keywords(date_folder, [instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
+                if searchedFile_list:
+                    #TODO: 用find_files_with_max_number函数二次验证获取的文件（也许不用？一般是唯一值）
+                    # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                    fetched_file = max(searchedFile_list, key=os.path.getctime)
+                    instance.previousDate = DateType(date_datetime=previousDate_datetime)
+                    instance.previousfilepath = fetched_file
+                    break
+            else:
+                # print(f"在工作文件夹中未找到，将转入微信文件夹中...")
+                # 如果在TRACEBACK_DATE之后未找到文件，在循环结束后在微信聊天记录文件夹中查找
+                # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
+                previousDate_datetime = instance.currentDate.date_datetime
+                folder = os.path.join(WECHAT_FOLDER)
+                while previousDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                    previousDate_datetime -= timedelta(days=1)
+                    search_date_str = previousDate_datetime.strftime("%Y%m%d")
+                    searchedFile_list = list_fullpath_of_files_with_keywords(folder, [search_date_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
+                    if searchedFile_list:
+                        #TODO: 用find_files_with_max_number函数二次验证获取的文件
+                        # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                        fetched_file = max(searchedFile_list, key=os.path.getctime)
+                        instance.previousDate = DateType(date_datetime=previousDate_datetime)
+                        instance.previousfilepath = fetched_file
+                        break
+        if instance.previousfilepath:
+            instance.previousfilename = os.path.basename(instance.previousfilepath)
+            file = KMZFile(filepath=instance.previousfilepath)
+            instance.previousPlacemarks = file.placemarks
+            instance.errorMsg[instance.previousfilepath] = file.errorMsg
+            # print(instance.previousPlacemarks)
+        return cls
     
     @classmethod
-    def findNextPlan(cls, self):
+    def findNextPlan(cls, instance):
         """
         findNextPlan 通常是查找第二天天的计划文件：
                      或周五-周六休息，周四会查找周六/周日的计划文件，因此为了冗余日期，TRACEFORWARD_DAYS = 5，即向前查找5天，找到最近的一个计划文件
         """
-        date = self.currentDate
-        endDate = datetime.strptime(self.currentDate, "%Y%m%d") + timedelta(days=TRACEFORWARD_DAYS)
+        # print(f"开始查找{instance.currentDate.yyyymmdd_str}之后的计划文件")
+        date = instance.currentDate.date_datetime
+        endDate = instance.currentDate.date_datetime + timedelta(days=TRACEFORWARD_DAYS)
         while date < endDate:
             date += timedelta(days=1)
             search_date_str = date.strftime("%Y%m%d")
-            # file_path = os.path.join(WORKSPACE, date_str, "Finished points", f"{self.mapsheetFileName}_finished_points_and_tracks_{date_str}.kmz")
-            # if os.path.exists(file_path):
-            # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
-            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, self.mapsheetFileName, "plan_tracks"]) 
+            # 列出微信聊天记录文件夹中包含指定日期、图幅名称和plan_tracks的文件
+            #TODO: 搜索效率低，需要优化
+            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, instance.mapsheetFileName, "plan_routes"])
+            # print(searchedFile_list) 
             if searchedFile_list:
+                # print(f"找到工作计划: {searchedFile_list}")
+                instance.nextDate = DateType(date_datetime=date)
+                file_path = os.path.join(WORKSPACE, instance.nextDate.yyyymm_str, instance.nextDate.yyyymmdd_str, "Planned routes", f"{instance.mapsheetFileName}_plan_routes_{instance.nextDate.yyyymmdd_str}.kmz")
                 latestFile = max(searchedFile_list, key=os.path.getctime)
-                print(f"找到工作计划: {latestFile}")
-            else:
-                print(f"{TRACEFORWARD_DAYS}内无工作计划")
+                if not os.path.exists(file_path):
+                    # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    shutil.copy(latestFile, file_path)
+                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                    instance.nextfilename = os.path.basename(file_path)
+                    instance.nextfilepath = file_path
+                    file = KMZFile(filepath=file_path)
+                    instance.planPlacemarks = file.placemarks
+                    instance.errorMsg[file_path] = file.errorMsg
+                    break
+                else:
+                    if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=latestFile).hashMD5:
+                        # 将获取的文件拷贝至工作文件夹，并进行了重命名
+                        shutil.copy(latestFile, file_path)
+                        os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                        instance.nextfilename = os.path.basename(file_path)
+                        instance.nextfilepath = file_path
+                        file = KMZFile(filepath=file_path)
+                        instance.planPlacemarks = file.placemarks
+                        instance.errorMsg[file_path] = file.errorMsg
+                        break
+                    else:
+                        instance.nextfilename = os.path.basename(file_path)
+                        instance.nextfilepath = file_path
+                        file = KMZFile(filepath=file_path)
+                        instance.planPlacemarks = file.placemarks
+                        instance.errorMsg[file_path] = file.errorMsg
+                        break
+        # else:
+        #     print(f"{instance.mapsheetFileName}在{TRACEFORWARD_DAYS}天内无工作计划")
+        return cls
+    
+    def __mapsheetfiles(self):
+        # print(f"开始获取图幅{self.mapsheetFileName} 日期{self.currentDate.yyyymmdd_str} 的文件...")
+        MapsheetDailyFile.getCurrentDateFile(self)
+        MapsheetDailyFile.findPreviousFinished(self)
+        MapsheetDailyFile.findNextPlan(self)
+        # print(self.currentfilename)
+        # print(self.previousfilename)
+        # print(self.nextfilename)
+        # print(f"图幅{self.mapsheetFileName} 日期{self.currentDate.yyyymmdd_str} 的文件获取完成", (4*'\n'))
+        MapsheetDailyFile.__dailyIncrease(self)
         return self
+    
+    def __dailyIncrease(self):
+        """
+        计算当天新增的点要素和线要素
+        """
+        if self.currentPlacemarks is not None and self.previousPlacemarks is not None:
+            dailyincreasePlacemarks = self.currentPlacemarks - self.previousPlacemarks
+            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
+        if self.currentPlacemarks is not None and self.previousPlacemarks is None:
+            dailyincreasePlacemarks = self.currentPlacemarks - self.previousPlacemarks
+            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
+            print(f"{self.mapsheetFileName}是否为第一次提交？")
+        # else:
+        #     print("当前文件或上一个文件为空")
+        return self
+    
+    def __str__(self):
+        return f"\n \
+            图幅名称：{self.mapsheetFileName}\n \
+            当天文件: {self.currentfilename}\n \
+            上一次文件: {self.previousfilename}\n \
+            下一次文件: {self.nextfilename}\n \
+            当天新增点数: {self.dailyincreasePointNum}\n \
+            当天新增线路数: {self.dailyincreaseRouteNum}"
     
 
     
 class CurrentDateFiles(object):
     """
+    CurrentDateFiles类  容器类
+                        用于存储制定日期的所有图幅的集合
     """
-    def __init__(self, currentFiles: dict):
-        self.currentDateFiles: dict = currentFiles
+    maps_info: dict = {}
+
+    def __new__(cls, currentdate: 'DateType', *args, **kwargs):
+        if not hasattr(cls, 'instance'):
+            cls.mapsInfo()
+        cls.instance = super(CurrentDateFiles, cls).__new__(cls)
+        # cls.instance.__init__(currentdate)
+        return cls.instance
+
+    def __init__(self, currentdate: 'DateType'):
+
+        # print(f"CurrentDateFiles实例初始化，开始获取{currentdate.yyyymmdd_str}当天的文件...")
+
+        self.currentDate: DateType = currentdate
+        self.currentDateFiles: dict = []
+        # 本日新增点数、线路数、点要素和线要素
+        self._totalDaiyIncreasePointNum: int = None
+        self._totalDailyIncreasePoints: dict = {}
+        self._totalDaiyIncreaseRouteNum: int = None
+        self._totalDailyIncreaseRoutes: list = []
+        self._totalPlans: int = None
+        self._totalPointNum: int = None
+        self._totalRouteNum: int = None
+        self._allPoints: dict = {}
+        self._allRoutes: list = []
+        # 每日完成的点数
+        self.dailyFinishedPoints: dict = {}
+        # 错误信息
+        self._errorMsg: list = []
+        # 获取当天的文件
+        self.__datacollect()
+    
+    @classmethod
+    def mapsInfo(cls):
+        """
+        从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
+        """
+        print("开始获取图幅信息...")
+        df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, index_col=0)
+        # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
+        filtered_df = df[ (df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
+        # 确保 'Sequence' 列为 int 类型
+        filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].astype(int)
+        # 判断是否有重复值
+        if filtered_df['Sequence'].duplicated().any():
+            print("图幅信息表中存在重复的图幅序号，请检查图幅信息表\n程序退出")
+            exit()
+        # # 按照 'Sequence' 列值从小到大排序
+        sorted_df = filtered_df.sort_values(by='Sequence')
+        # # 获取图幅名称、罗马名称和拉丁名称，并存储为字典
+        # 构建以 'Sequence' 为键的字典
+        cls.maps_info = {
+            row['Sequence']: {
+                # 'Sheet ID': row['Alternative sheet ID'],
+                'Group': row['Group'],
+                'File Name': row['File Name'],
+                'Roman Name': row['Roman Name'],
+                'Latin Name': row['Latin Name']
+            }
+            for _, row in sorted_df.iterrows()
+        }
+        if len(cls.maps_info) != SEQUENCE_MAX - SEQUENCE_MIN + 1:
+            print("图幅信息有误，请检查图幅信息表\n程序退出")
+            exit()
+        print("图幅信息获取完成")
+        return cls.maps_info
+    
+    def __datacollect(self):
+        """
+        Purpose: 
+        """
+        # 每次实例化时，获取当天的所有文件
+        # 如果调用了__datacollect()方法，说明需要重新获取当天的文件，因此需要清空当前的文件列表
+        self.currentDateFiles = []
+        for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1):
+            mapsheetFileName = self.__class__.maps_info[sequence]['File Name']
+            mapsheet = MapsheetDailyFile(mapsheetFileName, self.currentDate)
+            self.currentDateFiles.append(mapsheet)
+        return self
+    
+    @property
+    def totalDaiyIncreasePointNum(self):
+        if self._totalDaiyIncreasePointNum is None:
+            sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
+            total = 0
+            dailyFinishedPoints = {}
+            romanNames_list = []
+            dailyIncreasePoints = []
+            for mapsheet in sorted_mapsheets:
+                # print(f"{mapsheet.mapsheetFileName}新增点数: {mapsheet.dailyincreasePointNum}")
+                romanNames_list.append(mapsheet.romanName)
+                dailyIncreasePoints.append(mapsheet.dailyincreasePointNum)
+                if mapsheet.dailyincreasePointNum is not None:
+                    total += mapsheet.dailyincreasePointNum
+            self.dailyFinishedPoints = {'Roman Name': romanNames_list, 'Daily Increase Points': dailyIncreasePoints}
+            self._totalDaiyIncreasePointNum = total
+        return self._totalDaiyIncreasePointNum
+    
+    @property
+    def totalDaiyIncreaseRouteNum(self):
+        if self._totalDaiyIncreaseRouteNum is None:
+            sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
+            total = 0
+            for mapsheet in sorted_mapsheets:
+                # print(f"{mapsheet.mapsheetFileName}新增线路数: {mapsheet.dailyincreaseRouteNum}")
+                if mapsheet.dailyincreaseRouteNum is not None:
+                    total += mapsheet.dailyincreaseRouteNum
+            self._totalDaiyIncreaseRouteNum = total
+        return self._totalDaiyIncreaseRouteNum
+    
+    @property
+    def totalDailyPlans(self):
+        if self._totalPlans is None:
+            total = 0
+            for mapsheet in self.currentDateFiles:
+                if mapsheet.nextfilename is not None:
+                    total += 1
+            self._totalPlans = total
+        return self._totalPlans
+        
+
+    @property
+    def totalPointNum(self):
+        """
+        totalPointNum 截止当天所有文件的点要素总数
+        _extended_summary_ 如果当天的文件为空，返回上一次提交的文件的点要素总数
+        """
+        if self._totalPointNum is None:
+            totalNum = 0
+            for mapsheet in self.currentDateFiles:
+                if mapsheet.currentPlacemarks is not None:
+                    totalNum += mapsheet.currentPlacemarks.pointsCount
+                else:
+                    totalNum += mapsheet.previousPlacemarks.pointsCount
+            self._totalPointNum = totalNum
+        return self._totalPointNum
+    
+    @property
+    def allPoints(self):
+        """
+        allPoints 截止当天所有文件的点要素
+        """
+        if not self._allPoints:
+            allPoints = {}
+            for mapsheet in self.currentDateFiles:
+                # print(mapsheet.currentPlacemarks)
+                if mapsheet.currentPlacemarks is not None:
+                    allPoints.update(mapsheet.currentPlacemarks.points)
+                else:
+                    allPoints.update(mapsheet.previousPlacemarks.points)
+            self._allPoints = allPoints
+        return self._allPoints
+    
+    @property
+    def totalRoutesNum(self):
+        """
+        totalRoutes 截止当天所有文件的线要素总数
+        """
+        if self._totalRouteNum is None:
+            totalNum = 0
+            for mapsheet in self.currentDateFiles:
+                if mapsheet.currentPlacemarks is not None:
+                    totalNum += mapsheet.currentPlacemarks.routesCount
+                else:
+                    totalNum += mapsheet.previousPlacemarks.routesCount
+            self._totalRouteNum = totalNum
+        return self._totalRouteNum
+
+    @property
+    def allRoutes(self):
+        """
+        allRoutes 截止当天所有文件的线要素
+        """
+        if not self._allRoutes:
+            allRoutes = []
+            for mapsheet in self.currentDateFiles:
+                if mapsheet.currentPlacemarks is not None:
+                    allRoutes.extend(mapsheet.currentPlacemarks.routes)
+                else:
+                    allRoutes.extend(mapsheet.previousPlacemarks.routes)
+            self._allRoutes = allRoutes
+        return self._allRoutes
+
+    @property
+    def totalFiles(self):
+        pass
+
+    @property
+    def errorMsg(self):
+        if self._errorMsg is None:
+            self._errorMsg = []
+            for mapsheet in self.currentDateFiles:
+                self._errorMsg.extend(mapsheet.errorMsg)
+        return self._errorMsg
 
     def __contains__(self, key):
         return key in self.currentDateFiles
     
-    def toExcel(self):
-        pass
-
-    def toShpfile(self):
-        # 合并当天的所有文件，生成一个shp文件
-        pass
-
-    def totalPoints(self):
-        # 计算当天所有文件的点要素总数
-        pass
-
-    def totalRoutes(self):
-        # 计算当天所有文件的线要素总数
-        pass
-
-    def totalFiles(self):
-        pass
-
-    
-class ExcelHandler(object):
-
-    def get_columns_in_range(df, minSequenceValue, maxSequenceValue) -> list:
-        # 根据列“Sequence”的值大小，输出指定值区间的相应“Roman Name”
-        filtered_df = df[ (df['Sequence'] >= minSequenceValue) & (df['Sequence'] <= maxSequenceValue) ]
-        # 按照 'Sequence' 列值从小到大排序
-        sorted_df = filtered_df.sort_values(by='Sequence')
-        return (sorted_df['Roman Name'].tolist(), sorted_df['File Name'].tolist())
-
-    def create_daily_statistics_excel(date_str: str, romanNames: list, excel_filename: str):
+    def dailyExcelReport(self):
         """_summary_
 
         Args:
@@ -794,16 +1367,13 @@ class ExcelHandler(object):
             excel_filename (str): Excel文件路径
             minSequenceValue (int): 最小填图序列号
             maxSequenceValue (int): 最大填图序列号
-
-        Returns:
-            _type_: 无
         """
-        excel_filename = currentDate + "点统计.xlsx"
-
+        dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}Daily_Statistics.xlsx")
+        romanNames_list = [self.__class__.maps_info[sequence]['Roman Name'] for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1)]
         # 计算输出表格的行数和列数
-        maxTableRows, maxTableColumns = len(romanNames) + 4, 4
+        maxTableRows, maxTableColumns = len(romanNames_list) + 4, 4
         # 每日统计点文件的表头（前三行）
-        daily_stat_header1 = ['Date', date_str]
+        daily_stat_header1 = ['Date', self.currentDate.yyyy_str + "/" + self.currentDate.mm_str + "/" + self.currentDate.dd_str]
         daily_stat_header2 = ['Map sheet name',
                             'Regular observation points finished',
                             'Field points on revised route'
@@ -816,7 +1386,7 @@ class ExcelHandler(object):
 
         # 创建一个新的 Excel 文件
         try:
-            book = load_workbook(excel_filename)
+            book = load_workbook(dailyExcel)
         except FileNotFoundError:
             book = Workbook()
 
@@ -833,9 +1403,8 @@ class ExcelHandler(object):
         for col_num, value in enumerate(daily_stat_footer, start=1):
             sheet.cell(row=maxTableRows, column=col_num, value=value)
         # 从第四行起，写入图幅罗马名称
-        for i, value in enumerate(romanNames, start=4):
+        for i, value in enumerate(romanNames_list, start=4):
             sheet.cell(row=i, column=1, value=value)
-
         # 设置字体样式
         # 设置表头字体样式
         font_header = Font(
@@ -927,16 +1496,18 @@ class ExcelHandler(object):
         sheet.cell(row=maxTableRows, column=3).value = f"=SUM(C4:C{maxTableRows-1})"
         sheet.cell(row=maxTableRows, column=4).value = f"=SUM(D4:D{maxTableRows-1})"
 
+        # 先设置值，再合并单元格
+        sheet.cell(row=1, column=2).value = self.currentDate.yyyy_str + "/" + self.currentDate.mm_str + "/" + self.currentDate.dd_str
+
         sheet.merge_cells('B1:D1')
         sheet.merge_cells('C2:D2')
         sheet.merge_cells('A2:A3')
         sheet.merge_cells('B2:B3')
 
         # 保存工作簿
-        book.save(excel_filename)
-        return print(f"创建每日统计点 {excel_filename} 空表成功。")
+        book.save(dailyExcel)
+        return print(f"创建每日统计点 {dailyExcel} 空表成功。")
 
-    
     
 class DataSubmition(object):
     """
@@ -960,8 +1531,8 @@ class DataSubmition(object):
         """
         pass
 
-    def toShp(self):
-        output_shp_file = os.path.join(WORKSPACE, self.date.yymm_str, self.date.yyyymmdd_str, f"GMAS_points_until_{self.date.yyyymmdd_str}.shp")
+    def weeklyPointToShp(self):
+        output_shp_file = os.path.join(WORKSPACE, self.date.yyyymm_str, self.date.yyyymmdd_str, f"GMAS_points_until_{self.date.yyyymmdd_str}.shp")
         # 清理shp文件和zip文件：如果hp文件和zip文件已存在，则删除
         if os.path.exists(output_shp_file.replace('.shp', '.zip')):
             os.remove(output_shp_file.replace('.shp', '.zip'))
@@ -1006,7 +1577,7 @@ class DataSubmition(object):
             feature = None  # 清理要素
         # 清理
         shp_ds = None
-        print(f"点要素已成功生成SHP文件: {self.output_shp_file}")
+        print(f"点要素已成功生成SHP文件: {output_shp_file}")
 
         # 将shp文件压缩为zip文件
         zip_file = os.path.join(WORKSPACE, self.date.yyyymm_str, self.date.yyyymmdd_str, f"GMAS_points_until_{self.date.yyyymmdd_str}.zip")
@@ -1028,7 +1599,7 @@ class DataSubmition(object):
         logger.info(f"已拷贝今日的 SHP 文件及相关文件至: {latest_files_folder}")
 
         # 尝试从多种路径读取一周前的文件(zip，shp)
-        one_week_ago = DateType(date_str=(self.date.date_datetime - timedelta(days=7)))
+        one_week_ago = DateType(date_datetime=(self.date.date_datetime - timedelta(days=7)))
         # 从制图工程文件夹中读取一周前的shp文件
         one_week_ago_shpfile = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{one_week_ago.yyyymmdd_str}", f"GMAS_points_until_{one_week_ago.yyyymmdd_str}.shp")
         # 从存档文件夹中读取一周前的zip文件
@@ -1042,6 +1613,7 @@ class DataSubmition(object):
                 # 拷贝一周前的shp文件至制图文件夹中
                 for ext in DataSubmition.SHP_EXTENSIONS:
                     shutil.copy(one_week_ago_shpfile.replace('.shp', ext), latest_files_folder)
+                    os.chmod(latest_files_folder, stat.S_IWRITE | stat.S_IREAD)
                 logger.info(f"已拷贝一周前的 SHP 文件及相关文件至: {latest_files_folder}")
             case (False, True):
                 # 解压一周前的zip文件至制图文件夹中
@@ -1052,7 +1624,7 @@ class DataSubmition(object):
                 logger.error(f"一周前的文件不存在: {one_week_ago_zipfile}\n{one_week_ago_shpfile}")
                 return False
 
-        one_week_ago_points_dict = self.read_shp_to_dict(os.path.join(latest_files_folder, f"GMAS_points_until_{one_week_ago.yyyymmdd_str}.shp"))
+        one_week_ago_points_dict = self.readShpToPointDict(os.path.join(latest_files_folder, f"GMAS_points_until_{one_week_ago.yyyymmdd_str}.shp"))
         count_one_week_ago_points_dict = len(one_week_ago_points_dict)
         logger.info(f"一周前{one_week_ago.yyyymmdd_str}的点要素总数: {count_one_week_ago_points_dict}")
         diff_dict = {k: v for k, v in self.pointDict.items() if k not in one_week_ago_points_dict}
@@ -1062,16 +1634,16 @@ class DataSubmition(object):
         one_week_ago_nextday = DateType(date_str=(self.date.date_datetime - timedelta(days=6)))
 
         weekly_increase_shp_file = os.path.join(latest_files_folder, f"GMAS_points_{one_week_ago.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp")
-        self.generate_shp_from_points(diff_dict, weekly_increase_shp_file)
+        self.pointDictToShp(diff_dict, weekly_increase_shp_file)
 
         logger.info(f"GMAS_points_{one_week_ago.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp创建成功")
 
-    def generate_shp_from_points(points_dict, shp_file):
+    def pointDictToShp(self, output_shp_file):
         # 创建 SHP 文件驱动
         shp_driver = ogr.GetDriverByName('ESRI Shapefile')
-        if os.path.exists(shp_file):
-            shp_driver.DeleteDataSource(shp_file)
-        shp_ds = shp_driver.CreateDataSource(shp_file)
+        if os.path.exists(output_shp_file):
+            shp_driver.DeleteDataSource(output_shp_file)
+        shp_ds = shp_driver.CreateDataSource(output_shp_file)
         if shp_ds is None:
             raise RuntimeError("Failed to create SHP file")
 
@@ -1092,7 +1664,7 @@ class DataSubmition(object):
         shp_layer.CreateField(field_latitude)
 
         # 创建要素并添加到图层
-        for obspid, coords in points_dict.items():
+        for obspid, coords in self.pointDict.items():
             feature = ogr.Feature(shp_layer.GetLayerDefn())
             feature.SetField('Name', obspid)
             feature.SetField('Longitude', float(coords['longitude']))
@@ -1107,20 +1679,17 @@ class DataSubmition(object):
 
         # 清理
         shp_ds = None
-        print(f"点要素已成功生成 SHP 文件: {shp_file}")
+        print(f"点要素已成功生成 SHP 文件: {output_shp_file}")
 
-    def read_shp_to_dict(shp_file):
+    def readShpToPointDict(self, shp_file):
         points_dict = {}
-
         # 打开 SHP 文件
         shp_driver = ogr.GetDriverByName('ESRI Shapefile')
         shp_ds = shp_driver.Open(shp_file, 0)  # 0 表示只读模式
         if shp_ds is None:
             raise RuntimeError(f"Failed to open SHP file: {shp_file}")
-
         # 获取图层
         shp_layer = shp_ds.GetLayer()
-
         # 遍历要素
         for feature in shp_layer:
             obspid = feature.GetField('Name')
@@ -1131,7 +1700,6 @@ class DataSubmition(object):
                 'longitude': longitude,
                 'latitude': latitude
             }
-
         # 清理
         shp_ds = None
         print(f"已成功读取 SHP 文件: {shp_file}")
@@ -1139,38 +1707,47 @@ class DataSubmition(object):
         return points_dict
 
 
-@dataclass
-class DateType:
-
-    date_datetime: datetime = None
-    yyyymmdd_str: str = ''
-    yymmdd_str: str = ''
-    yyyy_str: str = ''
-    yyyy_mm_str: str = ''
-    yy_str: str = ''
-    mm_str: str = ''
-    dd_str: str = ''
-    yymm_str: str = ''
-
-    def __post_init__(self):
-        if self.yyyymmdd_str:
-            self.date_datetime = datetime.strptime(self.yyyymmdd_str, "%Y%m%d")
-        elif self.date_datetime:
-            self.yyyymmdd_str = self.date_datetime.strftime("%Y%m%d")                                       # 20211231
-        self.yymmdd_str = self.date_datetime.strftime("%y%m%d")                                             # 211231
-        self.yyyymm_str = self.date_datetime.strftime("%Y%m")                                               # 202112
-        self.yyyy_str = self.date_datetime.strftime("%Y")                                                   # 2021
-        self.yy_str = self.date_datetime.strftime("%y")                                                     # 21
-        self.mm_str = self.date_datetime.strftime("%m")                                                     # 12
-        self.dd_str = self.date_datetime.strftime("%d")                                                     # 31
-        self.yyyy_mm_str = self.date_datetime.strftime("%Y") + '-' + self.date_datetime.strftime("%m")      # 2021-12
-        self.yymm_str = self.date_datetime.strftime("%y%m")                                                 # 2112
-
-
 if __name__ == "__main__":
 
-    currentDate = DateType(yyyymmdd_str="20241102")
+    #KMZFile类测试
+    #错误路径
+    kmz = KMZFile(filepath=r"D:\Workspace\2024\20241224\Ad_Dawadami_finished_points_and_tracks_20241224.kmz")
+    # 正确路径
+    kmz = KMZFile(filepath=r"D:\RouteDesigen\202412\20241224\Finished points\Ad_Dawadami_finished_points_and_tracks_20241224.kmz")
+    print(kmz.placemarks)
+    exit()
 
-    file = KMZFile(r'D:\RouteDesigen\202412\20241210\Finished points\Ad_Dawadami_finished_points_and_tracks_20241204.kmz')
+    # 测试数据
+    currentDate = DateType(yyyymmdd_str="20241225")
+    collection = CurrentDateFiles(currentDate)
+    # 单文件测试
+    print(f"{currentDate}新增点数：", collection.totalDaiyIncreasePointNum)
+    print(f"{currentDate}新增线数：", collection.totalDaiyIncreaseRouteNum)
+    print(f"{currentDate}计划数：", collection.totalDailyPlans)
+    print(f"{currentDate}总点数：", collection.totalPointNum)
+    print(f"{currentDate}总线数：", collection.totalRoutesNum)
+    print(f"{currentDate}所有点：", collection.allPoints)
+    print(f"{currentDate}所有线：", collection.allRoutes)
+    print(f"{currentDate}错误信息：", collection.errorMsg)
+    exit()
 
+    # 回溯日期测试
+    date = currentDate
+    while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+        collection = CurrentDateFiles(date)
+        print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
+        date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
 
+    # 使用多线程处理回溯日期
+    dates = []
+    date = currentDate
+    while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+        dates.append(date)
+        date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
+
+    # 使用线程池执行任务
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = [executor.submit(process_date, date) for date in dates]
+
+        for future in as_completed(futures):
+            print(future.result())
