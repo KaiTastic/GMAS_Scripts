@@ -1,4 +1,3 @@
-from math import e
 import os
 import re
 import zipfile
@@ -73,15 +72,11 @@ def process_date(date):
     return f"{date}新增点数：{collection.totalDaiyIncreasePointNum}"
 
 class FileIO(ABC):
-
     def __init__(self, filepath=None):
-        if filepath is None:
-            logger.error(f"文件路径无效: {filepath}")
-            self.filepath = None
         if filepath is not None and os.path.exists(filepath) and os.path.isfile(filepath):
             self.filepath = filepath
         else:
-            logger.error(f"文件路径无效: {filepath}")
+            logger.error(f"文件路径无效（为空/不存在/不是有效文件路径）: {filepath}")
             self.filepath = None
 
     @abstractmethod
@@ -99,6 +94,7 @@ class FileIO(ABC):
     @abstractmethod
     def update(self, content):
         pass
+
 
 class GeneralIO(FileIO):
 
@@ -118,20 +114,25 @@ class GeneralIO(FileIO):
             with open(self.filepath, 'w', encoding='utf-8') as file:
                 file.write(content)
 
-    def writeAS(self, newpath):
+    def write_as(self, newpath):
         """
-        writeAS 另存为新文件
+        write_as 另存为新文件
         另存为新文件，将当前文件复制到新路径，将内存中的文件更新并更新当前文件路径
         :param newpath: 新文件路径
         :type newpath: str
         :raises FileNotFoundError: _description_
         """
         #TODO: 另存为新文件，需要利用os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)解决权限问题？
+        # Step 1: 从当前文件路径复制文件到新路径
         if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
-            shutil.copy(self.filepath, newpath)
-        else:
-            print(f"File copy fail: file \'{self.filepath}\' do not exist")
-            raise FileNotFoundError(f"File \'{self.filepath}\' do not exist")
+            #TODO: 增加提示，如果新文件路径已经存在，是否需要删除/覆盖？
+            if os.path.exists(newpath) and os.path.isfile(newpath):
+                user_input = input(f"文件 '{newpath}' 已存在，是否覆盖？(YES(Y)/NO(N)): ")
+                if user_input.lower() != 'yes'|'y':
+                    print("操作已取消")
+                    return
+            shutil.copy(self.filepath, newpath,)
+        # Step 2: 更新内存中的文件内容至新路径
         self.write(newpath)
         self.filepath = newpath
 
@@ -140,7 +141,6 @@ class GeneralIO(FileIO):
             os.remove(self.filepath)
         else:
             print(f"File delete fail: file \'{self.filepath}\' do not exist")
-            raise FileNotFoundError(f"File \'{self.filepath}\' do not exist")
         
     def update(self, content):
         pass
@@ -158,12 +158,8 @@ class GeneralIO(FileIO):
 
 class FileAttributes(object):
     def __init__(self, filepath=None):
-        self._filepath = None
-        if filepath is None:
-            logger.error(f"文件路径无效: {filepath}")
-            self.filepath = None
         # Basic file attributes
-        if filepath is not None and os.path.exists(filepath) and os.path.isfile(filepath):
+        if filepath and os.path.exists(filepath) and os.path.isfile(filepath):
             self._filepath = filepath
             self._filename = os.path.basename(filepath)
             self._file_dir = os.path.dirname(filepath)
@@ -173,6 +169,7 @@ class FileAttributes(object):
             self._access_time = time.ctime(os.path.getatime(filepath))
             self._file_type = self.__get_file_type()
         else:
+            logger.error(f"文件路径无效（为空/不存在/不是有效文件路径）: {filepath}")
             self._filepath = None
             self._filename = None
             self._file_dir = None
@@ -187,53 +184,49 @@ class FileAttributes(object):
         self._hashMD5 = None
         self._hashSHA265 = None
 
-
     def __getattr__(self, name):
         if name == 'filepath':
-            if self._filepath is not None:
-                if os.path.exists(self._filepath) and os.path.isfile(self._filepath):
-                    return self._filepath
-            else:
-                self._filepath = None
+            if self._filepath and os.path.exists(self._filepath) and os.path.isfile(self._filepath):
                 return self._filepath
+            return None
         if name == 'filename':
-            if self._filename is None and self.filepath is not None:
-                self._filename = os.path.basename(self.filepath)
+            if self._filename is None and self._filepath:
+                self._filename = os.path.basename(self._filepath)
             return self._filename
         elif name == 'file_dir':
-            if self._file_dir is None and self.filepath is not None:
-                self._file_dir = os.path.dirname(self.filepath)
+            if self._file_dir is None and self._filepath:
+                self._file_dir = os.path.dirname(self._filepath)
             return self._file_dir
         elif name == 'size':
-            if self._size is None and self.filepath is not None:
-                self._size = os.path.getsize(self.filepath)
+            if self._size is None and self._filepath:
+                self._size = os.path.getsize(self._filepath)
             return self._size
         elif name == 'creation_time':
-            if self._creation_time is None and self.filepath is not None:
-                self._creation_time = time.ctime(os.path.getctime(self.filepath))
+            if self._creation_time is None and self._filepath:
+                self._creation_time = time.ctime(os.path.getctime(self._filepath))
             return self._creation_time
         elif name == 'modification_time':
-            if self._modification_time is None and self.filepath is not None:
-                self._modification_time = time.ctime(os.path.getmtime(self.filepath))
+            if self._modification_time is None and self._filepath:
+                self._modification_time = time.ctime(os.path.getmtime(self._filepath))
             return self._modification_time
         elif name == 'access_time':
-            if self._access_time is None and self.filepath is not None:
-                self._access_time = time.ctime(os.path.getatime(self.filepath))
+            if self._access_time is None and self._filepath:
+                self._access_time = time.ctime(os.path.getatime(self._filepath))
             return self._access_time
         elif name == 'file_type':
-            if self._file_type is None and self.filepath is not None:
+            if self._file_type is None and self._filepath:
                 self._file_type = self.__get_file_type()
             return self._file_type
         elif name == 'data':
-            if self._data is None and self.filepath is not None:
-                with open(self.filepath, 'r') as file:
+            if self._data is None and self._filepath:
+                with open(self._filepath, 'r') as file:
                     self._data = file.read()
             return self._data
         elif name == 'hashMD5':
-            if self.filepath:
+            if self._filepath:
                 if self._hashMD5 is None and self._data is None:
                     # Read file content
-                    with open(self.filepath, 'rb') as file:
+                    with open(self._filepath, 'rb') as file:
                         self._data = file.read()
                     self._hashMD5 = hashlib.md5(self._data).hexdigest()
             else:
@@ -241,10 +234,10 @@ class FileAttributes(object):
                 return None
             return self._hashMD5
         elif name == 'hashSHA265':
-            if self.filepath:
+            if self._filepath:
                 if self._hashSHA265 is None and self._data is None:
                     # Read file content
-                    with open(self.filepath, 'rb') as file:
+                    with open(self._filepath, 'rb') as file:
                         self._data = file.read()
                     self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
             else:
@@ -257,30 +250,30 @@ class FileAttributes(object):
 
 
     def __get_file_type(self):
-        if self.filepath is not None and os.path.exists(self.filepath) and os.path.isfile(self.filepath):
-            if os.path.splitext(self.filepath)[1]:
-                return os.path.splitext(self.filepath)[1]
+        if self._filepath and os.path.exists(self._filepath) and os.path.isfile(self._filepath):
+            if os.path.splitext(self._filepath)[1]:
+                return os.path.splitext(self._filepath)[1]
             else:
                 return None
         else:
             return None
     
     def __str__(self):
-        return f"File Name: \t\t{self.filename}\n" \
-               f"File Path: \t\t{self.filepath}\n" \
+        return f"File Name: \t\t{self._filename}\n" \
+               f"File Path: \t\t{self._filepath}\n" \
                f"File Size: \t\t{self.size} bytes\n" \
-               f"Creation Time: \t\t{self.creation_time}\n" \
-               f"Modification Time: \t{self.modification_time}\n" \
-               f"Access Time: \t\t{self.access_time}\n" \
-               f"File type: \t\t{self.file_type}\n"\
-               f"MD5: \t\t\t{self.hashMD5}\n" \
-               f"SHA265: \t\t{self.hashSHA265}"
+               f"Creation Time: \t\t{self._creation_time}\n" \
+               f"Modification Time: \t{self._modification_time}\n" \
+               f"Access Time: \t\t{self._access_time}\n" \
+               f"File type: \t\t{self._file_type}\n"\
+               f"MD5: \t\t\t{self._hashMD5}\n" \
+               f"SHA265: \t\t{self._hashSHA265}"
     
     # @property
     # def hashMD5(self):
     #     if self._hashMD5 is None and self._data is None:
     #         # Read file content
-    #         with open(self.filepath, 'rb') as file:
+    #         with open(self._filepath, 'rb') as file:
     #             self._data = file.read()
     #         self._hashMD5 = hashlib.md5(self._data).hexdigest()
     #     return self._hashMD5
@@ -289,7 +282,7 @@ class FileAttributes(object):
     # def hashSHA265(self):
     #     if self._hashSHA265 is None and self._data is None:
     #         # Read file content
-    #         with open(self.filepath, 'rb') as file:
+    #         with open(self._filepath, 'rb') as file:
     #             self._data = file.read()
     #         self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
     #     return self._hashSHA265
@@ -312,7 +305,7 @@ class PlacemarkerData:
     kml_content: str = None
 
     def __post_init__(self):
-        if self.kml_content is not None:
+        if self.kml_content:
             self.__getPoints()
             self.__getRoutes()
             # 在解析KML内容后删除KML内容，以释放内存
@@ -466,14 +459,15 @@ class KMZFile(FileAttributes, GeneralIO):
             return print("KML内容为空")
         else:
             try:
-                print(f"开始验证XML文件与'{defaultSchema}'模式")
+                # print(f"开始验证XML文件与'{defaultSchema}'模式")
                 schema.validate(self._kml_content)
-                logger.info(f"XXML文件与XSD'{defaultSchema}'验证通过")
+                logger.info(f"XML文件与XSD'{defaultSchema}'验证通过")
                 return True
             except xmlschema.validators.exceptions.XMLSchemaValidationError as e:
-                error = f"XML文件与XSD'{defaultSchema}'验证不符: {e}"
-                logger.error(error)
-                self._errorMsg.append(error)
+                # error = f"XML文件与XSD'{defaultSchema}'验证不符: {e}"
+                warning = f"XML文件与XSD'{defaultSchema}'验证不符"
+                logger.warning(warning)
+                self._errorMsg.append(warning)
                 return False
     
     def read(self, filepath: str = None, validate = False, defaultSchema = "schema22"):
@@ -502,19 +496,21 @@ class KMZFile(FileAttributes, GeneralIO):
                 kml_file = kml_files[0]
                 # 读取 KML 文件内容
                 with kmz.open(kml_file) as kml:
-                    self.kml_content = kml.read()
+                    self._kml_content = kml.read()
                     # 验证KML文件是否符合XSD模式
                     if validate:
                         self.__validateKMZ(defaultSchema)
                     # 解析KML内容
-                    placemarks = PlacemarkerData(kml_content=self.kml_content)
-                    # self.placemarks = PlacemarkerData(kml_content=self.kml_content)
+                    placemarks = PlacemarkerData(kml_content=self._kml_content)
                     self._points = placemarks.points
                     self._pointsCount = placemarks.pointsCount
                     self._routes = placemarks.routes
                     self._routesCount = placemarks.routesCount
                     self._errorMsg.append(placemarks.errorMsg)
                     self._placemarks = placemarks
+                    # print("KMZ读取时候发现的错误", self.errorMsg)
+                    #! 删除KML内容，释放内存
+                    del self._kml_content
             else:
                 logger.error("在KMZ文件中没有找到 KML文件")
 
@@ -538,7 +534,7 @@ class KMZFile(FileAttributes, GeneralIO):
                     logger.error(f"SHP文件保存失败{self._filepath}")
                     return False
             else:
-                print(f"无效的输出文件类型: {type}")
+                # print(f"无效的输出文件类型: {type}")
                 logger.error(f"无效的输出文件类型: {type}")
                 return False
         else:
@@ -546,34 +542,41 @@ class KMZFile(FileAttributes, GeneralIO):
             logger.error("文件路径为空")
             return False
 
-    def writeAS(self, newpath: str, type='kmz'):
+    def write_as(self, newpath: str = None):
         if newpath:
+            if os.path.isdir(newpath):
+                logger.error(f"文件路径{newpath}是一个目录，不是文件")
+                return False
             if os.path.exists(newpath) and os.path.isfile(newpath):
-                logger.warning(f"文件路径{newpath}可能覆盖原文件")
-            elif os.makedirs(os.path.dirname(newpath), exist_ok=True):
-                if type == 'kmz':
-                    if self.__toKMZ(newpath):
-                        print(f"KMZ文件已保存到: {newpath}")
-                        return True
-                    else:
-                        print(f"KMZ文件保存失败")
-                        logger.error(f"KMZ文件保存失败{newpath}")
-                        return False
-                elif type == 'shp':
-                    if self.__toShp(newpath):
-                        print(f"SHP文件已保存到: {newpath}")
-                        return True
-                    else:
-                        print(f"SHP文件保存失败")
-                        logger.error(f"SHP文件保存失败{newpath}")
-                        return False
+                logger.warning(f"文件路径{newpath}将覆盖原文件")
+            if not os.path.exists(newpath):
+                os.makedirs(os.path.dirname(newpath), exist_ok=True)
+            # else:
+                # print(f"文件路径创建失败{newpath}")
+                # logger.error(f"文件路径创建失败{newpath}")
+                # return False
+                # os.makedirs(os.path.dirname(newpath), exist_ok=True)
+                # 获取后缀名
+            type = os.path.splitext(newpath)[1].lower()
+            if type == '.kmz':
+                if self.__toKMZ(newpath):
+                    print(f"KMZ文件已保存到: {newpath}")
+                    return True
                 else:
-                    print(f"无效的输出文件类型: {type}")
-                    logger.error(f"无效的输出文件类型: {type}")
+                    print(f"KMZ文件保存失败")
+                    logger.error(f"KMZ文件保存失败{newpath}")
+                    return False
+            elif type == '.shp':
+                if self.__toShp(newpath):
+                    print(f"SHP文件已保存到: {newpath}")
+                    return True
+                else:
+                    print(f"SHP文件保存失败")
+                    logger.error(f"SHP文件保存失败{newpath}")
                     return False
             else:
-                print(f"文件路径创建失败{newpath}")
-                logger.error(f"文件路径创建失败{newpath}")
+                print(f"无效的输出文件类型: {type}")
+                logger.error(f"无效的输出文件类型: {type}")
                 return False
         else:
             print(f"文件路径为空{newpath}")
@@ -597,13 +600,14 @@ class KMZFile(FileAttributes, GeneralIO):
             if not output_path.endswith('.kmz'):
                 logger.error("Output file must be a KMZ file")
                 return False
+        output_dir = os.path.dirname(output_path)
         # 在输出目录下创建临时目录
-        temp_dir = os.path.join(output_path, "temp_kmz")
+        temp_dir = os.path.join(output_dir, "temp_kmz")
         os.makedirs(temp_dir, exist_ok=True)
         files_dir = os.path.join(temp_dir, 'files')
         os.makedirs(files_dir, exist_ok=True)
         # 创建临时KML文件
-        temp_kml_file = os.path.join(output_path, "temp_combined.kml")
+        temp_kml_file = os.path.join(output_dir, "temp_combined.kml")
         # 创建输出KMZ文件
         # 根节点
         document = etree.Element("Document")
@@ -660,7 +664,6 @@ class KMZFile(FileAttributes, GeneralIO):
         shutil.rmtree(temp_dir)
         # 删除临时KML文件
         os.remove(temp_kml_file)
-        print(f"KMZ文件已保存到: {output_path}")
         return True
     
     def __toShp(self, output_path):
@@ -1353,7 +1356,7 @@ class CurrentDateFiles(object):
         if self._errorMsg is None:
             self._errorMsg = []
             for mapsheet in self.currentDateFiles:
-                self._errorMsg.extend(mapsheet.errorMsg)
+                self._errorMsg.append(mapsheet.errorMsg)
         return self._errorMsg
 
     def __contains__(self, key):
@@ -1369,6 +1372,9 @@ class CurrentDateFiles(object):
             maxSequenceValue (int): 最大填图序列号
         """
         dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}Daily_Statistics.xlsx")
+        #! 删除已存在的文件
+        if os.path.exists(dailyExcel):
+            os.remove(dailyExcel)
         romanNames_list = [self.__class__.maps_info[sequence]['Roman Name'] for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1)]
         # 计算输出表格的行数和列数
         maxTableRows, maxTableColumns = len(romanNames_list) + 4, 4

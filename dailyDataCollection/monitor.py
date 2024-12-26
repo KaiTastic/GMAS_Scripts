@@ -3,7 +3,6 @@ This module is used to monitor the daily data collection process. It will check 
 用来监视微信文件夹中数据的更新
 """
 
-from math import e
 import os
 from config import *
 from datetime import datetime
@@ -59,6 +58,13 @@ class MyHandler(FileSystemEventHandler):
                             exit()
         print("继续监视目标文件夹...")
 
+    # def on_deleted(self, event):
+    #     print(f'File deleted: {event.src_path}')
+    
+    # def on_moved(self, event):
+    #     print(f'File moved: from {event.src_path} to {event.dest_path}')
+
+
 class Monitor(object):
     maps_info: dict = {}
 
@@ -80,14 +86,19 @@ class Monitor(object):
         """
         print("开始获取图幅信息...")
         df = pd.read_excel(os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K), sheet_name="Sheet1", header=0, index_col=0)
+        # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
         filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
+        # 确保 'Sequence' 列为 int 类型
         filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].astype(int)
         #TODO: 需要增加判断，如果Sequence列中有重复值，需要报错
         #TODO: 需要增加判断，如果Sequence列中去除的值不等于 SEQUENCE_MAX - SEQUENCE_MIN + 1，需要报错
         # # 按照 'Sequence' 列值从小到大排序
         sorted_df = filtered_df.sort_values(by='Sequence')
+        # # 获取图幅名称、罗马名称和拉丁名称，并存储为字典
+        # 构建以 'Sequence' 为键的字典
         cls.maps_info = {
             row['Sequence']: {
+                # 'Sheet ID': row['Alternative sheet ID'],
                 'Group': row['Group'],
                 'File Name': row['File Name'],
                 'Roman Name': row['Roman Name'],
@@ -99,7 +110,11 @@ class Monitor(object):
         return cls.maps_info
 
     def __setMapsheetList(self):
+
+        # 设置每天需要收集的图幅列表
+        # 检查当天PlanRoutes文件夹是否存在，同时获取当天的计划路线列表
         plan_routes_folder = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
+        # 如果当天的计划路线文件夹存在，则获取当天的计划路线列表
         mapsheet_list = []
         if os.path.exists(plan_routes_folder) and os.path.isdir(plan_routes_folder):
             plan_routes_list = [file for file in os.listdir(plan_routes_folder) if file.endswith(".kmz")]
@@ -131,12 +146,14 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(event_handler, wechat_path, recursive=True)
 
-    print(f'开始监视微信文件夹...')
+    print(f'开始监视微信文件夹...\n')
     observer.start()
 
     try:
         while True:
-            time.sleep(5)
+            time.sleep(30)
+            print(f"{datetime.now()}")
+            print("继续监视中...\n")
     except KeyboardInterrupt:
         observer.stop()
     observer.join()

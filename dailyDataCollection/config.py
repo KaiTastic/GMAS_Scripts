@@ -45,15 +45,25 @@ COLLECTION_WEEKDAYS = [5]
 SEQUENCE_MIN = 1
 SEQUENCE_MAX = 24
 
-
+# 建立资源文件目录，并验证文件是否存在
 # 100K图幅名称信息等
 SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
 # 图标文件
-ICON = os.path.join(WORKSPACE, 'resource', ICON_FILE)
+ICON = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE)
 
 # KML文件的XSD模式，分别为2.2和2.3版本
 KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
 KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
+
+# 验证文件是否存在
+if not os.path.exists(SHEET_NAMES_FILE):
+    raise FileNotFoundError(f"文件'{SHEET_NAMES_FILE}'不存在，请在config.py中设置正确的文件路径")
+if not os.path.exists(ICON):
+    raise FileNotFoundError(f"文件'{ICON}'不存在，请在config.py中设置正确的文件路径")
+if not os.path.exists(KML_SCHEMA_22):
+    raise FileNotFoundError(f"文件'{KML_SCHEMA_22}'不存在，请在config.py中设置正确的文件路径")
+if not os.path.exists(KML_SCHEMA_23):
+    raise FileNotFoundError(f"文件'{KML_SCHEMA_23}'不存在，请在config.py中设置正确的文件路径")
 
 
 def timer(func):
