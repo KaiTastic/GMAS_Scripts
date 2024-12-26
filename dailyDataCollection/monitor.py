@@ -3,7 +3,10 @@ This module is used to monitor the daily data collection process. It will check 
 用来监视微信文件夹中数据的更新
 """
 
+import cmd
 import os
+
+from regex import P
 from config import *
 from datetime import datetime
 import pandas as pd
@@ -11,6 +14,8 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import re
+import subprocess
+
 
 def monitor_folder(duration):
     """
@@ -34,7 +39,8 @@ class MyHandler(FileSystemEventHandler):
         self.collect_file_list = []
 
     def on_created(self, event):
-        print(f'File created: {event.src_path}')
+        # print(f'File created: {event.src_path}')
+        print(f'有文件创建更新')
         filename = os.path.basename(event.src_path)
 
         if filename.endswith(".kmz"):
@@ -53,10 +59,26 @@ class MyHandler(FileSystemEventHandler):
                         if set(self.filelist) == set(self.collect_file_list):
                             print(f"当天计划路线中的图幅信息已全部收集")
                             # TODO: 调用数据收集函数
-                            print("开始数据收集...")
-                            print("数据收集完成")
+                            #! 暂时利用Version 1中的代码
+                            # 执行 CMD 命令
+                            self.execute_collection()
                             exit()
+        if not self.collect_file_list:
+            print(f"还未收集到任何文件")
         print("继续监视目标文件夹...")
+    
+    def execute_collection(self):
+        print("开始数据收集...")
+        cmd_command = f"python310 D:\RouteDesigen\PythonRun\daily_statistics.py {self.date.yyyymmdd_str}"
+        print(cmd_command)
+        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
+        print(result.stdout)
+        print("数据收集完成，开始合并KMZ文件...")
+        cmd_command = f"python310 D:\RouteDesigen\PythonRun\mergeKMZandRender.py {self.date.yyyymmdd_str}"
+        print(cmd_command)
+        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
+        print(result.stdout)
+        print("合并KMZ文件完成")
 
     # def on_deleted(self, event):
     #     print(f'File deleted: {event.src_path}')
@@ -139,6 +161,8 @@ class Monitor(object):
 
 if __name__ == "__main__":
     datenow = DateType(date_datetime=datetime.now())
+    # 测试日期
+    # datenow = DateType(date_datetime=datetime(2024, 12, 25))
     wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
     currentdatefilelist = Monitor(datenow)
 
@@ -146,12 +170,13 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(event_handler, wechat_path, recursive=True)
 
+    print(5*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
     print(f'开始监视微信文件夹...\n')
     observer.start()
 
     try:
         while True:
-            time.sleep(30)
+            time.sleep(300)
             print(f"{datetime.now()}")
             print("继续监视中...\n")
     except KeyboardInterrupt:

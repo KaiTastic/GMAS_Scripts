@@ -23,9 +23,6 @@ globalLogger = Logger(name='global logger', level=logging.INFO)
 
 if __name__ == "__main__":
     
-    # date_str = "20241221"
-    # currentDate = DateType(yyyymmdd_str=date_str)
-
     today = DateType(date_datetime=datetime.now())
 
     # 设置日志记录文件位置

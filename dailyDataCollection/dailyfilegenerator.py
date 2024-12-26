@@ -268,25 +268,6 @@ class FileAttributes(object):
                f"File type: \t\t{self._file_type}\n"\
                f"MD5: \t\t\t{self._hashMD5}\n" \
                f"SHA265: \t\t{self._hashSHA265}"
-    
-    # @property
-    # def hashMD5(self):
-    #     if self._hashMD5 is None and self._data is None:
-    #         # Read file content
-    #         with open(self._filepath, 'rb') as file:
-    #             self._data = file.read()
-    #         self._hashMD5 = hashlib.md5(self._data).hexdigest()
-    #     return self._hashMD5
-    
-    # @property
-    # def hashSHA265(self):
-    #     if self._hashSHA265 is None and self._data is None:
-    #         # Read file content
-    #         with open(self._filepath, 'rb') as file:
-    #             self._data = file.read()
-    #         self._hashSHA265 = hashlib.sha256(self._data).hexdigest()
-    #     return self._hashSHA265
-
 
 
 @dataclass
@@ -737,70 +718,6 @@ class KMZFile(FileAttributes, GeneralIO):
         new_file = KMZFile()
         new_file.placemarks = self.placemarks - other.placemarks
         return new_file
-
-
-class lineStyle(object):
-    def __init__(self, color, width):
-        self.color = color
-        self.width = width
-
-
-class pointStyle(object):
-    def __init__(self, icon):
-        self.icon = icon
-
-        
-class XMLWrapper(object):
-
-    def __init__(self, tag_name, **attributes):
-        """初始化标签的名称和可选属性"""
-        self.tag_name = tag_name
-        self.attributes = attributes
-        self.children = []  # 用于存储子元素（支持嵌套）
-        self.text = None  # 标签的文本内容
-
-    def add_child(self, child):
-        if isinstance(child, XMLWrapper):
-            self.children.append(child)
-        else:
-            raise ValueError("Child must be an instance of XMLWrapper")
-
-    def set_text(self, text):
-        """设置标签的文本内容"""
-        self.text = text
-
-    def render_attributes(self):
-        """生成标签的属性字符串"""
-        if not self.attributes:
-            return ""
-        attributes = [f'{key}="{value}"' for key, value in self.attributes.items()]
-        return " " + " ".join(attributes)
-
-    def render(self, indent=0):
-        """生成完整的 HTML 标签，包括嵌套的子标签和文本"""
-        # 创建标签的开始标签
-        indent_space = " " * indent
-        opening_tag = f"{indent_space}<{self.tag_name}{self.render_attributes()}>"
-
-        # 如果没有子标签或文本，直接输出开始标签和结束标签
-        if not self.children and not self.text:
-            return f"{opening_tag}</{self.tag_name}>"
-
-        # 否则，添加子标签和文本内容
-        closing_tag = f"</{self.tag_name}>"
-        inner_content = ""
-
-        if self.text:
-            inner_content += self.text
-        if self.children:
-            for child in self.children:
-                inner_content += "\n" + child.render(indent + 2)
-
-        return f"{opening_tag}\n{inner_content}\n{indent_space}{closing_tag}"
-
-    def __str__(self):
-        """输出该标签的 HTML"""
-        return self.render(indent=0)
 
 
 class DateIterator(object):
