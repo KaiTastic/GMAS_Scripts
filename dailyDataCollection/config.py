@@ -1,5 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler, SMTPHandler
+from pickle import EMPTY_DICT
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -22,7 +23,7 @@ WECHAT_FOLDER = r"D:\Users\lenovo\Documents\WeChat Files\WeChat Files\bringsmile
 SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
 
 # 图标文件
-ICON_FILE = "Layer0_Symbol_Square.png"
+ICON_FILE_1 = "Layer0_Symbol_Square.png"
 
 # 设置制图工程文件夹
 MAP_PROJECT_FOLDER = "Finished observation points of Group1"
@@ -49,11 +50,12 @@ SEQUENCE_MAX = 24
 # 100K图幅名称信息等
 SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
 # 图标文件
-ICON = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE)
+ICON_1 = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE_1)
 
 # KML文件的XSD模式，分别为2.2和2.3版本
 KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
 KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
+
 
 # 验证文件是否存在
 if not os.path.exists(SHEET_NAMES_FILE):
@@ -64,6 +66,9 @@ if not os.path.exists(KML_SCHEMA_22):
     raise FileNotFoundError(f"文件'{KML_SCHEMA_22}'不存在，请在config.py中设置正确的文件路径")
 if not os.path.exists(KML_SCHEMA_23):
     raise FileNotFoundError(f"文件'{KML_SCHEMA_23}'不存在，请在config.py中设置正确的文件路径")
+
+
+EMPTY_DICT = {}
 
 
 def timer(func):
