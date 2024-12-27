@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # 如果当天是设定的日期，则将 KMZ 文件转换为 SHP 文件，并将 SHP 文件拷贝至制图工程文件夹
     for weekday in COLLECTION_WEEKDAYS:
         if today.date_datetime.weekday() == weekday:
-            print(f"今天是星期{today.date_datetime.strftime('%A')}，需要生成周报")
+            print('\n'*2, f"今天是星期{today.date_datetime.strftime('%A')}，需要生成周报", '\n'*4)
             certainReport = DataSubmition(today, collection.allPoints)
             certainReport.weeklyPointToShp()
 

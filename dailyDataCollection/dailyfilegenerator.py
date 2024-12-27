@@ -1482,15 +1482,15 @@ class DataSubmition(object):
         pass
 
     def weeklyPointToShp(self):
-        # 在制图工程文件夹下建立新文件夹，如果已存在则删除清理
-        latest_files_folder = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}")
+        # 在制图工程文件夹下建立新文件夹，如果已存在则删除清理文件树
+        week_report_folder = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}")
         weekdayDir = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}")
         if os.path.exists(weekdayDir):
             shutil.rmtree(weekdayDir)
         os.makedirs(weekdayDir, exist_ok=True)
 
         # 输出shp文件
-        output_shp_file = os.path.join(latest_files_folder, f"GMAS_points_until_{self.date.yyyymmdd_str}.shp")
+        output_shp_file = os.path.join(week_report_folder, f"GMAS_points_until_{self.date.yyyymmdd_str}.shp")
         self.pointDictToShp(self.pointDict, output_shp_file)
 
 
@@ -1501,7 +1501,7 @@ class DataSubmition(object):
         with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for ext in DataSubmition.SHP_EXTENSIONS:
                 zipf.write(output_shp_file.replace('.shp', ext), os.path.basename(output_shp_file).replace('.shp', ext))
-        logger.info(f"SHP文件已压缩为 ZIP 文件: {zip_file}")
+        logger.info(f"截止今日的完成点已生成SHP文件，并已压缩为ZIP文件: {zip_file}")
 
         # 尝试从多种路径读取一周前的文件(zip，shp)
         # 工作目录下的存档文件夹中的zip文件
@@ -1518,27 +1518,28 @@ class DataSubmition(object):
             case (True, _):
                 # 拷贝一周前的shp文件至制图文件夹中
                 for ext in DataSubmition.SHP_EXTENSIONS:
-                    shutil.copy(one_week_ago_shpfile.replace('.shp', ext), latest_files_folder)
-                    os.chmod(latest_files_folder, stat.S_IWRITE | stat.S_IREAD)
-                logger.info(f"已拷贝一周前的 SHP 文件及相关文件至: {latest_files_folder}")
+                    shutil.copy(one_week_ago_shpfile.replace('.shp', ext), week_report_folder)
+                    os.chmod(week_report_folder, stat.S_IWRITE | stat.S_IREAD)
+                # logger.info(f"已拷贝一周前的 SHP 文件及相关文件至: {week_report_folder}")
             case (False, True):
                 # 解压一周前的zip文件至制图文件夹中
                 with zipfile.ZipFile(one_week_ago_zipfile, 'r') as zip_ref:
-                    zip_ref.extractall(latest_files_folder)
-                logger.info(f"已解压一周前的 ZIP 文件到: {latest_files_folder}")
+                    zip_ref.extractall(week_report_folder)
+                # logger.info(f"已解压一周前的 ZIP 文件到: {week_report_folder}")
             case (False, False):
-                logger.error(f"一周前的文件不存在: {one_week_ago_zipfile}\n{one_week_ago_shpfile}")
+                logger.warning(f"一周前的文件不存在: {one_week_ago_zipfile}\n{one_week_ago_shpfile}")
                 return False
 
-        one_week_ago_points_dict = self.readShpToPointDict(os.path.join(latest_files_folder, f"GMAS_points_until_{one_week_ago.yyyymmdd_str}.shp"))
+        one_week_ago_points_dict = self.readShpToPointDict(os.path.join(week_report_folder, f"GMAS_points_until_{one_week_ago.yyyymmdd_str}.shp"))
         count_one_week_ago_points_dict = len(one_week_ago_points_dict)
         logger.info(f"一周前{one_week_ago.yyyymmdd_str}的点要素总数: {count_one_week_ago_points_dict}")
+        # 计算本周新增的点要素
         diff_dict = {k: v for k, v in self.pointDict.items() if k not in one_week_ago_points_dict}
 
         one_week_ago_nextday = DateType(date_datetime=(self.date.date_datetime - timedelta(days=6)))
         logger.info(f"{one_week_ago_nextday.yyyymmdd_str}至{self.date.yyyymmdd_str}，本周新增点要素: {len(diff_dict)}")
 
-        weekly_increase_shp_file = os.path.join(latest_files_folder, f"GMAS_points_{one_week_ago_nextday.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp")
+        weekly_increase_shp_file = os.path.join(week_report_folder, f"GMAS_points_{one_week_ago_nextday.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp")
         self.pointDictToShp(diff_dict, weekly_increase_shp_file)
 
         logger.info(f"GMAS_points_{one_week_ago_nextday.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp创建成功")
@@ -1592,15 +1593,13 @@ class DataSubmition(object):
             obspid = feature.GetField('Name')
             longitude = feature.GetField('Longitude')
             latitude = feature.GetField('Latitude')
-
             points_dict[obspid] = {
                 'longitude': longitude,
                 'latitude': latitude
             }
         # 清理
         shp_ds = None
-        print(f"已成功读取 SHP 文件: {shp_file}")
-
+        # print(f"已成功读取 SHP 文件: {shp_file}")
         return points_dict
 
 
@@ -1616,36 +1615,11 @@ if __name__ == "__main__":
 
     # MapsheetDailyFile类测试
     # Ad_Dawadami = MapsheetDailyFile("Ad_Dawadami", DateType(yyyymmdd_str="20241226"))
-    # print(Ad_Dawadami.sequence)
-    # print(Ad_Dawadami.romanName)
-    # print(Ad_Dawadami.latinName)
-    # print(Ad_Dawadami.currentfilename)
-    # print(Ad_Dawadami.previousfilename)
-    # print(Ad_Dawadami.nextfilename)
-    # print(Ad_Dawadami.dailyincreasePointNum)
-    # print(Ad_Dawadami.dailyincreaseRouteNum)
-    # print(Ad_Dawadami.currentPlacemarks)
-    # print(Ad_Dawadami.previousPlacemarks)
-    # print(Ad_Dawadami.errorMsg)
-    # print(Ad_Dawadami)
-    exit()
-
-    # 测试数据
-    currentDate = DateType(yyyymmdd_str="20241225")
-    collection = CurrentDateFiles(currentDate)
-    # 单文件测试
-    print(f"{currentDate}新增点数：", collection.totalDaiyIncreasePointNum)
-    print(f"{currentDate}新增线数：", collection.totalDaiyIncreaseRouteNum)
-    print(f"{currentDate}计划数：", collection.totalDailyPlans)
-    print(f"{currentDate}总点数：", collection.totalPointNum)
-    print(f"{currentDate}总线数：", collection.totalRoutesNum)
-    print(f"{currentDate}所有点：", collection.allPoints)
-    print(f"{currentDate}所有线：", collection.allRoutes)
-    print(f"{currentDate}错误信息：", collection.errorMsg)
-    exit()
+    # print(Ad_Dawadami.__dict__)
+    # exit()
 
     # 回溯日期测试
-    date = currentDate
+    date = DateType(date_datetime=datetime.now())
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         collection = CurrentDateFiles(date)
         print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
@@ -1653,7 +1627,6 @@ if __name__ == "__main__":
 
     # 使用多线程处理回溯日期
     dates = []
-    date = currentDate
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         dates.append(date)
         date = DateType(date_datetime=date.date_datetime - timedelta(days=1))

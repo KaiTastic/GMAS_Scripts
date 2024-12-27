@@ -60,8 +60,8 @@ KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.
 # 验证文件是否存在
 if not os.path.exists(SHEET_NAMES_FILE):
     raise FileNotFoundError(f"文件'{SHEET_NAMES_FILE}'不存在，请在config.py中设置正确的文件路径")
-if not os.path.exists(ICON):
-    raise FileNotFoundError(f"文件'{ICON}'不存在，请在config.py中设置正确的文件路径")
+if not os.path.exists(ICON_1):
+    raise FileNotFoundError(f"文件'{ICON_1}'不存在，请在config.py中设置正确的文件路径")
 if not os.path.exists(KML_SCHEMA_22):
     raise FileNotFoundError(f"文件'{KML_SCHEMA_22}'不存在，请在config.py中设置正确的文件路径")
 if not os.path.exists(KML_SCHEMA_23):
