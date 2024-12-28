@@ -10,7 +10,7 @@ import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from DailyFileGenerator import list_fullpath_of_files_with_keywords, find_files_with_max_number
+from DailyFileGenerator import list_fullpath_of_files_with_keywords, find_files_with_max_number, KMZFile
 import re
 import subprocess
 
@@ -48,6 +48,14 @@ class MyHandler(FileSystemEventHandler):
                 if index != -1:
                     mapsheet_name = filename[:index]
                     if mapsheet_name.lower() in [item.lower() for item in self.filelist]:
+                        print(f"\n获取到kmz文件，验证kmz文件中...")
+                        kmz = KMZFile(event.src_path)
+                        if kmz.errorMsg:
+                            print(f"文件{filename}中存在错误：{kmz.errorMsg}")
+                        else:
+                            print(f"文件{filename}中验证通过")
+                        # 清除kmz对象
+                        del kmz
                         if mapsheet_name not in self.collect_file_list:
                             self.collect_file_list.append(mapsheet_name)
                         else:
