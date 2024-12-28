@@ -18,6 +18,7 @@ from openpyxl.styles import *
 from openpyxl import Workbook, load_workbook
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import stat
+import numpy as np
 
 
 # 创建 logger 实例
@@ -132,20 +133,15 @@ class GeneralIO(FileIO):
         # Step 1: 从当前文件路径复制文件到新路径
         # 先检查新路径是否存在，如果存在，询问用户是否覆盖
         if os.path.exists(newpath) and os.path.isfile(newpath):
-            user_input = input(f"文件 '{newpath}' 已存在，是否覆盖？(YES(Y)/NO(N)): ")
-            if user_input.lower() != 'yes' or 'y':
+            user_input = input(f"文件 '{newpath}' 已存在，是否覆盖？(YES(Y)/NO(N)): ").lower()
+            if user_input not in ['yes', 'y']:
                 print("操作已取消")
                 return False
-            # 如果用户同意覆盖，则删除原文件
-            # 拷贝并覆盖文件
-            if self.filepath:
-                # if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
-                shutil.copy(self.filepath, newpath)
-        if not os.path.exists(newpath):
-            os.makedirs(os.path.dirname(newpath), exist_ok=True)
-        # Step 2: 更新内存中的文件内容至新路径
-        # self.write(newpath)
-        # self.filepath = newpath
+            shutil.copy(self.filepath, newpath)
+        else:
+            if not os.path.exists(os.path.dirname(newpath)):
+                os.makedirs(os.path.dirname(newpath), exist_ok=True)
+            shutil.copy(self.filepath, newpath)
         return True
         
 
@@ -1315,7 +1311,7 @@ class CurrentDateFiles(object):
             minSequenceValue (int): 最小填图序列号
             maxSequenceValue (int): 最大填图序列号
         """
-        dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}Daily_Statistics.xlsx")
+        dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")
         #! 删除已存在的文件
         if os.path.exists(dailyExcel):
             os.remove(dailyExcel)
@@ -1457,6 +1453,21 @@ class CurrentDateFiles(object):
         # 保存工作簿
         book.save(dailyExcel)
         return print(f"创建每日统计点 {dailyExcel} 空表成功。")
+    
+    def dailyExcelReportUpdate(self):
+        dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")
+        completed_points = [value for key, value in self.dailyFinishedPoints.items()]
+        # 将列表中的0值替换为np.nan
+        completed_points = [value if value != 0 else np.nan for value in completed_points]
+        completed_points_series = pd.Series(completed_points)
+        book = load_workbook(dailyExcel)
+        sheet = book['Daily Statistics']
+        # 将数据写入到指定的单元格
+        for i, value in enumerate(completed_points_series, start=4):
+            sheet.cell(row=i, column=2, value=value)
+        # 保存工作簿
+        book.save(dailyExcel)
+        # os.startfile(dailyExcel)
 
     
 class DataSubmition(object):
@@ -1618,12 +1629,13 @@ if __name__ == "__main__":
     # print(Ad_Dawadami.__dict__)
     # exit()
 
-    # 回溯日期测试
     date = DateType(date_datetime=datetime.now())
+    # 回溯日期测试
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         collection = CurrentDateFiles(date)
         print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
         date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
+    exit()
 
     # 使用多线程处理回溯日期
     dates = []

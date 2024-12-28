@@ -3,16 +3,14 @@ This module is used to monitor the daily data collection process. It will check 
 用来监视微信文件夹中数据的更新
 """
 
-import cmd
 import os
-
-from regex import P
 from config import *
 from datetime import datetime
 import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from DailyFileGenerator import list_fullpath_of_files_with_keywords, find_files_with_max_number
 import re
 import subprocess
 
@@ -40,9 +38,8 @@ class MyHandler(FileSystemEventHandler):
 
     def on_created(self, event):
         # print(f'File created: {event.src_path}')
-        print(f'有文件创建更新')
+        # print(f'有文件创建更新')
         filename = os.path.basename(event.src_path)
-
         if filename.endswith(".kmz"):
             match = re.search(r'\d{8}', filename)
             if match and match.group() == self.date.yyyymmdd_str:
@@ -61,13 +58,15 @@ class MyHandler(FileSystemEventHandler):
                             # TODO: 调用数据收集函数
                             #! 暂时利用Version 1中的代码
                             # 执行 CMD 命令
-                            self.execute_collection()
+                            # self.execute_collection()
+                            self.execute_collection_version2()
+
                             exit()
         if not self.collect_file_list:
             print(f"还未收集到任何文件")
         print("继续监视目标文件夹...")
-    
-    def execute_collection(self):
+
+    def execute_collection_version1(self):
         print("开始数据收集...")
         cmd_command = f"python310 D:\RouteDesigen\PythonRun\daily_statistics.py {self.date.yyyymmdd_str}"
         print(cmd_command)
@@ -79,12 +78,56 @@ class MyHandler(FileSystemEventHandler):
         result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
         print(result.stdout)
         print("合并KMZ文件完成")
+    
+    @staticmethod
+    def execute_collection_version2():
+        print("开始数据收集...")
+        cmd_command = f"python310 D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\main.py"
+        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
+        print(result.stdout)
+        print("数据收集完成")
 
     # def on_deleted(self, event):
     #     print(f'File deleted: {event.src_path}')
     
     # def on_moved(self, event):
     #     print(f'File moved: from {event.src_path} to {event.dest_path}')
+
+    def reportTable(self):
+    # # 打印表格---------------------------
+    #     map_name_list = []
+    #     daily_collection_list = []
+    #     daily_plan_list = []
+    #     for key, value in collection.dailyFinishedPoints.items():
+    #         map_name_list.append(key)
+    #         daily_collection_list.append(collection.dailyFinishedPoints[key])
+    #         daily_plan_list.append(collection.DailyPlans[key])
+
+    #     # 计算每列的最大宽度
+    #     max_len_index = max(len(str(i + 1)) for i in range(len(map_name_list)))
+    #     max_len_map_name = max(len(name) for name in map_name_list)
+    #     max_len_collection = max(len(str(collection)) for collection in daily_collection_list)
+    #     max_len_plan = max(len(plan) for plan in daily_plan_list)
+
+    #     # 定义表头
+    #     headers = ["Seq", "Name", "Finished", "Plan"]
+    #     header_lengths = [max_len_index, max_len_map_name, max_len_collection, max_len_plan]
+    #     sums = sum(header_lengths) + 7 * 3
+
+    #     # 打印表头
+    #     header_row = f"{headers[0]:<{header_lengths[0]}} | {headers[1]:<{header_lengths[1]}} | {headers[2]:<{header_lengths[2]}} | {headers[3]:<{header_lengths[3]}}  |"
+    #     print('\n'*2, "-" * len(header_row))
+    #     print(header_row)
+    #     print("-" * len(header_row))
+    #     # 打印表格数据
+    #     for i in range(len(map_name_list)):
+    #         row = f"{i + 1:<{header_lengths[0]}} | {map_name_list[i]:<{header_lengths[1]}} | {daily_collection_list[i]:<{header_lengths[2]}} | {daily_plan_list[i]:<{header_lengths[3]}} |"
+    #         print(row)
+    #     print("-" * len(header_row))
+    #     print(' '*max_len_index, '|', ' '*max_len_map_name, '|', f"{collection.totalDaiyIncreasePointNum}", '|', f"{collection.totalDailyPlanNum}")
+    #     print("-" * len(header_row), '\n'*2)
+    #     # 打印表格---------------------------
+        pass
 
 
 class Monitor(object):
@@ -100,6 +143,7 @@ class Monitor(object):
         self.currentDate = currentDate
         self._mapsheet_filename_list = []
         self.__setMapsheetList()
+        self.mapdicts ={}
 
     @classmethod
     def mapsInfo(cls):
@@ -132,7 +176,6 @@ class Monitor(object):
         return cls.maps_info
 
     def __setMapsheetList(self):
-
         # 设置每天需要收集的图幅列表
         # 检查当天PlanRoutes文件夹是否存在，同时获取当天的计划路线列表
         plan_routes_folder = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
@@ -158,15 +201,57 @@ class Monitor(object):
 
     def __contains__(self, item):
         return item in self._mapsheet_filename_list
+    
+    def starter(self):
+        # 获取微信文件夹路径
+        for mapsheet_filename in self._mapsheet_filename_list:
+            mapsheet_dict = {}
+            # 获取每个图幅的文件路径
+            fullpath_finished = list_fullpath_of_files_with_keywords(wechat_path, [mapsheet_filename, 'finished_points_and_tracks', '.kmz', self.currentDate.yyyymmdd_str])
+            #TODO: 需要增加判断，修改为第二天的计划路线文件夹
+            # fullpath_plan = list_fullpath_of_files_with_keywords(wechat_path, [mapsheet_filename, 'plan_routes', '.kmz', self.currentDate.yyyymm_str])
+
+            if fullpath_finished:
+                mapsheet_dict["Finished"] = "Acquired"
+                mapsheet_dict["Finished File Number"] = len(fullpath_finished)
+                # print(fullpath_finished)
+            else:
+                mapsheet_dict["Finished"] = ""
+                mapsheet_dict["Finished File Number"] = 0
+            # if fullpath_finished:
+            #     mapsheet_dict["Plan"] = "Acquired"
+            #     mapsheet_dict["Plan File Number"] = len(fullpath_plan)
+            # else:
+            #     mapsheet_dict["Plan"] = ""
+            #     mapsheet_dict["Plan File Number"] = 0
+            self.mapdicts[mapsheet_filename] = mapsheet_dict
+        print(self.mapdicts)
+
+        collect_flag_list = []
+        for key, value in self.mapdicts.items():
+            # 如果所有的值Finished都>0，则直接调用数据收集函数
+            if value["Finished File Number"] > 0:
+                print(f"图幅{key}的文件已经收集")
+                collect_flag_list.append(True)
+            else:
+                collect_flag_list.append(False)
+        if all(collect_flag_list):
+            print("当天完成点已经收齐，开始启动数据收集")
+            MyHandler.execute_collection_version2
+            print("数据收集完成")
+            exit()
+
 
 if __name__ == "__main__":
     datenow = DateType(date_datetime=datetime.now())
     # 测试日期
-    # datenow = DateType(date_datetime=datetime(2024, 12, 25))
+    # datenow = DateType(date_datetime=datetime(2024, 12, 26))
     wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
     currentdatefilelist = Monitor(datenow)
+    currentdatefilelist.starter()
 
     event_handler = MyHandler(date=datenow, filelist=currentdatefilelist._mapsheet_filename_list)
+
     observer = Observer()
     observer.schedule(event_handler, wechat_path, recursive=True)
 
