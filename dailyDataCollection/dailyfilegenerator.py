@@ -143,7 +143,6 @@ class GeneralIO(FileIO):
                 os.makedirs(os.path.dirname(newpath), exist_ok=True)
             shutil.copy(self.filepath, newpath)
         return True
-        
 
     def delete(self):
         if os.path.exists(self.filepath) and os.path.isfile(self.filepath):
@@ -280,7 +279,7 @@ class FileAttributes(object):
 
 
 @dataclass
-class PlacemarkerData:
+class ObservationData:
 
     OSPID_PATTERN = r'\d{5}[A-Za-z]\d{3}'
     LONGITUDE_PATTERN = r'<td>Longitude</td>\s*<td>(-?\d+\.\d+)</td>'
@@ -300,6 +299,8 @@ class PlacemarkerData:
             self.__getRoutes()
             # 在解析KML内容后删除KML内容，以释放内存
             del self.kml_content
+            # 检查点号
+            self.__pointCheck()
 
     def __getPoints(self) -> None: 
         """
@@ -312,7 +313,7 @@ class PlacemarkerData:
             if point is not None:
                 name = placemark.find('.//{http://www.opengis.net/kml/2.2}name')
                 if name is not None and name.text:
-                    obspid_pattern = re.compile(PlacemarkerData.OSPID_PATTERN)
+                    obspid_pattern = re.compile(ObservationData.OSPID_PATTERN)
                     if obspid_pattern.match(name.text):
                         obspid = name.text
                         coordinates = point.find('.//{http://www.opengis.net/kml/2.2}coordinates').text.split(',')
@@ -325,9 +326,9 @@ class PlacemarkerData:
         # Step 2: 通过Description元素提取点要素，Description元素下的内容可能包含OBSID、经度和纬度3个要素，OBSID、经度或纬度均可能为空
         for description in root.findall('.//{http://www.opengis.net/kml/2.2}description'):
             if description is not None and description.text:
-                obspidPattern = re.compile(PlacemarkerData.OSPID_PATTERN)
-                longitudePattern = re.compile(PlacemarkerData.LONGITUDE_PATTERN)
-                latitudePattern = re.compile(PlacemarkerData.LATITUDE_PATTERN)
+                obspidPattern = re.compile(ObservationData.OSPID_PATTERN)
+                longitudePattern = re.compile(ObservationData.LONGITUDE_PATTERN)
+                latitudePattern = re.compile(ObservationData.LATITUDE_PATTERN)
                 obspid_match = obspidPattern.search(description.text)
                 longitude_match = longitudePattern.search(description.text)
                 latitude_match = latitudePattern.search(description.text)
@@ -363,13 +364,65 @@ class PlacemarkerData:
                 if coordinates is not None:
                     self.routes.append(coordinates.text.strip())
         self.routesCount = len(self.routes)
+
+    def __pointCheck(self) -> bool:
+        # 通过第self.points字典的键，第6位解析组号并存储在字典中
+        # 得到一个字典，键为组号，值为OBSID
+        obsptidStatistics_dict = {}
+        for key in self.points:
+            teamkey = key[5]
+            if teamkey not in obsptidStatistics_dict:
+                obsptidStatistics_dict[teamkey] = []
+            obsptidStatistics_dict[teamkey].append(key)
+        #TODO 计算前5位，判断是否有重复值？
+        #TODO 可以不做，因为OBSID是唯一的，同时该类可以是多个图幅的数据，不同图幅的图幅号不同
+        # 分别计算第六位相同的个数（每组的点数），以及第六位相同的all_matches列表元素后三位是否连续（小组点数是否连续）
+        # 建立与statistics_dict相同的字典，键值为原键值+"组"
+        statistics_dict = {}
+        for key, values in obsptidStatistics_dict.items():
+            count = len(values)
+            values.sort(key=lambda x: int(x[-3:]))  # 按后三位数字排序，bool
+            is_duplicate = len(values) != len(set(values)) # 检查是否有重复的点号，bool
+            is_consecutive = all(int(values[i][-3:]) + 1 == int(values[i + 1][-3:]) for i in range(len(values) - 1))    # 检查是否连续
+            # 遍历数组，检查相邻元素之间的差是否为1
+            pointValues = [int(value[-3:]) for value in values]
+            gaps = []
+            for i in range(1, count):
+                if pointValues[i] - pointValues[i - 1] != 1:
+                    # 如果差不为1，记录间断的位置
+                    gaps.append((f"{key}{pointValues[i - 1]}", f"{key}{pointValues[i]}"))
+            # 如果有间断，输出间断的位置
+            if gaps:
+                msg = f"组{key}的点号间断位置：{gaps}"
+            else:
+                msg = None
+            max_value = max(values, key=lambda x: int(x[-3:]))
+            new_key = key + "组"
+            statistics_dict[new_key] = { "完成点数": count, "最大列表元素": max_value, "点号是否重复": is_duplicate, "点号是否连续": is_consecutive, "间断位置": msg}
+        # 检查所有“点号是否连续”是否为 True
+        all_consecutive = all(value["点号是否连续"] for key, value in statistics_dict.items())
+        # 检查所有“点号是否重复”是否为 False
+        all_not_duplicate = all(not value["点号是否重复"] for key, value in statistics_dict.items())
+        # 累加所有“完成点数”
+        total_completed_points = sum(value["完成点数"] for key, value in statistics_dict.items())
+        # 检查总完成点数是否等于所有“完成点数相加”
+        total_points_match = total_completed_points == len(self.points)
+        # 如果以上条件均满足，则输出“验证通过”
+        if all_consecutive and all_not_duplicate and total_points_match:
+            return True
+        else:
+            print(f"\nOBSID数据验证失败")
+            print(statistics_dict, "\n")
+            self.__errorMsgs.append(statistics_dict)
+            return False
+
     
-    def __add__(self: 'PlacemarkerData', other: 'PlacemarkerData') -> 'PlacemarkerData':
+    def __add__(self: 'ObservationData', other: 'ObservationData') -> 'ObservationData':
         """用加法操作实现两个文件数据合并，得到一个新的字典"""
-        if not isinstance(other, PlacemarkerData):
-            raise TypeError("Operands must be of type 'PlacemarkerData'")
-        # 创建新的PlacemarkerData对象
-        new_file = PlacemarkerData()
+        if not isinstance(other, ObservationData):
+            raise TypeError("Operands must be of type 'ObservationData'")
+        # 创建新的ObservationData对象
+        new_file = ObservationData()
         # 合并点要素（相同的键进行了覆盖）
         new_file.points = {**self.points, **other.points}
         new_file.pointsCount = len(new_file.points)
@@ -378,10 +431,10 @@ class PlacemarkerData:
         new_file.routesCount = len(new_file.routes)
         return new_file
 
-    def __sub__(self, other: 'PlacemarkerData') -> 'PlacemarkerData':
+    def __sub__(self, other: 'ObservationData') -> 'ObservationData':
         """用减法操作实现两个文件数据的差异，得到一个新的字典"""
-        if not isinstance(other, PlacemarkerData):
-            logger.error("数据类型必须是'PlacemarkerData'")
+        if not isinstance(other, ObservationData):
+            logger.error("数据类型必须是'ObservationData'")
             return None
         # 验证一个字典的键是否是另一个字典键的子集
         if not (self.points.keys() <= other.points.keys() or other.points.keys() <= self.points.keys()):
@@ -390,7 +443,7 @@ class PlacemarkerData:
         # if not (set(self.routes) <= set(other.routes) or set(other.routes) <= set(self.routes)):
         #     raise ValueError("KML文件中的线要素不是另一个的子集")
         # 创建新的KMLFile对象
-        new_file = PlacemarkerData()
+        new_file = ObservationData()
         # 计算点要素的差异
         new_file.points = {key: value for key, value in self.points.items() if key not in other.points}
         new_file.points.update({key: value for key, value in other.points.items() if key not in self.points})
@@ -408,9 +461,7 @@ class PlacemarkerData:
             return None
     
     def __str__(self):
-        return f"点要素数量: {self.pointsCount}\n" \
-               f"线要素数量: {self.routesCount}\n" \
-               f"错误信息: {self.__errorMsgs}"
+        return f"点要素数量: {self.pointsCount}\n"f"线要素数量: {self.routesCount}\n"f"错误信息: {self.__errorMsgs}"
 
 
 class KMZFile(FileAttributes, GeneralIO):
@@ -419,7 +470,7 @@ class KMZFile(FileAttributes, GeneralIO):
     SCHEMA_23 = KML_SCHEMA_23
 
     
-    def __init__(self, filepath: str = None, placemarks: PlacemarkerData = None):
+    def __init__(self, filepath: str = None, placemarks: ObservationData = None):
         super().__init__(filepath)
         # TODO: 如果注释掉，在main函数测试中，会在原1219行报错
         # TODO: File "D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\DailyFileGenerator.py", line 1222, in totalPointNum
@@ -432,7 +483,7 @@ class KMZFile(FileAttributes, GeneralIO):
             else:
                 self.filepath = None
                 logger.error(f"文件后缀名无效: {filepath}")
-        self._placemarks: PlacemarkerData = placemarks
+        self._placemarks: ObservationData = placemarks
 
         self._kml_content = None
         self._resources: dict = {}
@@ -447,7 +498,7 @@ class KMZFile(FileAttributes, GeneralIO):
             self.read()
 
         if placemarks:
-            # print("通过PlacemarkerData数据初始化")
+            # print("通过ObservationData数据初始化")
             self._points = self._placemarks.points
             self._pointsCount = self._placemarks.pointsCount
             self._routes = self._placemarks.routes
@@ -511,7 +562,7 @@ class KMZFile(FileAttributes, GeneralIO):
                     if validate:
                         self.__validateKMZ(defaultSchema)
                     # 解析KML内容
-                    placemarks = PlacemarkerData(kml_content=self._kml_content)
+                    placemarks = ObservationData(kml_content=self._kml_content)
                     self._points = placemarks.points
                     self._pointsCount = placemarks.pointsCount
                     self._routes = placemarks.routes
@@ -588,7 +639,7 @@ class KMZFile(FileAttributes, GeneralIO):
     def __toKMZ(self, output_path):
         """ 将 KML 数据写入 KMZ 文件 """
         if self.placemarks is None:
-            logger.error("PlacemarkerData is empty")
+            logger.error("ObservationData is empty")
             return False
         # 创建输出目录
         if os.path.exists(output_path) and os.path.isfile(output_path):
@@ -811,12 +862,12 @@ class MapsheetDailyFile(object):
         self.currentDate: DateType = date
         self.currentfilename = None
         self.currentfilepath = None
-        self.currentPlacemarks: PlacemarkerData = None
+        self.currentPlacemarks: ObservationData = None
         # 上一次提交的文件属性
         self.previousDate: DateType =  None
         self.previousfilename = None
         self.previousfilepath = None
-        self.previousPlacemarks: PlacemarkerData = None
+        self.previousPlacemarks: ObservationData = None
         # 下一次提交的工作计划文件属性
         self.nextDate: DateType =  None
         self.nextfilename = None
@@ -976,7 +1027,7 @@ class MapsheetDailyFile(object):
     @classmethod
     def findNextPlan(cls, instance):
         """
-        findNextPlan 通常是查找第二天天的计划文件：
+        findNextPlan 通常应是查找第二天的计划文件：
                      或周五-周六休息，周四会查找周六/周日的计划文件，因此为了冗余日期，TRACEFORWARD_DAYS = 5，即向前查找5天，找到最近的一个计划文件
         """
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}之后的计划文件")
@@ -1299,7 +1350,7 @@ class CurrentDateFiles(object):
         return key in self.currentDateFiles
     
     def dailyKMZReport(self):
-        dailykmz =KMZFile(placemarks=PlacemarkerData(points=self.allPoints, pointsCount=len(self.allPoints), routes=self.allRoutes, routesCount=len(self.allRoutes)))
+        dailykmz =KMZFile(placemarks=ObservationData(points=self.allPoints, pointsCount=len(self.allPoints), routes=self.allRoutes, routesCount=len(self.allRoutes)))
         dailykmz.write_as(newpath=os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"GMAS_Points_and_tracks_until_{self.currentDate.yyyymmdd_str}.kmz") )
     
     def dailyExcelReport(self):
@@ -1452,7 +1503,8 @@ class CurrentDateFiles(object):
 
         # 保存工作簿
         book.save(dailyExcel)
-        return print(f"创建每日统计点 {dailyExcel} 空表成功。")
+        print(f"创建每日统计点 {dailyExcel} 空表成功。")
+        return True
     
     def dailyExcelReportUpdate(self):
         dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")
@@ -1468,6 +1520,8 @@ class CurrentDateFiles(object):
         # 保存工作簿
         book.save(dailyExcel)
         # os.startfile(dailyExcel)
+        print(f"每日统计点写入 {dailyExcel} 成功。")
+        return True
 
     
 class DataSubmition(object):

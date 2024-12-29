@@ -53,7 +53,9 @@ class MyHandler(FileSystemEventHandler):
                         if kmz.errorMsg:
                             print(f"文件{filename}中存在错误：{kmz.errorMsg}")
                         else:
-                            print(f"文件{filename}中验证通过")
+                            print(f"文件{filename}验证通过")
+                            #TODO: 需要执行当天的点数量检查
+                            print(f"文件{filename}中的点数：{kmz.pointsCount}")
                         # 清除kmz对象
                         del kmz
                         if mapsheet_name not in self.collect_file_list:
@@ -68,10 +70,9 @@ class MyHandler(FileSystemEventHandler):
                             # 执行 CMD 命令
                             # self.execute_collection()
                             self.execute_collection_version2()
-
                             exit()
         if not self.collect_file_list:
-            print(f"还未收集到任何文件")
+            print(f"未收集到任何文件")
         print("继续监视目标文件夹...")
 
     def execute_collection_version1(self):
