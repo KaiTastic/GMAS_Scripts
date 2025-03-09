@@ -26,11 +26,11 @@ SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
 ICON_FILE_1 = "Layer0_Symbol_Square.png"
 
 # 设置制图工程文件夹
-MAP_PROJECT_FOLDER = "Finished observation points of Group1"
+MAP_PROJECT_FOLDER = "Finished observation points of Group3"
 
 # 设置文件向后回溯查找的日期，格式为"YYYYMMDD"
 # 一般设置为该批次图幅开始的日期，例如"20240901"
-TRACEBACK_DATE = "20240901"
+TRACEBACK_DATE = "20250301"
 # 设置文件向后回溯查找的天数
 TRACEBACK_DAYS = 60
 # 设置文件向前查找的天数
@@ -43,19 +43,23 @@ COLLECTION_WEEKDAYS = [5]
 
 # 设置需要统计的图幅的最小和最大序号，包括最小和最大序号
 # 例如，SEQUENCE_MIN = 1, SEQUENCE_MAX = 22，表示统计1-22图幅，序号来源于100K图幅名称信息等查询表格lookup table
-SEQUENCE_MIN = 1
-SEQUENCE_MAX = 24
+SEQUENCE_MIN = 26
+SEQUENCE_MAX = 40
 
-# 建立资源文件目录，并验证文件是否存在
+# 建立资源文件目录，并验证文件是否存在，为当前文件夹子目录中的文件
 # 100K图幅名称信息等
-SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
+# SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
+SHEET_NAMES_FILE = os.path.join('.', 'resource', 'private', SHEET_NAMES_LUT_100K)
+
 # 图标文件
-ICON_1 = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE_1)
+# ICON_1 = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE_1)
+ICON_1 = os.path.join('.', 'resource', 'private', ICON_FILE_1)
 
-# KML文件的XSD模式，分别为2.2和2.3版本
-KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
-KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
-
+# KML文件的XSD模式，分别为2.2和2.3版本，为当前文件夹子目录中的文件
+# KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
+# KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
+KML_SCHEMA_22 = os.path.join('.', 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
+KML_SCHEMA_23 = os.path.join('.', 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
 
 # 验证文件是否存在
 if not os.path.exists(SHEET_NAMES_FILE):

@@ -1,7 +1,3 @@
-import arcpy
-import os
-
-
 """
 ArcGIS Pro的ArcPy模块路径
 C:\Users\caokai\AppData\Local\ESRI\conda\envs\arcgispro301-py39
@@ -13,10 +9,11 @@ Python 3.9
 2. 将布局中的标题修改为指定的文本，日期更新为当天日期
 3. 导出ArcGIS Pro布局为PDF文件
 """
+import arcpy
+import os
 
 
-
-def export_layout_to_pdf(aprx_path, layout_name, output_pdf_path):
+def export_layout_to_pdf(aprx_path: str, layout_name: str, output_pdf_path: str):
     """
     导出 ArcGIS Pro 布局为 PDF 文件。
 
@@ -37,12 +34,12 @@ def export_layout_to_pdf(aprx_path, layout_name, output_pdf_path):
 
 # 示例调用
 aprx_path = r"D:\RouteDesigen\Finished observation points of Group1\Observation_Points_20241028_20241103.aprx"
-
 layout_name = "Layout"
-
-output_pdf_path = r"D:\RouteDesigen\Finished observation points of Group1\Observation_Points.pdf"
+output_pdf_path = r"D:\RouteDesigen\Finished observation points of Group1\Observation_Points_20241028_20241103.pdf"
 
 export_layout_to_pdf(aprx_path, layout_name, output_pdf_path)
 
 
 print(arcpy.__version__)
+
+print(arcpy.GetInstallInfo())

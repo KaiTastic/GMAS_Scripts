@@ -22,10 +22,11 @@ def main():
 
 globalLogger = Logger(name='global logger', level=logging.INFO)
 
+
 if __name__ == "__main__":
     
     today = DateType(date_datetime=datetime.now())
-    # today = DateType(yyyymmdd_str='20241225')
+    # today = DateType(yyyymmdd_str='20250303')
 
     # 设置日志记录文件位置
     logfile = os.path.join(WORKSPACE, today.yyyymm_str, today.yyyymmdd_str, f"validateKMZfiles{today.yyyymmdd_str}.log")
@@ -55,7 +56,7 @@ if __name__ == "__main__":
         table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_plan_list[i]])
     table_data.append(["", "", collection.totalDaiyIncreasePointNum, collection.totalDailyPlanNum])
     print('\n'*2)
-    headers = ["Seq", "Name", "Finished", "Plan"]
+    headers = ["Seq", "Name", "Daily Increase", "Plan"]
     print(tabulate(table_data, headers, tablefmt="grid"))
     print('\n'*2)
     # 生成表格并输出---------------------------

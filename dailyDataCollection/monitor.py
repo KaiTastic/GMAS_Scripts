@@ -10,7 +10,7 @@ import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from DailyFileGenerator import list_fullpath_of_files_with_keywords, find_files_with_max_number, KMZFile
+from DailyFileGenerator import KMZFile, MapsheetDailyFile, list_fullpath_of_files_with_keywords, find_files_with_max_number
 import re
 import subprocess
 
@@ -55,7 +55,9 @@ class MyHandler(FileSystemEventHandler):
                         else:
                             print(f"文件{filename}验证通过")
                             #TODO: 需要执行当天的点数量检查
-                            print(f"文件{filename}中的点数：{kmz.pointsCount}")
+                            filenameDaily = MapsheetDailyFile(mapsheet_name, self.date)
+                            print(f"{self.date.yyyymmdd_str}日{filename}完成点数：{filenameDaily.dailyincreasePointNum}")
+                            del filenameDaily
                         # 清除kmz对象
                         del kmz
                         if mapsheet_name not in self.collect_file_list:
@@ -65,11 +67,12 @@ class MyHandler(FileSystemEventHandler):
                         print(f"已收集的文件列表：{self.collect_file_list}, 还缺少的文件列表：{list(set(self.filelist) - set(self.collect_file_list))}")
                         if set(self.filelist) == set(self.collect_file_list):
                             print(f"当天计划路线中的图幅信息已全部收集")
+                            time.sleep(30)
                             # TODO: 调用数据收集函数
                             #! 暂时利用Version 1中的代码
                             # 执行 CMD 命令
                             # self.execute_collection()
-                            self.execute_collection_version2()
+                            self.execute_collection_version_2()
                             exit()
         if not self.collect_file_list:
             print(f"未收集到任何文件")
@@ -89,7 +92,7 @@ class MyHandler(FileSystemEventHandler):
         print("合并KMZ文件完成")
     
     @staticmethod
-    def execute_collection_version2():
+    def execute_collection_version_2():
         print("开始数据收集...")
         cmd_command = f"python310 D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\main.py"
         result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
@@ -103,40 +106,7 @@ class MyHandler(FileSystemEventHandler):
     #     print(f'File moved: from {event.src_path} to {event.dest_path}')
 
     def reportTable(self):
-    # # 打印表格---------------------------
-    #     map_name_list = []
-    #     daily_collection_list = []
-    #     daily_plan_list = []
-    #     for key, value in collection.dailyFinishedPoints.items():
-    #         map_name_list.append(key)
-    #         daily_collection_list.append(collection.dailyFinishedPoints[key])
-    #         daily_plan_list.append(collection.DailyPlans[key])
-
-    #     # 计算每列的最大宽度
-    #     max_len_index = max(len(str(i + 1)) for i in range(len(map_name_list)))
-    #     max_len_map_name = max(len(name) for name in map_name_list)
-    #     max_len_collection = max(len(str(collection)) for collection in daily_collection_list)
-    #     max_len_plan = max(len(plan) for plan in daily_plan_list)
-
-    #     # 定义表头
-    #     headers = ["Seq", "Name", "Finished", "Plan"]
-    #     header_lengths = [max_len_index, max_len_map_name, max_len_collection, max_len_plan]
-    #     sums = sum(header_lengths) + 7 * 3
-
-    #     # 打印表头
-    #     header_row = f"{headers[0]:<{header_lengths[0]}} | {headers[1]:<{header_lengths[1]}} | {headers[2]:<{header_lengths[2]}} | {headers[3]:<{header_lengths[3]}}  |"
-    #     print('\n'*2, "-" * len(header_row))
-    #     print(header_row)
-    #     print("-" * len(header_row))
-    #     # 打印表格数据
-    #     for i in range(len(map_name_list)):
-    #         row = f"{i + 1:<{header_lengths[0]}} | {map_name_list[i]:<{header_lengths[1]}} | {daily_collection_list[i]:<{header_lengths[2]}} | {daily_plan_list[i]:<{header_lengths[3]}} |"
-    #         print(row)
-    #     print("-" * len(header_row))
-    #     print(' '*max_len_index, '|', ' '*max_len_map_name, '|', f"{collection.totalDaiyIncreasePointNum}", '|', f"{collection.totalDailyPlanNum}")
-    #     print("-" * len(header_row), '\n'*2)
-    #     # 打印表格---------------------------
-        pass
+         pass
 
 
 class Monitor(object):
@@ -160,7 +130,7 @@ class Monitor(object):
         从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
         """
         print("开始获取图幅信息...")
-        df = pd.read_excel(os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K), sheet_name="Sheet1", header=0, index_col=0)
+        df = pd.read_excel(os.path.join('.', 'resource', 'private', SHEET_NAMES_LUT_100K), sheet_name="Sheet1", header=0, index_col=0)
         # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
         filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
         # 确保 'Sequence' 列为 int 类型
@@ -187,7 +157,7 @@ class Monitor(object):
     def __setMapsheetList(self):
         # 设置每天需要收集的图幅列表
         # 检查当天PlanRoutes文件夹是否存在，同时获取当天的计划路线列表
-        plan_routes_folder = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
+        plan_routes_folder = os.path.join('.', self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
         # 如果当天的计划路线文件夹存在，则获取当天的计划路线列表
         mapsheet_list = []
         if os.path.exists(plan_routes_folder) and os.path.isdir(plan_routes_folder):
@@ -246,7 +216,7 @@ class Monitor(object):
                 collect_flag_list.append(False)
         if all(collect_flag_list):
             print("当天完成点已经收齐，开始启动数据收集")
-            MyHandler.execute_collection_version2
+            MyHandler.execute_collection_version_2
             print("数据收集完成")
             exit()
 

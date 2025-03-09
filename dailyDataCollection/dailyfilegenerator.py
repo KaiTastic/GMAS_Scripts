@@ -68,9 +68,6 @@ def find_files_with_max_number(directory: str) -> dict:
     # 输出包含相同基础文件名中括号内数字最大的文件
     return files_dict
 
-def process_date(date):
-    collection = CurrentDateFiles(date)
-    return f"{date}新增点数：{collection.totalDaiyIncreasePointNum}"
 
 class FileIO(ABC):
     def __init__(self, filepath=None):
@@ -474,7 +471,7 @@ class KMZFile(FileAttributes, GeneralIO):
         super().__init__(filepath)
         # TODO: 如果注释掉，在main函数测试中，会在原1219行报错
         # TODO: File "D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\DailyFileGenerator.py", line 1222, in totalPointNum
-        # TODO: totalNum += mapsheet.previousPlacemarks.pointsCount
+        # TODO: totalNum += mapsheet.lastPlacemarks.pointsCount
         # TODO: AttributeError: 'NoneType' object has no attribute 'pointsCount'
         self.filepath = filepath
         if self.filepath:
@@ -864,14 +861,15 @@ class MapsheetDailyFile(object):
         self.currentfilepath = None
         self.currentPlacemarks: ObservationData = None
         # 上一次提交的文件属性
-        self.previousDate: DateType =  None
-        self.previousfilename = None
-        self.previousfilepath = None
-        self.previousPlacemarks: ObservationData = None
+        self.lastDate: DateType =  None
+        self.lastfilename = None
+        self.lastfilepath = None
+        self.lastPlacemarks: ObservationData = None
         # 下一次提交的工作计划文件属性
         self.nextDate: DateType =  None
         self.nextfilename = None
         self.nextfilepath = None
+        self.nextPlacemarks: ObservationData = None
         # 本日新增点数、线路数、点要素和线要素
         self.dailyincreasePointNum: int = None
         self.dailyincreaseRouteNum: int = None
@@ -949,21 +947,21 @@ class MapsheetDailyFile(object):
         return cls
     
     @classmethod
-    def findPreviousFinished(cls, instance):
+    def findlastFinished(cls, instance):
         """
         """
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}之前的文件")
-        previousDate_datetime1 = instance.currentDate.date_datetime
-        while previousDate_datetime1 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+        lastDate_datetime1 = instance.currentDate.date_datetime
+        while lastDate_datetime1 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
             # Step 1: 在工作文件夹（当前日期）中直接查找，在对应的时间日期直接快速查找
-            previousDate_datetime2 = instance.currentDate.date_datetime
-            while previousDate_datetime2 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-                previousDate_datetime2 -= timedelta(days=1)
-                search_date_str = previousDate_datetime2.strftime("%Y%m%d")
-                file_path = os.path.join(WORKSPACE, previousDate_datetime1.strftime("%Y%m"), previousDate_datetime1.strftime("%Y%m%d"), "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{search_date_str}.kmz")
+            lastDate_datetime2 = instance.currentDate.date_datetime
+            while lastDate_datetime2 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                lastDate_datetime2 -= timedelta(days=1)
+                search_date_str = lastDate_datetime2.strftime("%Y%m%d")
+                file_path = os.path.join(WORKSPACE, lastDate_datetime1.strftime("%Y%m"), lastDate_datetime1.strftime("%Y%m%d"), "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{search_date_str}.kmz")
                 # print(f"在工作文件夹中查找{instance.mapsheetFileName}日期{file_path}的文件")
                 if os.path.exists(file_path):
-                    instance.previousDate = DateType(date_datetime=previousDate_datetime2)
+                    instance.lastDate = DateType(date_datetime=lastDate_datetime2)
                     #TODO: 将文件拷贝至当前日期文件夹中，需要补充
                     if instance.currentfilename is None:
                         dest = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", os.path.basename(file_path))
@@ -971,57 +969,57 @@ class MapsheetDailyFile(object):
                             os.makedirs(os.path.dirname(dest), exist_ok=True)
                             shutil.copy(file_path, dest)
                             os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)
-                            instance.previousfilepath = dest
+                            instance.lastfilepath = dest
                     else:
-                        instance.previousfilepath = file_path
-                    # print(f"在工作文件夹中找到{instance.previousDate.yyyymmdd_str}的文件: {instance.previousfilepath}")
+                        instance.lastfilepath = file_path
+                    # print(f"在工作文件夹中找到{instance.lastDate.yyyymmdd_str}的文件: {instance.lastfilepath}")
                     break
-            if instance.previousfilepath:
+            if instance.lastfilepath:
                 break
-            previousDate_datetime1 -= timedelta(days=1)
+            lastDate_datetime1 -= timedelta(days=1)
         else:
             # print(f"Step 1: 完成\n在工作文件夹中未找到上次{instance.mapsheetFileName}日期{search_date_str}的文件")
             # Step 2: 工作文件夹开启搜索
-            previousDate_datetime = instance.currentDate.date_datetime
+            lastDate_datetime = instance.currentDate.date_datetime
             folder = os.path.join(WORKSPACE)
-            while previousDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-                previousDate_datetime -= timedelta(days=1)
+            while lastDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                lastDate_datetime -= timedelta(days=1)
                 # 定位到年月日文件夹中的Finished points文件夹
-                date_folder = os.path.join(WORKSPACE, previousDate_datetime.strftime("%Y%m"), previousDate_datetime.strftime("%Y%m%d"), "Finished points")
+                date_folder = os.path.join(WORKSPACE, lastDate_datetime.strftime("%Y%m"), lastDate_datetime.strftime("%Y%m%d"), "Finished points")
                 # 列出文件夹中包含图幅名称和finished_points的文件
                 searchedFile_list = list_fullpath_of_files_with_keywords(date_folder, [instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
                 if searchedFile_list:
                     #TODO: 用find_files_with_max_number函数二次验证获取的文件（也许不用？一般是唯一值）
                     # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
                     fetched_file = max(searchedFile_list, key=os.path.getctime)
-                    instance.previousDate = DateType(date_datetime=previousDate_datetime)
-                    instance.previousfilepath = fetched_file
+                    instance.lastDate = DateType(date_datetime=lastDate_datetime)
+                    instance.lastfilepath = fetched_file
                     break
             else:
                 # 如果在TRACEBACK_DATE之后未找到文件，在循环结束后在微信聊天记录文件夹中查找
                 # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
-                previousDate_datetime = instance.currentDate.date_datetime
+                lastDate_datetime = instance.currentDate.date_datetime
                 folder = os.path.join(WECHAT_FOLDER)
-                while previousDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-                    previousDate_datetime -= timedelta(days=1)
-                    search_date_str = previousDate_datetime.strftime("%Y%m%d")
+                while lastDate_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+                    lastDate_datetime -= timedelta(days=1)
+                    search_date_str = lastDate_datetime.strftime("%Y%m%d")
                     searchedFile_list = list_fullpath_of_files_with_keywords(folder, [search_date_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
                     if searchedFile_list:
                         #TODO: 用find_files_with_max_number函数二次验证获取的文件
                         # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
                         fetched_file = max(searchedFile_list, key=os.path.getctime)
-                        instance.previousDate = DateType(date_datetime=previousDate_datetime)
-                        instance.previousfilepath = fetched_file
+                        instance.lastDate = DateType(date_datetime=lastDate_datetime)
+                        instance.lastfilepath = fetched_file
                         break
-        if instance.previousfilepath:
-            instance.previousfilename = os.path.basename(instance.previousfilepath)
-            file = KMZFile(filepath=instance.previousfilepath)
-            instance.previousPlacemarks = file.placemarks
+        if instance.lastfilepath:
+            instance.lastfilename = os.path.basename(instance.lastfilepath)
+            file = KMZFile(filepath=instance.lastfilepath)
+            instance.lastPlacemarks = file.placemarks
             if file.__errorMsg:
                 instance.__errorMsg[instance.currentfilepath] = file.errorMsg
-            # print(instance.previousPlacemarks)
-        # print("正在获取", instance.previousfilepath)
-        # print(instance.previousPlacemarks)
+            # print(instance.lastPlacemarks)
+        # print("正在获取", instance.lastfilepath)
+        # print(instance.lastPlacemarks)
         return cls
     
     @classmethod
@@ -1073,7 +1071,7 @@ class MapsheetDailyFile(object):
     
     def __mapsheetfiles(self):
         MapsheetDailyFile.getCurrentDateFile(self)
-        MapsheetDailyFile.findPreviousFinished(self)
+        MapsheetDailyFile.findlastFinished(self)
         MapsheetDailyFile.findNextPlan(self)
         MapsheetDailyFile.__dailyIncrease(self)
         return self
@@ -1086,11 +1084,11 @@ class MapsheetDailyFile(object):
             dailyincreasePlacemarks = 0
             self.dailyincreasePointNum = 0
             self.dailyincreaseRouteNum = 0
-        if self.currentPlacemarks and self.previousPlacemarks:
-            dailyincreasePlacemarks = self.currentPlacemarks - self.previousPlacemarks
+        if self.currentPlacemarks and self.lastPlacemarks:
+            dailyincreasePlacemarks = self.currentPlacemarks - self.lastPlacemarks
             self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
-        if self.currentPlacemarks is not None and self.previousPlacemarks is None:
+        if self.currentPlacemarks is not None and self.lastPlacemarks is None:
             dailyincreasePlacemarks = self.currentPlacemarks
             self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
@@ -1105,7 +1103,7 @@ class MapsheetDailyFile(object):
             return None
     
     def __str__(self):
-        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.previousfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
+        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
     
 
     
@@ -1283,8 +1281,8 @@ class CurrentDateFiles(object):
             for mapsheet in self.currentDateFiles:
                 if mapsheet.currentPlacemarks is not None:
                     totalNum += mapsheet.currentPlacemarks.pointsCount
-                elif mapsheet.previousPlacemarks is not None:
-                    totalNum += mapsheet.previousPlacemarks.pointsCount
+                elif mapsheet.lastPlacemarks is not None:
+                    totalNum += mapsheet.lastPlacemarks.pointsCount
             self._totalPointNum = totalNum
         return self._totalPointNum
     
@@ -1299,8 +1297,8 @@ class CurrentDateFiles(object):
                 # print(mapsheet.currentPlacemarks)
                 if mapsheet.currentPlacemarks is not None:
                     allPoints.update(mapsheet.currentPlacemarks.points)
-                elif mapsheet.previousPlacemarks is not None:
-                    allPoints.update(mapsheet.previousPlacemarks.points)
+                elif mapsheet.lastPlacemarks is not None:
+                    allPoints.update(mapsheet.lastPlacemarks.points)
             self._allPoints = allPoints
         return self._allPoints
     
@@ -1314,8 +1312,8 @@ class CurrentDateFiles(object):
             for mapsheet in self.currentDateFiles:
                 if mapsheet.currentPlacemarks is not None:
                     totalNum += mapsheet.currentPlacemarks.routesCount
-                elif mapsheet.previousPlacemarks is not None:
-                    totalNum += mapsheet.previousPlacemarks.routesCount
+                elif mapsheet.lastPlacemarks is not None:
+                    totalNum += mapsheet.lastPlacemarks.routesCount
             self._totalRouteNum = totalNum
         return self._totalRouteNum
 
@@ -1329,8 +1327,8 @@ class CurrentDateFiles(object):
             for mapsheet in self.currentDateFiles:
                 if mapsheet.currentPlacemarks is not None:
                     allRoutes.extend(mapsheet.currentPlacemarks.routes)
-                elif mapsheet.previousPlacemarks is not None:
-                    allRoutes.extend(mapsheet.previousPlacemarks.routes)
+                elif mapsheet.lastPlacemarks is not None:
+                    allRoutes.extend(mapsheet.lastPlacemarks.routes)
             self._allRoutes = allRoutes
         return self._allRoutes
 
@@ -1690,16 +1688,3 @@ if __name__ == "__main__":
         print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
         date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
     exit()
-
-    # 使用多线程处理回溯日期
-    dates = []
-    while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-        dates.append(date)
-        date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
-
-    # 使用线程池执行任务
-    with ThreadPoolExecutor(max_workers=6) as executor:
-        futures = [executor.submit(process_date, date) for date in dates]
-
-        for future in as_completed(futures):
-            print(future.result())
