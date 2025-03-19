@@ -7,6 +7,7 @@ import xmlschema
 import logging
 import time
 import json
+import stat
 import pandas as pd
 from dataclasses import dataclass, field
 from lxml import etree
@@ -16,13 +17,11 @@ from abc import ABC, abstractmethod
 from osgeo import ogr, osr
 from openpyxl.styles import *
 from openpyxl import Workbook, load_workbook
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import stat
-import numpy as np
+from tabulate import tabulate
 
 
 # 创建 logger 实例
-logger = logging.getLogger('dailyfilegenerator')
+logger = logging.getLogger('Daily File Generator')
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -286,7 +285,7 @@ class ObservationData:
     pointsCount: int = 0
     routes: list = field(default_factory=list)
     routesCount: int = 0
-    __errorMsgs: list = field(default_factory=list)
+    __errorMsg: list = field(default_factory=list)
 
     kml_content: str = None
 
@@ -317,9 +316,12 @@ class ObservationData:
                         longitude, latitude = coordinates[0], coordinates[1]
                         self.points[obspid] = {'longitude': longitude, 'latitude': latitude}
                     else:
-                        error = f"点要素{name.text}格式不符合OBSID命名格式"
-                        self.__errorMsgs.append(error)
-                        logger.warning(error)
+                        error = f"点要素{name.text}的标签格式不符合OBSID命名规范"
+                        if type(self.__errorMsg) == list:
+                            self.__errorMsg.append(error)
+                        else:
+                            self.__errorMsg = [error]
+                        # logger.warning(error)
         # Step 2: 通过Description元素提取点要素，Description元素下的内容可能包含OBSID、经度和纬度3个要素，OBSID、经度或纬度均可能为空
         for description in root.findall('.//{http://www.opengis.net/kml/2.2}description'):
             if description is not None and description.text:
@@ -339,15 +341,18 @@ class ObservationData:
                         self.points[obspid] = { 'longitude': longitude, 'latitude': latitude}
                 # 如果OBSID、经度和纬度中有一个为空，则记录日志
                 if obspid and not longitude and not latitude:
-                    error = f"点要素{obspid}缺少经度或纬度"
-                    self.__errorMsgs.append(error)
-                    logger.warning(error)
+                    error = f"点要素{obspid}的属性表中缺少经度值和纬度值"
+                    if type(self.__errorMsg) == list:
+                        self.__errorMsg.append(error)
+                    else:
+                        self.__errorMsg = [error]
+                    # logger.warning(error)
         # Step 3: 删除缺少经度或纬度的点要素
         # for obspid, coords in self.points.items():
         #     if coords['longitude'] == None or coords['latitude'] == None:
         #         del self.points[obspid]
         #         error = f"点要素{obspid}缺少经度或纬度"
-        #         self.errorMsgs.append(error)
+        #         self.errorMsg.append(error)
         #         print(error)
         self.pointsCount = len(self.points)
 
@@ -410,7 +415,7 @@ class ObservationData:
         else:
             print(f"\nOBSID数据验证失败")
             print(statistics_dict, "\n")
-            self.__errorMsgs.append(statistics_dict)
+            self.__errorMsg.append(statistics_dict)
             return False
 
     
@@ -452,13 +457,13 @@ class ObservationData:
     
     @property
     def errorMsg(self):
-        if self.__errorMsgs:
-            return self.__errorMsgs
+        if type(self.__errorMsg) == list:
+            return self.__errorMsg
         else:
             return None
     
     def __str__(self):
-        return f"点要素数量: {self.pointsCount}\n"f"线要素数量: {self.routesCount}\n"f"错误信息: {self.__errorMsgs}"
+        return f"点要素数量: {self.pointsCount}\n"f"线要素数量: {self.routesCount}\n"f"错误信息: {self.__errorMsg}"
 
 
 class KMZFile(FileAttributes, GeneralIO):
@@ -489,7 +494,7 @@ class KMZFile(FileAttributes, GeneralIO):
         self._routes: list = []
         self._routesCount: int = 0
         # 用于存储错误信息
-        self._errorMsg: list = []
+        self.__errorMsg: list = []
 
         if self.filepath:
             self.read()
@@ -500,8 +505,13 @@ class KMZFile(FileAttributes, GeneralIO):
             self._pointsCount = self._placemarks.pointsCount
             self._routes = self._placemarks.routes
             self._routesCount = self._placemarks.routesCount
-            if self._placemarks.errorMsg:
-                self._errorMsg.append(self._placemarks.errorMsg)
+            if type(self._placemarks.errorMsg) == list:
+                self.__errorMsg.append(self._placemarks.errorMsg)
+                print("KMZ初始化时发现的错误", self.errorMsg)
+            
+            # if self._placemarks.errorMsg:
+            #     print(self._placemarks.errorMsg)
+            #     self.__errorMsg.append(self._placemarks.errorMsg)
 
     def __validateKMZ(self, defaultSchema = "schema22") -> bool:
         """
@@ -525,7 +535,7 @@ class KMZFile(FileAttributes, GeneralIO):
                 # error = f"XML文件与XSD'{defaultSchema}'验证不符: {e}"
                 warning = f"XML文件与XSD'{defaultSchema}'验证不符"
                 logger.warning(warning)
-                self._errorMsg.append(warning)
+                self.__errorMsg.append(warning)
                 return False
     
     def read(self, filepath: str = None, validate = False, defaultSchema = "schema22"):
@@ -565,9 +575,9 @@ class KMZFile(FileAttributes, GeneralIO):
                     self._routes = placemarks.routes
                     self._routesCount = placemarks.routesCount
                     if placemarks.errorMsg:
-                        self._errorMsg.append(placemarks.errorMsg)
+                        self.__errorMsg.append(placemarks.errorMsg)
+                        # print("KMZ读取时候发现的错误", self.errorMsg)
                     self._placemarks = placemarks
-                    # print("KMZ读取时候发现的错误", self.errorMsg)
                     #! 删除KML内容，释放内存
                     del self._kml_content
             else:
@@ -761,8 +771,8 @@ class KMZFile(FileAttributes, GeneralIO):
         elif name == 'routesCount':
             return self._routesCount
         elif name == 'errorMsg':
-            if self._errorMsg:
-                return self._errorMsg
+            if self.__errorMsg:
+                return self.__errorMsg
             else:
                 return None
         else:
@@ -945,8 +955,8 @@ class MapsheetDailyFile(object):
             instance.currentfilename = os.path.basename(instance.currentfilepath)
             file = KMZFile(filepath=instance.currentfilepath)
             instance.currentPlacemarks = file.placemarks
-            if file.__errorMsg:
-                instance.__errorMsg[instance.currentfilepath] = file.errorMsg
+            if file.errorMsg:
+                instance.__errorMsg[instance.currentfilename] = file.errorMsg
         return cls
     
     @classmethod
@@ -1018,8 +1028,8 @@ class MapsheetDailyFile(object):
             instance.lastfilename = os.path.basename(instance.lastfilepath)
             file = KMZFile(filepath=instance.lastfilepath)
             instance.lastPlacemarks = file.placemarks
-            if file.__errorMsg:
-                instance.__errorMsg[instance.currentfilepath] = file.errorMsg
+            if file.errorMsg:
+                instance.__errorMsg[instance.lastfilename] = file.errorMsg
             # print(instance.lastPlacemarks)
         # print("正在获取", instance.lastfilepath)
         # print(instance.lastPlacemarks)
@@ -1068,8 +1078,8 @@ class MapsheetDailyFile(object):
             instance.nextfilename = os.path.basename(instance.nextfilepath)
             file = KMZFile(filepath=instance.nextfilepath)
             instance.planPlacemarks = file.placemarks
-            if file.__errorMsg:
-                instance.__errorMsg[instance.nextfilepath] = file.errorMsg
+            if file.errorMsg:
+                instance.__errorMsg[instance.nextfilename] = file.errorMsg
         return cls
     
     def __mapsheetfiles(self):
@@ -1118,7 +1128,7 @@ class MapsheetDailyFile(object):
     @property
     def errorMsg(self):
         if self.__errorMsg:
-            return self.errorMsg
+            return self.__errorMsg
         else:
             return None
     
@@ -1174,7 +1184,7 @@ class CurrentDateFiles(object):
         self._dailyPlanedRoutes: dict = None
 
         # 错误信息
-        self._errorMsg: list = []
+        self.__errorMsg: list = None
         # 获取当天的文件
         self.__datacollect()
     
@@ -1303,8 +1313,7 @@ class CurrentDateFiles(object):
                     total += 1
             self._totalPlanNum = total
         return self._totalPlanNum
-        
-
+    
     @property
     def totalPointNum(self):
         """
@@ -1374,10 +1383,12 @@ class CurrentDateFiles(object):
 
     @property
     def errorMsg(self):
-        if self._errorMsg is None:
+        if self.__errorMsg is None:
+            self.__errorMsg = []
             for mapsheet in self.currentDateFiles:
-                self._errorMsg.append(mapsheet.errorMsg)
-        return self._errorMsg
+                self.__errorMsg.append(mapsheet.errorMsg)
+                # print(mapsheet.errorMsg)
+        return self.__errorMsg
 
     def __contains__(self, key):
         #! 重写__contains__方法，用于判断图幅文件是否存在
@@ -1539,6 +1550,37 @@ class CurrentDateFiles(object):
         book.save(dailyExcel)
         print(f"创建每日统计点 {dailyExcel} 空表成功。")
         return True
+    
+    def onScreenDisplay(self):
+        # 填图组号
+        team_list = []
+        # 图幅罗马名称
+        map_name_list = []
+        # 当天新增点数
+        daily_collection_list = []
+        # 截止当天，图幅完成的总点数
+        daily_Finished_list = []
+        # 图幅第二天的野外计划
+        daily_plan_list = []
+        for key, value in self.dailyIncreasedPoints.items():
+            map_name_list.append(key)
+            x = ''  # Define x with an appropriate value
+            # 各个图幅当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+            daily_collection_list.append(x if self.dailyIncreasedPoints[key] == 0 else self.dailyIncreasedPoints[key])
+            # 各个图幅截止当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+            daily_Finished_list.append(x if self.dailyFinishedPoints[key] == 0 else self.dailyFinishedPoints[key])
+            daily_plan_list.append(self.DailyPlans[key])
+        table_data = []
+        # 调整显示的每行顺序
+        for i in range(len(map_name_list)):
+            table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
+        # 添加总计行
+        table_data.append(["TOTAL", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
+        print('\n'*2)
+        headers = ["Seq", "Name", "Increase", "Plan", "Finished"]
+        print(tabulate(table_data, headers, tablefmt="grid"))
+        # print('\n'*1)
+
     
     def dailyExcelReportUpdate(self):
         dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")

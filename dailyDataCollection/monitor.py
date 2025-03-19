@@ -10,7 +10,7 @@ import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from DailyFileGenerator import KMZFile, MapsheetDailyFile, list_fullpath_of_files_with_keywords, find_files_with_max_number
+from DailyFileGenerator import KMZFile, MapsheetDailyFile, CurrentDateFiles, list_fullpath_of_files_with_keywords, find_files_with_max_number
 import re
 import subprocess
 
@@ -110,7 +110,7 @@ class MyHandler(FileSystemEventHandler):
 
 
 class Monitor(object):
-    maps_info: dict = {}
+    maps_info: dict = None
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
@@ -127,49 +127,30 @@ class Monitor(object):
     @classmethod
     def mapsInfo(cls):
         """
-        从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
+        调用CurrentDateFiles类中的mapsInfo方法，从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
         """
-        print("开始获取图幅信息...")
-        df = pd.read_excel(os.path.join('.', 'resource', 'private', SHEET_NAMES_LUT_100K), sheet_name="Sheet1", header=0, index_col=0)
-        # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
-        filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
-        # 确保 'Sequence' 列为 int 类型
-        filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].astype(int)
-        #TODO: 需要增加判断，如果Sequence列中有重复值，需要报错
-        #TODO: 需要增加判断，如果Sequence列中去除的值不等于 SEQUENCE_MAX - SEQUENCE_MIN + 1，需要报错
-        # # 按照 'Sequence' 列值从小到大排序
-        sorted_df = filtered_df.sort_values(by='Sequence')
-        # # 获取图幅名称、罗马名称和拉丁名称，并存储为字典
-        # 构建以 'Sequence' 为键的字典
-        cls.maps_info = {
-            row['Sequence']: {
-                # 'Sheet ID': row['Alternative sheet ID'],
-                'Group': row['Group'],
-                'File Name': row['File Name'],
-                'Roman Name': row['Roman Name'],
-                'Latin Name': row['Latin Name']
-            }
-            for _, row in sorted_df.iterrows()
-        }
+        # print("开始获取图幅信息...")
+        cls.maps_info = CurrentDateFiles.mapsInfo()
         # print(cls.maps_info)
-        print("图幅信息获取完成")
+        # print("图幅信息获取完成")
         return cls.maps_info
 
     def __setMapsheetList(self):
         # 设置每天需要收集的图幅列表
         # 检查当天PlanRoutes文件夹是否存在，同时获取当天的计划路线列表
-        plan_routes_folder = os.path.join('.', self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
+        plan_routes_folder = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
         # 如果当天的计划路线文件夹存在，则获取当天的计划路线列表
         mapsheet_list = []
         if os.path.exists(plan_routes_folder) and os.path.isdir(plan_routes_folder):
             plan_routes_list = [file for file in os.listdir(plan_routes_folder) if file.endswith(".kmz")]
-            print(f"当天计划路线列表：{plan_routes_list}")
+            # print(f"当天计划路线列表：{plan_routes_list}")
             for file_name in plan_routes_list:
                 lower_file_name = file_name.lower()
                 index = lower_file_name.find('_plan_routes_')
                 if index != -1:
                     mapsheet_list.append(file_name[:index])
-            print(f"当天计划路线中的图幅名称列表：{mapsheet_list}")
+            print(f"{self.currentDate}当天计划路线中的图幅数量：{len(mapsheet_list)}")
+            print(f"{self.currentDate}当天计划路线中的图幅名称列表：{mapsheet_list}")
             mapsheet_filename_list = [info['File Name'] for mapsheet in mapsheet_list for sequence, info in self.maps_info.items() if info['File Name'].lower() == mapsheet.lower()]
             self._mapsheet_filename_list = mapsheet_filename_list
             if len(self._mapsheet_filename_list) == len(plan_routes_list):
@@ -228,6 +209,7 @@ if __name__ == "__main__":
     # datenow = DateType(date_datetime=datetime(2024, 12, 26))
     wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
     currentdatefilelist = Monitor(datenow)
+    # print(currentdatefilelist._mapsheet_filename_list)
     currentdatefilelist.starter()
 
     event_handler = MyHandler(date=datenow, filelist=currentdatefilelist._mapsheet_filename_list)
