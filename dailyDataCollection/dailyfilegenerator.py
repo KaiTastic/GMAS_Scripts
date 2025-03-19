@@ -877,6 +877,9 @@ class MapsheetDailyFile(object):
         self.dailyincreaseRoutes: list = []
         # 包含的错误信息
         self.__errorMsg: dict = {}
+        # 截止当前日期的总点数、线路数
+        self.currentTotalPointNum: int = None
+        self.currentTotalRouteNum: int = None
 
         self.__mapsheetfiles()
 
@@ -1074,7 +1077,24 @@ class MapsheetDailyFile(object):
         MapsheetDailyFile.findlastFinished(self)
         MapsheetDailyFile.findNextPlan(self)
         MapsheetDailyFile.__dailyIncrease(self)
+        MapsheetDailyFile.__Finished(self)
         return self
+    
+    def __Finished(self):
+        """
+        计算截止当天的总计点数和线路数
+        """
+        if self.currentPlacemarks is None and self.lastPlacemarks is None:
+            self.currenttotalPointNum = '-'
+            self.currenttotalRouteNum = '-'
+        if self.currentPlacemarks is not None and self.lastPlacemarks is not None:
+            self.currenttotalPointNum = len(self.currentPlacemarks.points)
+            self.currenttotalRouteNum = len(self.currentPlacemarks.routes)
+        if self.currentPlacemarks is None and self.lastPlacemarks is not None:
+            self.currenttotalPointNum = len(self.lastPlacemarks.points)
+            self.currenttotalRouteNum = len(self.lastPlacemarks.routes)
+        return self
+        
     
     def __dailyIncrease(self):
         """
@@ -1092,7 +1112,7 @@ class MapsheetDailyFile(object):
             dailyincreasePlacemarks = self.currentPlacemarks
             self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
-            print(f"{self.mapsheetFileName}是否为第一次提交？")
+            print(f"提示：{self.mapsheetFileName}是否为第一次提交？")
         return self
     
     @property
@@ -1145,13 +1165,13 @@ class CurrentDateFiles(object):
         # 截止本日所有的线
         self._allRoutes: list = None
         # 本日各图幅完成的点数量
+        self._dailyIncreasedPoints: dict = None
+        # 截止本日，各图幅各自完成的点的总数
         self._dailyFinishedPoints: dict = None
         # 本日各图幅完成的线数量
         pass
         # 本日各图幅计划的线数量
         self._dailyPlanedRoutes: dict = None
-
-
 
         # 错误信息
         self._errorMsg: list = []
@@ -1194,10 +1214,14 @@ class CurrentDateFiles(object):
                 'File Name': row['File Name'],
                 'Arabic Name': row['Arabic'],
                 'Roman Name': row['Roman Name'],
-                'Latin Name': row['Latin Name']
+                'Latin Name': row['Latin Name'],
+                'Team Number': row['Team Number'],
+                'Leaders': row['Leaders'],
             }
             for _, row in sorted_df.iterrows()
         }
+        # 输出字典
+        # print(json.dumps(cls.maps_info, indent=4, ensure_ascii=False))
         # 检查是否获取了所有的图幅信息
         if len(cls.maps_info) != SEQUENCE_MAX - SEQUENCE_MIN + 1:
             print("图幅信息有误，请检查图幅信息表\n程序退出")
@@ -1232,9 +1256,21 @@ class CurrentDateFiles(object):
             sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
             dailyPoints = {}
             for mapsheet in sorted_mapsheets:
-                dailyPoints[mapsheet.romanName] = mapsheet.dailyincreasePointNum
+                dailyPoints[mapsheet.romanName] = mapsheet.currenttotalPointNum
+                # print(mapsheet.romanName)
+                # print(mapsheet.currenttotalPointNum)
             self._dailyFinishedPoints = dailyPoints
         return self._dailyFinishedPoints
+    
+    @property
+    def dailyIncreasedPoints(self):
+        if not self._dailyIncreasedPoints:
+            sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
+            dailyPoints = {}
+            for mapsheet in sorted_mapsheets:
+                dailyPoints[mapsheet.romanName] = mapsheet.dailyincreasePointNum
+            self._dailyIncreasedPoints = dailyPoints
+        return self._dailyIncreasedPoints
     
     @property
     def totalDaiyIncreaseRouteNum(self):
@@ -1506,9 +1542,10 @@ class CurrentDateFiles(object):
     
     def dailyExcelReportUpdate(self):
         dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")
-        completed_points = [value for key, value in self.dailyFinishedPoints.items()]
+        completed_points = [value for key, value in self.dailyIncreasedPoints.items()]
         # 将列表中的0值替换为np.nan
-        completed_points = [value if value != 0 else np.nan for value in completed_points]
+        # 如果注释掉下面这行代码，那么0值将会被替换为np.nan，列表中的0值将不会被写入到Excel文件中
+        # completed_points = [value if value != 0 else np.nan for value in completed_points]
         completed_points_series = pd.Series(completed_points)
         book = load_workbook(dailyExcel)
         sheet = book['Daily Statistics']

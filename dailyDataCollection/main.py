@@ -26,41 +26,50 @@ globalLogger = Logger(name='global logger', level=logging.INFO)
 if __name__ == "__main__":
     
     today = DateType(date_datetime=datetime.now())
-    # today = DateType(yyyymmdd_str='20250303')
+    # today = DateType(yyyymmdd_str='20250310')
 
     # 设置日志记录文件位置
     logfile = os.path.join(WORKSPACE, today.yyyymm_str, today.yyyymmdd_str, f"validateKMZfiles{today.yyyymmdd_str}.log")
     globalLogger = Logger(name='global logger', log_file=logfile, level=logging.INFO)
 
     collection = CurrentDateFiles(today)
-    print('\n'*2)
-    print(f"截止{today.yyyymmdd_str}完成的总点数：", collection.totalPointNum)
-    print(f"截止{today.yyyymmdd_str}完成的总线路数：", collection.totalRoutesNum)
-    print(f"{today.yyyymmdd_str}新增点数：", collection.totalDaiyIncreasePointNum)
-    # print(f"{today.yyyymmdd_str}新增路线数：", collection.totalDaiyIncreaseRouteNum)
-    print(f"{today.yyyymmdd_str}计划路线数：", collection.totalDailyPlanNum)
-    print(f"错误信息：", collection.errorMsg)
 
     # 生成表格并输出---------------------------
-    summary_table = ["", "", collection.totalDaiyIncreasePointNum, collection.totalDailyPlanNum]
+    # summary_table = ["", "", collection.totalDaiyIncreasePointNum, collection.totalDailyPlanNum]
+    team_list = []
     map_name_list = []
+    daily_Finished_list = []
     daily_collection_list = []
     daily_plan_list = []
-    for key, value in collection.dailyFinishedPoints.items():
+    for key, value in collection.dailyIncreasedPoints.items():
         map_name_list.append(key)
         x = ''  # Define x with an appropriate value
-        daily_collection_list.append(x if collection.dailyFinishedPoints[key] == 0 else collection.dailyFinishedPoints[key])
+        # 各个图幅当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+        daily_collection_list.append(x if collection.dailyIncreasedPoints[key] == 0 else collection.dailyIncreasedPoints[key])
+        # 各个图幅截止当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+        daily_Finished_list.append(x if collection.dailyFinishedPoints[key] == 0 else collection.dailyFinishedPoints[key])
         daily_plan_list.append(collection.DailyPlans[key])
     table_data = []
+    # 调整显示的每行顺序
     for i in range(len(map_name_list)):
-        table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_plan_list[i]])
-    table_data.append(["", "", collection.totalDaiyIncreasePointNum, collection.totalDailyPlanNum])
+        table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_Finished_list[i], daily_plan_list[i]])
+    # 添加总计行
+    table_data.append(["TOTAL", "", collection.totalDaiyIncreasePointNum, collection.totalPointNum, collection.totalDailyPlanNum])
     print('\n'*2)
-    headers = ["Seq", "Name", "Daily Increase", "Plan"]
+    headers = ["Seq", "Name", "Increase", "Finished", "Plan"]
     print(tabulate(table_data, headers, tablefmt="grid"))
-    print('\n'*2)
+    # print('\n'*1)
     # 生成表格并输出---------------------------
     
+
+    print(f"截止{today.yyyymmdd_str}完成的总点数：", collection.totalPointNum)
+    # print(f"截止{today.yyyymmdd_str}完成的总线路数：", collection.totalRoutesNum)
+    # print(f"{today.yyyymmdd_str}新增点数：", collection.totalDaiyIncreasePointNum)
+    # print(f"{today.yyyymmdd_str}新增路线数：", collection.totalDaiyIncreaseRouteNum)
+    # print(f"{today.yyyymmdd_str}计划路线数：", collection.totalDailyPlanNum)
+    print(f"错误信息：", collection.errorMsg)
+    print('\n'*2)
+
     # 将当天的点要素和线要素写入到 KMZ 文件
     collection.dailyKMZReport()
     # 生成Excel文件

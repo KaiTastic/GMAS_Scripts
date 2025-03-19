@@ -47,19 +47,21 @@ SEQUENCE_MIN = 26
 SEQUENCE_MAX = 40
 
 # 建立资源文件目录，并验证文件是否存在，为当前文件夹子目录中的文件
+current_path = os.path.dirname(os.path.abspath(__file__))
+# WORKSPACE = os.path.join(current_path, WORKSPACE)
 # 100K图幅名称信息等
 # SHEET_NAMES_FILE = os.path.join(WORKSPACE, 'resource', 'private', SHEET_NAMES_LUT_100K)
-SHEET_NAMES_FILE = os.path.join('.', 'resource', 'private', SHEET_NAMES_LUT_100K)
+SHEET_NAMES_FILE = os.path.join(current_path, 'resource', 'private', SHEET_NAMES_LUT_100K)
 
 # 图标文件
 # ICON_1 = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE_1)
-ICON_1 = os.path.join('.', 'resource', 'private', ICON_FILE_1)
+ICON_1 = os.path.join(current_path, 'resource', 'private', ICON_FILE_1)
 
 # KML文件的XSD模式，分别为2.2和2.3版本，为当前文件夹子目录中的文件
 # KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
 # KML_SCHEMA_23 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
-KML_SCHEMA_22 = os.path.join('.', 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
-KML_SCHEMA_23 = os.path.join('.', 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
+KML_SCHEMA_22 = os.path.join(current_path, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
+KML_SCHEMA_23 = os.path.join(current_path, 'resource', 'kml_xsd', '230', 'ogckml23.xsd')
 
 # 验证文件是否存在
 if not os.path.exists(SHEET_NAMES_FILE):

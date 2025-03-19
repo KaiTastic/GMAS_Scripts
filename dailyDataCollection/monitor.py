@@ -151,6 +151,7 @@ class Monitor(object):
             }
             for _, row in sorted_df.iterrows()
         }
+        # print(cls.maps_info)
         print("图幅信息获取完成")
         return cls.maps_info
 
