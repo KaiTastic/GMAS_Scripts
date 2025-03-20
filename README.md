@@ -1,7 +1,6 @@
-# GMAS_Scripts
+# GMAS Scripts
 
 ### Daily Data Collection for GMAS Project
-
 
 > .\DailyDataCollection\
 
@@ -11,11 +10,8 @@ This package offers the daily KMZ files of finished points and routes of the day
 * Parse the KMZ files, extract the daily increased observation points for the daily summary report, and convert the result to Microsoft Excel.
 * Combine the multiple KMZ files into one.
 
-
-
 ### Image Cutter
 
 > .\ImageCutter\
 
 This package offers the separation for the scanned thin-section images with automatic calculation.
-
