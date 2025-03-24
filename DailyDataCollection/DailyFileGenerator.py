@@ -1413,7 +1413,9 @@ class CurrentDateFiles(object):
             os.remove(dailyExcel)
         romanNames_list = [self.__class__.maps_info[sequence]['Roman Name'] for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1)]
         # 计算输出表格的行数和列数
-        maxTableRows, maxTableColumns = len(romanNames_list) + 4, 4
+        #NOTE: 总行数 = 数据行数 + 5（表头+表尾）
+
+        maxTableRows, maxTableColumns = len(romanNames_list) + 5, 4
         # 每日统计点文件的表头（前三行）
         daily_stat_header1 = ['Date', self.currentDate.yyyy_str + "/" + self.currentDate.mm_str + "/" + self.currentDate.dd_str]
         daily_stat_header2 = ['Map sheet name',
@@ -1423,10 +1425,10 @@ class CurrentDateFiles(object):
         daily_stat_header3 = ['', '', 'Added observation points',
                             'Added Structure points, photo points, mineralization points'
                             ]
-        # 每日统计点文件的合计行（最后一行）
+        # 每日统计点文件的合计行（倒数第二行）
         daily_stat_footer = ['Today', '', '', '']
-        # 截止当天的总计点数和线路数
-        total_Point_Num_footer = ['TOTAL', '', '', '']
+        # 截止当天的总计点数和线路数（最后一行）
+        total_Point_Num_footer = ['TOTAL (Group 3)', '', '', '']
 
         # 创建一个新的 Excel 文件
         try:
@@ -1443,8 +1445,11 @@ class CurrentDateFiles(object):
             sheet.cell(row=2, column=col_num, value=value)
         for col_num, value in enumerate(daily_stat_header3, start=1):
             sheet.cell(row=3, column=col_num, value=value)
-        # 写入表尾到最后一行
+        # 写入表尾到最倒数第二行
         for col_num, value in enumerate(daily_stat_footer, start=1):
+            sheet.cell(row=maxTableRows-1, column=col_num, value=value)
+        # 写入合计行到最后一行
+        for col_num, value in enumerate(total_Point_Num_footer, start=1):
             sheet.cell(row=maxTableRows, column=col_num, value=value)
         # 从第四行起，写入图幅罗马名称
         for i, value in enumerate(romanNames_list, start=4):
@@ -1492,13 +1497,16 @@ class CurrentDateFiles(object):
                 cell = sheet.cell(row, column=col)
                 cell.font = font_header
         # 最后两行字体为表头字体
-        for col in range(1, maxTableColumns + 2):
+        for col in range(1, maxTableColumns + 1):
             cell = sheet.cell(maxTableRows, column=col)
+            cell.font = font_header
+        for col in range(1, maxTableColumns + 1):
+            cell = sheet.cell(maxTableRows-1, column=col)
             cell.font = font_header
         # 其他字体为正文字体
         for row in range(4, maxTableRows):
             for col in range(1, maxTableColumns + 1):
-                cell = sheet.cell(maxTableRows-1, column=col)
+                cell = sheet.cell(maxTableRows-2, column=col)
                 cell.font = font
 
         # 将单元格格式应用到指定单元格
@@ -1536,9 +1544,9 @@ class CurrentDateFiles(object):
                 cell.alignment = center_aligned
 
         # 设置合计行的公式
-        sheet.cell(row=maxTableRows, column=2).value = f"=SUM(B4:B{maxTableRows-1})"
-        sheet.cell(row=maxTableRows, column=3).value = f"=SUM(C4:C{maxTableRows-1})"
-        sheet.cell(row=maxTableRows, column=4).value = f"=SUM(D4:D{maxTableRows-1})"
+        sheet.cell(row=maxTableRows-1, column=2).value = f"=SUM(B4:B{maxTableRows-2})"
+        sheet.cell(row=maxTableRows-1, column=3).value = f"=SUM(C4:C{maxTableRows-2})"
+        sheet.cell(row=maxTableRows-1, column=4).value = f"=SUM(D4:D{maxTableRows-2})"
 
         # 先设置值，再合并单元格
         sheet.cell(row=1, column=2).value = self.currentDate.yyyy_str + "/" + self.currentDate.mm_str + "/" + self.currentDate.dd_str
@@ -1596,6 +1604,8 @@ class CurrentDateFiles(object):
         # 将数据写入到指定的单元格
         for i, value in enumerate(completed_points_series, start=4):
             sheet.cell(row=i, column=2, value=value)
+        # 将总工作量填入到最后一行
+        sheet.cell(row=5+len(completed_points), column=2, value=self.totalPointNum)
         # 保存工作簿
         book.save(dailyExcel)
         # os.startfile(dailyExcel)

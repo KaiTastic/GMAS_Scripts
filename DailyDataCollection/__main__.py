@@ -22,7 +22,7 @@ def main():
 if __name__ == "__main__":
     
     today = DateType(date_datetime=datetime.now())
-    # today = DateType(yyyymmdd_str='20250310')
+    # today = DateType(yyyymmdd_str='20250321')
 
     collection = CurrentDateFiles(today)
 
