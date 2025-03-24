@@ -14,7 +14,7 @@ from functools import wraps
 """
 
 # 工作文件夹
-WORKSPACE = r"D:\RouteDesigen"
+WORKSPACE = r"D:\RouteDesign"
 # 当前的微信聊天记录的文件夹， 请根据实际情况修改
 # 一般为"文档\WeChat Files\WeChat Files\微信号\FileStorage\File"
 WECHAT_FOLDER = r"D:\Users\lenovo\Documents\WeChat Files\WeChat Files\bringsmile\FileStorage\File"
