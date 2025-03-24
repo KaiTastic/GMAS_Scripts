@@ -1425,6 +1425,8 @@ class CurrentDateFiles(object):
                             ]
         # 每日统计点文件的合计行（最后一行）
         daily_stat_footer = ['Today', '', '', '']
+        # 截止当天的总计点数和线路数
+        total_Point_Num_footer = ['TOTAL', '', '', '']
 
         # 创建一个新的 Excel 文件
         try:
@@ -1489,8 +1491,8 @@ class CurrentDateFiles(object):
             for col in range(1, maxTableColumns + 1):
                 cell = sheet.cell(row, column=col)
                 cell.font = font_header
-        # 最后一行字体为表头字体
-        for col in range(1, maxTableColumns + 1):
+        # 最后两行字体为表头字体
+        for col in range(1, maxTableColumns + 2):
             cell = sheet.cell(maxTableRows, column=col)
             cell.font = font_header
         # 其他字体为正文字体
