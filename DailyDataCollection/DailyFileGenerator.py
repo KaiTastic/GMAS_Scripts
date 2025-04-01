@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 # 创建 logger 实例
 logger = logging.getLogger('Daily File Generator')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.ERROR)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
@@ -172,8 +172,8 @@ class FileAttributes(object):
             self._modification_time = time.ctime(os.path.getmtime(filepath))
             self._access_time = time.ctime(os.path.getatime(filepath))
             self._file_type = self.__get_file_type()
-        else:
-            logger.error(f"文件路径无效（为空/不存在/不是有效文件路径）: {filepath}")
+        elif filepath is None:
+            logger.warning(f"文件路径为空: {filepath}")
             self._filepath = None
             self._filename = None
             self._file_dir = None
@@ -182,6 +182,16 @@ class FileAttributes(object):
             self._modification_time = None
             self._access_time = None
             self._file_type = None
+        else:
+            logger.error(f"文件路径无效（不存在/不是有效文件路径）: {filepath}")
+            # self._filepath = None
+            # self._filename = None
+            # self._file_dir = None
+            # self._size = None
+            # self._creation_time = None
+            # self._modification_time = None
+            # self._access_time = None
+            # self._file_type = None
         # File content
         self._data = None
         # hash value
@@ -1630,10 +1640,8 @@ class CurrentDateFiles(object):
             table_data.append([team_list[i], map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
         # 添加总计行
         table_data.append(["TOTAL", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
-        # print('\n'*2)
-        headers = ["Team", "Name", "Increase", "Plan", "Finished"]
+        headers = ["TEAM", "NAME", "INCREASE", "PLAN", "FINISHED"]
         print(tabulate(table_data, headers, tablefmt="grid"))
-        # print('\n'*1)
 
     
     def dailyExcelReportUpdate(self):
