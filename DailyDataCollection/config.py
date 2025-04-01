@@ -72,7 +72,7 @@ SHEET_NAMES_FILE = os.path.join(current_path, 'resource', 'private', SHEET_NAMES
 
 # 图标文件
 # ICON_1 = os.path.join(WORKSPACE, 'resource', 'private', ICON_FILE_1)
-ICON_1 = os.path.join(current_path, 'resource', 'private', ICON_FILE_1)
+ICON_1 = os.path.join(current_path, 'resource', 'render_src', ICON_FILE_1)
 
 # KML文件的XSD模式，分别为2.2和2.3版本，为当前文件夹子目录中的文件
 # KML_SCHEMA_22 = os.path.join(WORKSPACE, 'resource', 'kml_xsd', '220', 'ogckml22.xsd')
