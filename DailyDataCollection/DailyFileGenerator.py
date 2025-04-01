@@ -505,7 +505,8 @@ class KMZFile(FileAttributes, GeneralIO):
             self._pointsCount = self._placemarks.pointsCount
             self._routes = self._placemarks.routes
             self._routesCount = self._placemarks.routesCount
-            if type(self._placemarks.errorMsg) == list:
+            # 如果self._placemarks.errorMsg是一个列表且不为空，则将其添加到__errorMsg中
+            if type(self._placemarks.errorMsg) == list and self._placemarks.errorMsg != []:
                 self.__errorMsg.append(self._placemarks.errorMsg)
                 print("KMZ初始化时发现的错误", self.errorMsg)
             
@@ -945,8 +946,23 @@ class MapsheetDailyFile(object):
         获取当天的文件，文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
         一般情况下，当天的文件是最新的文件，因此优先查找当天的文件，但微信中可能会有多个文件，后缀名为(1),(2)...等，因此需要进一步处理
                             处理方式为：()中的数字最大的文件为当天最新的文件，或者时间最新的文件为当天最新的文件？？？
-
         """
+        #NOTE: 
+        """2025年04月01日
+            此处需要增加逻辑如下：
+            如果查找的日期为当前日期，则在微信文件夹中优先查找；如果查找的日期不是当前日期，
+        if instance.currentDate.yyyymmdd_str == datetime.now().strftime("%Y%m%d"):
+            # 如果当前日期等于今天，则在微信文件夹中优先查找
+            folder = os.path.join(WECHAT_FOLDER)
+            searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
+            # print(f"在微信记录中查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list)
+        else:
+            # 如果当前日期不等于今天，则在工作文件夹（已经归档的文件夹）中优先查找
+            folder = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points")
+            searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
+            # print(f"在工作文件夹中查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list)
+        """
+
         file_path = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.currentDate.yyyymmdd_str}.kmz")
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}当天的文件")
         # Step 1: 在当天的工作文件夹中查找当天的文件
@@ -1588,8 +1604,10 @@ class CurrentDateFiles(object):
         return True
     
     def onScreenDisplay(self):
-        # 填图组号
+        # 获取填图组号
         team_list = []
+        for key, value in self.__class__.maps_info.items():
+            team_list.append(self.__class__.maps_info[key]['Team Number'])
         # 图幅罗马名称
         map_name_list = []
         # 当天新增点数
@@ -1609,11 +1627,11 @@ class CurrentDateFiles(object):
         table_data = []
         # 调整显示的每行顺序
         for i in range(len(map_name_list)):
-            table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
+            table_data.append([team_list[i], map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
         # 添加总计行
         table_data.append(["TOTAL", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
         # print('\n'*2)
-        headers = ["Seq", "Name", "Increase", "Plan", "Finished"]
+        headers = ["Team", "Name", "Increase", "Plan", "Finished"]
         print(tabulate(table_data, headers, tablefmt="grid"))
         # print('\n'*1)
 
