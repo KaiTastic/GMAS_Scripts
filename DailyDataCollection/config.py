@@ -15,13 +15,26 @@ from functools import wraps
 
 # 工作文件夹
 WORKSPACE = r"D:\RouteDesign"
+
+# 检查运行平台,并设置相应的文件夹路径
 # 当前的微信聊天记录的文件夹， 请根据实际情况修改
-# Window平台
-# 一般为"文档\WeChat Files\WeChat Files\微信号\FileStorage\File"
+# Window平台: 一般为"文档\WeChat Files\WeChat Files\微信号\FileStorage\File"，填入绝对路径
 WECHAT_FOLDER_WIN = r"D:\Users\lenovo\Documents\WeChat Files\WeChat Files\bringsmile\FileStorage\File"
-# Mac平台
-# 一般为"~/Documents/WeChat Files/WeChat Files/微信号/FileStorage/File"
+# Mac平台：一般为"~/Documents/WeChat Files/WeChat Files/微信号/FileStorage/File"
 WECHAT_FOLDER_MACOS = os.path.expanduser("")
+# Windows 平台
+if sys.platform.startswith('win'):
+    WECHAT_FOLDER = WECHAT_FOLDER_WIN
+    # os.environ['PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['PATH']])
+# macOS 平台ßß
+elif sys.platform.startswith('darwin'):
+    WECHAT_FOLDER = WECHAT_FOLDER_MACOS
+    # os.environ['DYLD_LIBRARY_PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['DYLD_LIBRARY_PATH']])
+# elif sys.platform.startswith('linux'):
+#     # Linux 平台
+#     os.environ['LD_LIBRARY_PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['LD_LIBRARY_PATH']])
+else:
+    raise RuntimeError("Unsupported platform: {}".format(sys.platform))
 
 # 100K图幅名称信息等查询表格（lookup table） 
 SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
@@ -78,20 +91,6 @@ if not os.path.exists(KML_SCHEMA_23):
     raise FileNotFoundError(f"文件'{KML_SCHEMA_23}'不存在，请在config.py中设置正确的文件路径")
 
 
-# 检查运行平台,并设置相应的文件夹路径
-# Windows 平台
-if sys.platform.startswith('win'):
-    WECHAT_FOLDER = WECHAT_FOLDER_WIN
-    # os.environ['PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['PATH']])
-# macOS 平台ßß
-elif sys.platform.startswith('darwin'):
-    WECHAT_FOLDER = WECHAT_FOLDER_MACOS
-    # os.environ['DYLD_LIBRARY_PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['DYLD_LIBRARY_PATH']])
-# elif sys.platform.startswith('linux'):
-#     # Linux 平台
-#     os.environ['LD_LIBRARY_PATH'] = os.pathsep.join([os.path.dirname(__file__), os.environ['LD_LIBRARY_PATH']])
-else:
-    raise RuntimeError("Unsupported platform: {}".format(sys.platform))
 
 
 EMPTY_DICT = {}
