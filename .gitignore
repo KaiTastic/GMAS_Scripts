@@ -9,7 +9,6 @@
 **/.idea/
 **/.vscode/
 **/build/
-**/dist/
 **/__packed__/
 **/__readme__/
 **/node_modules/
