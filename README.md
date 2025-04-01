@@ -15,3 +15,4 @@ This package offers the daily KMZ files of finished points and routes of the day
 > .\ImageCutter\
 
 This package offers the separation for the scanned thin-section images with automatic calculation.
+**Feature**: Applied with thread pool executor
