@@ -7,34 +7,34 @@ from tabulate import tabulate
 
 
 def parse_args():
-    # 无参数输入时，默认date_str为当天，有参数时，为指定参数
+    """
+    解析命令行参数
+    无参数输入时，默认--date为当天，有参数时，为指定参数
+    """
     parser = argparse.ArgumentParser(description="处理日期字符串")
-    parser.add_argument("--date_str", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="日期字符串，格式为\'YYYYMMDD\'")
-    return parser.parse_args()
+    parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="8位长度日期字符串，格式为\'YYYYMMDD\'")
+    date_str = parser.parse_args().date
+    if len(date_str) == 8:
+        try:
+            datetime.strptime(date_str, "%Y%m%d")
+        except ValueError:
+            raise ValueError("日期不合法或格式不正确，请确保格式为'YYYYMMDD'")
+    else:
+        raise ValueError("日期长度不正确，请确保长度为8位")
+    return date_str
 
 def main():
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='config.yaml', help='config file path')
-    args = parse_args()
+    date_str = parse_args()
+    print("\n", f"日期: {date_str}")
 
-
-if __name__ == "__main__":
-    
-    today = DateType(date_datetime=datetime.now())
-    # today = DateType(yyyymmdd_str='20250321')
-
-    collection = CurrentDateFiles(today)
+    colletionDate = DateType(yyyymmdd_str=date_str)
+    collection = CurrentDateFiles(colletionDate)
 
     # 生成表格并输出---------------------------
     collection.onScreenDisplay()
     print("\n")
     
-    # print(f"截止{today.yyyymmdd_str}完成的总点数：", collection.totalPointNum)
-    # print(f"截止{today.yyyymmdd_str}完成的总线路数：", collection.totalRoutesNum)
-    # print(f"{today.yyyymmdd_str}新增点数：", collection.totalDaiyIncreasePointNum)
-    # print(f"{today.yyyymmdd_str}新增路线数：", collection.totalDaiyIncreaseRouteNum)
-    # print(f"{today.yyyymmdd_str}计划路线数：", collection.totalDailyPlanNum)
     print(f"文件中存在的错误信息：")
     for _ in collection.errorMsg:
         if _ != None:
@@ -51,7 +51,12 @@ if __name__ == "__main__":
 
     # 如果当天是设定的日期，则将 KMZ 文件转换为 SHP 文件，并将 SHP 文件拷贝至制图工程文件夹
     for weekday in COLLECTION_WEEKDAYS:
-        if today.date_datetime.weekday() == weekday:
-            print('\n'*2, f"今天是{today.date_datetime.strftime('%A')}，需要生成周报", '\n'*2)
-            certainReport = DataSubmition(today, collection.allPoints)
+        if colletionDate.date_datetime.weekday() == weekday:
+            print('\n'*2, f"今天是{colletionDate.date_datetime.strftime('%A')}，需要生成周报", '\n'*2)
+            certainReport = DataSubmition(colletionDate, collection.allPoints)
             certainReport.weeklyPointToShp()
+
+
+if __name__ == "__main__":
+
+    main()

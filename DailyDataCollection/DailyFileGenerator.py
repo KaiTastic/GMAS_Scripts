@@ -859,11 +859,25 @@ class MapsheetDailyFile(object):
     def __init__(self, mapsheetFileName: str, date: 'DateType'):
 
         self.mapsheetFileName:str = mapsheetFileName
-        if not self.__mapsheetInfo(mapsheetFileName):
-            print(f"图幅文件名称{mapsheetFileName}未找到")
-            self.sequence: int = None
-            self.romanName: str = None
-            self.latinName: str = None
+        # 图幅序号
+        self.sequence: int = None
+        # 图幅ID
+        self.sheetID: str = None
+        # 图幅组号
+        self.group: str = None
+        # 图幅阿拉伯语名称
+        self.arabicName: str = None
+        # 图幅罗马语名称
+        self.romanName: str = None
+        # 图幅拉丁语名称
+        self.latinName: str = None
+        # 图幅填图组号
+        self.teamNumber: str = None
+        # 图幅组长/负责人姓名
+        self.teamleader: str = None
+        # 从 mapsheet_info 字典中获取图幅信息，获取以上属性
+        if not self.__mapsheetInfo():
+            print(f"图幅文件名称{self.mapsheetFileName}未找到")
 
         # 当前日期的文件属性
         self.currentDate: DateType = date
@@ -891,25 +905,35 @@ class MapsheetDailyFile(object):
         self.currentTotalPointNum: int = None
         self.currentTotalRouteNum: int = None
 
+        # 利用self.__mapsheetfiles获取图幅的文件路径
         self.__mapsheetfiles()
 
-    def __mapsheetInfo(self, mapsheetFileName):
+    def __mapsheetInfo(self):
         """
         根据 File Name 从 mapsheet_info 字典中获取 Sequence 并赋值给实例变量 self.sequence
+        如果 mapsheet_info 字典中没有该文件，则返回 False
+        如果 mapsheet_info 字典中有该文件，则返回 True
+        同时获取图幅的其他信息并赋值给实例变量
         """
         if self.__class__.maps_info:
             for sequence, info in self.__class__.maps_info.items():
-                if info['File Name'] == mapsheetFileName:
+                if info['File Name'] == self.mapsheetFileName:
                     self.sequence = sequence
                     break
             else:
-                print(f"文件名称未找到\n请查证是否文件名 '{mapsheetFileName}' 有误？\文件名列表如下：")
+                print(f"文件名称未找到\n请查证是否文件名 '{self.mapsheetFileName}' 有误？\文件名列表如下：")
                 print(json.dumps(self.__class__.maps_info, indent=4, ensure_ascii=False))
                 print("程序退出")
                 exit()
-                # raise ValueError(f"File Name {mapsheetFileName} not found in mapsheet_info")
+                # raise ValueError(f"File Name {self.mapsheetFileName} not found in mapsheet_info")
+            self.sheetID = self.__class__.maps_info[self.sequence]['Sheet ID']
+            self.group = self.__class__.maps_info[self.sequence]['Group']
+            self.arabicName = self.__class__.maps_info[self.sequence]['Arabic Name']
             self.romanName = self.__class__.maps_info[self.sequence]['Roman Name']
             self.latinName = self.__class__.maps_info[self.sequence]['Latin Name']
+            self.teamNumber = self.__class__.maps_info[self.sequence]['Team Number']
+            self.teamleader = self.__class__.maps_info[self.sequence]['Leaders']
+
             return True
         # else:
         #     print(f"类属性maps_info不存在，请先通过类方法'MapsheetDailyFile.mapsInfo()'获取图幅信息")
@@ -1128,7 +1152,9 @@ class MapsheetDailyFile(object):
     @property
     def errorMsg(self):
         if self.__errorMsg:
-            return self.__errorMsg
+            # 将错误信息转换为字符串格式
+            errors = f'{self.teamNumber}，负责人/联络人:{self.teamleader}:\n\t{self.__errorMsg}\n'
+            return errors
         else:
             return None
     
@@ -1318,8 +1344,8 @@ class CurrentDateFiles(object):
     def totalPointNum(self):
         """
         totalPointNum 截止当天所有文件的点要素总数
-                        累加当天的文件的点要素数量
-                        如果当天的文件为空，累加上一次提交的文件的点要素总数
+                      累加当天的文件的点要素数量
+                      如果当天的文件为空，累加上一次提交的文件的点要素总数
         """
         if self._totalPointNum is None:
             totalNum = 0
@@ -1586,7 +1612,7 @@ class CurrentDateFiles(object):
             table_data.append([i + 1, map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
         # 添加总计行
         table_data.append(["TOTAL", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
-        print('\n'*2)
+        # print('\n'*2)
         headers = ["Seq", "Name", "Increase", "Plan", "Finished"]
         print(tabulate(table_data, headers, tablefmt="grid"))
         # print('\n'*1)
@@ -1611,6 +1637,31 @@ class CurrentDateFiles(object):
         # os.startfile(dailyExcel)
         print(f"每日统计点写入 {dailyExcel} 成功。")
         return True
+    
+    def dailyStaticReportUpdate(self):
+        #! 需要补全相关内容
+        # NOTE: 主要解决总表的每日更新，包括每日完成点数的更新和
+        """
+        dailyStaticReportUpdate 更新每日统计报告
+        """
+        dailyStaticReport = os.path.join(WORKSPACE, f"Daily_statistics_details_for_Group_3.xlsx")
+        book = load_workbook(dailyStaticReport)
+        sheet = book['Daily Statistics']
+        # 将数据写入到指定的单元格
+        # 填图组号
+        team_list = []
+        # 图幅罗马名称
+        map_name_list = []
+        # 当天新增点数
+        daily_collection_list = []
+        # 截止当天，图幅完成的总点数
+        daily_Finished_list = []
+        # 图幅第二天的野外计划
+        daily_plan_list = []
+        for key, value in self.dailyIncreasedPoints.items():
+            map_name_list.append(key)
+            x = ''
+
 
     
 class DataSubmition(object):
@@ -1755,6 +1806,7 @@ class DataSubmition(object):
         shp_ds = None
         # print(f"已成功读取 SHP 文件: {shp_file}")
         return points_dict
+    
 
 
 if __name__ == "__main__":
