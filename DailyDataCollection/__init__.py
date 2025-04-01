@@ -6,7 +6,7 @@
 @Author  :   Kai Cao 
 @Version :   2.0.0
 @Contact :   caokai_cgs@163.com
-@License :   (C)Copyright 2023-2024
+@License :   (C)Copyright 2023-, All rights reserved.
 @Prerequisites:   Python 3.10
 Copyright Statement:   Full Copyright
 @Desc    :   None
