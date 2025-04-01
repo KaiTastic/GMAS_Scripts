@@ -26,7 +26,8 @@ def parse_args():
 def main():
 
     date_str = parse_args()
-    print("\n", f"日期: {date_str}")
+    print("\n")
+    print(f"日期: {date_str}")
 
     colletionDate = DateType(yyyymmdd_str=date_str)
     collection = CurrentDateFiles(colletionDate)
@@ -39,8 +40,7 @@ def main():
     for _ in collection.errorMsg:
         if _ != None:
             print(_)
-
-    print('\n'*2)
+    print('\n')
 
     # 将当天的点要素和线要素写入到 KMZ 文件
     collection.dailyKMZReport()
