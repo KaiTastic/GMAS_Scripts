@@ -889,9 +889,10 @@ class MapsheetDailyFile(object):
         # 从 mapsheet_info 字典中获取图幅信息，获取以上属性
         if not self.__mapsheetInfo():
             print(f"图幅文件名称{self.mapsheetFileName}未找到")
-
-        # 当前日期的文件属性
+        
+        # 当前日期
         self.currentDate: DateType = date
+        # 当前日期的文件属性
         self.currentfilename = None
         self.currentfilepath = None
         self.currentPlacemarks: ObservationData = None
@@ -1145,14 +1146,14 @@ class MapsheetDailyFile(object):
         计算截止当天的总计点数和线路数
         """
         if self.currentPlacemarks is None and self.lastPlacemarks is None:
-            self.currenttotalPointNum = '-'
-            self.currenttotalRouteNum = '-'
+            self.currentTotalPointNum = '-'
+            self.currentTotalRouteNum = '-'
         if self.currentPlacemarks is not None and self.lastPlacemarks is not None:
-            self.currenttotalPointNum = len(self.currentPlacemarks.points)
-            self.currenttotalRouteNum = len(self.currentPlacemarks.routes)
+            self.currentTotalPointNum = len(self.currentPlacemarks.points)
+            self.currentTotalRouteNum = len(self.currentPlacemarks.routes)
         if self.currentPlacemarks is None and self.lastPlacemarks is not None:
-            self.currenttotalPointNum = len(self.lastPlacemarks.points)
-            self.currenttotalRouteNum = len(self.lastPlacemarks.routes)
+            self.currentTotalPointNum = len(self.lastPlacemarks.points)
+            self.currentTotalRouteNum = len(self.lastPlacemarks.routes)
         return self
         
     
@@ -1318,9 +1319,9 @@ class CurrentDateFiles(object):
             sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
             dailyPoints = {}
             for mapsheet in sorted_mapsheets:
-                dailyPoints[mapsheet.romanName] = mapsheet.currenttotalPointNum
+                dailyPoints[mapsheet.romanName] = mapsheet.currentTotalPointNum
                 # print(mapsheet.romanName)
-                # print(mapsheet.currenttotalPointNum)
+                # print(mapsheet.currentTotalPointNum)
             self._dailyFinishedPoints = dailyPoints
         return self._dailyFinishedPoints
     
