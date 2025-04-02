@@ -18,11 +18,17 @@ from tabulate import tabulate
 
 # 单个图幅
 class MonitorMapSheet(MapsheetDailyFile):
-    """_summary_
-        该类继承自MapsheetsDailyFile类，主要用于监视图幅文件的变化
-        增加了__hasPlan方法，用于检查当天的计划路线文件是否存在
-    Args:
-        MapsheetDailyFile (_type_): _description_
+    """ 该类继承自MapsheetsDailyFile类，主要用于监视图幅文件的变化
+            属性：
+            fileToReceiveFlag: bool，表示当天是否有已有计划路线
+            matchedFinishedFileCountNum: int，表示当天接收到的完成路线数量
+                                                如果self.fileToReceiveFlag为True同时self.matchedFinishedFileCountNum>=1，则说明当天的计划路线文件已经接收完成
+                                                与此同时，self.currentfilename会有值，存储当天已完成的路线文件名    
+            matchedPlanFileCountNum: int，表示当天接收到的计划路线数量
+            方法：
+                __hasPlan: 检查当天的计划路线文件是否存在，用于决定是否要接收当天的完成路线文件
+                update: 更新当前图幅的状态
+                __onScreenDisplay: 在屏幕上以表格的形式显示改图幅当天的接收完成路线文件的数量
     """
     def __init__(self, mapsheetFileName: str, currentDate: 'DateType'):
 
@@ -32,18 +38,60 @@ class MonitorMapSheet(MapsheetDailyFile):
         self.fileToReceiveFlag: bool = False
         self.__hasPlan()
         """
-        记录当天接收到的完成路线数量
-        有可能反复接收到多个完成路线文件：如果self.fileToReceiveFlag为True同时self.matchedFileCountNum>=1，则说明当天的计划路线文件已经接收完成
-        与此同时，self.currentfilename会有值，存储当天已完成的路线文件名
+        有可能反复接收到多个完成路线文件：
         """
-        self.matchedFileCountNum: int = 0
+        self.matchedFinishedFileCountNum: int = 0
+        # 记录当天接收到的计划路线数量
+        self.matchedPlanFileCountNum: int = 0
+
+    # def update(self):
+    #     """
+    #     在接收完成路线文件时，更新当前图幅的状态
+    #     """
+    #     # NOTE: 使用观察者模式来通知接收完成路线文件，并计算完成的点数
+    #     # 接收的数量加1
+    #     self.matchedFinishedFileCountNum += 1
+
+    #     self.getCurrentDateFile(self)
+    #     self.findlastFinished(self)
+    #     self.findNextPlan(self)
+    #     self.dailyIncrease()
+    #     self.soFarfinished()
+    #     self.__onScreenDisplay()
+    #     return self
+    
+    def updateFinished(self):
+        """
+        在接收完成路线文件时，更新当前图幅的状态
+        """
+        # NOTE: 使用观察者模式来通知接收完成路线文件，并计算完成的点数
+        # 接收的数量加1
+        self.matchedFinishedFileCountNum += 1
+        self.getCurrentDateFile(self)
+        self.findlastFinished(self)
+        self.dailyIncrease()
+        self.soFarfinished()
+        self.__onScreenDisplay()
+
+    def updatePlan(self):
+        """
+        在接收计划路线文件时，更新当前图幅的状态
+        """
+        # 接收的数量加1
+        self.matchedPlanFileCountNum += 1
+        # NOTE: 使用观察者模式来通知接收完成路线文件，并计算完成的点数
+        # 接收的数量加1
+        self.matchedFinishedFileCountNum += 1
+        self.findNextPlan(self)
+
+
 
     def __hasPlan(self):
         """
         通过检查当天的计划路线文件是否存在，来判断是否有当日计划待接收
         :return: bool
         """
-        # NOTE: 后续需要增加从Excel表格中获取判断的逻辑
+        # NOTE: 后续需要增加从Excel表格中获取判断的逻辑，做到表和文件一致的双重校验
         planFilePath = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes", f"{self.mapsheetFileName}_plan_routes_{self.currentDate.yyyymmdd_str}.kmz")
         if os.path.exists(planFilePath):
             self.fileToReceiveFlag = True
@@ -51,27 +99,11 @@ class MonitorMapSheet(MapsheetDailyFile):
             self.fileToReceiveFlag = False
         return self.fileToReceiveFlag
 
-    def update(self):
-        """
-        在接收完成路线文件时，更新当前图幅的状态
-        """
-        # NOTE: 使用观察者模式来通知接收完成路线文件，并计算完成的点数
-        # 接收的数量加1
-        self.matchedFileCountNum += 1
-
-        self.getCurrentDateFile(self)
-        self.findlastFinished(self)
-        self.findNextPlan(self)
-        self.dailyIncrease()
-        self.soFarfinished()
-        self.__onScreenDisplay()
-        return self
-
     def __onScreenDisplay(self):
         """
         在屏幕上以表格的形式显示改图幅当天的接收完成路线文件的数量
         """
-        print(f"第{self.matchedFileCountNum}次更新")
+        print(f"第{self.matchedFinishedFileCountNum}次更新")
         headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
         if self.nextfilepath:
             table_data = [[self.teamNumber, self.romanName, self.teamleader, f'{self.dailyincreasePointNum}', '#', f'{self.currentTotalPointNum}']]
@@ -235,7 +267,7 @@ class MyHandler(FileSystemEventHandler):
                     index = on_observed_filename.find(toBeCollectFileName.lower())
                     if index != -1:
                         # print(f"\n获取到有效计划路线kmz文件")
-                        item.update()
+                        item.updateFinished()
                         if item.mapsheetFileName in self.toBeColleted_filelist_pop:
                             # 删除已完成的文件名
                             self.toBeColleted_filelist_pop.remove(item.mapsheetFileName)
@@ -267,7 +299,7 @@ class MyHandler(FileSystemEventHandler):
                     index = on_observed_filename.find(toBeCollectFileName.lower())
                     if index != -1:
                         # print(f"\n获取到有效计划路线kmz文件")
-                        item.update()
+                        item.updatePlan()
                         return True
                 else:
                     print(f"文件名中没有包含有效的计划路线名称：{on_observed_filename}")
@@ -293,6 +325,7 @@ class MyHandler(FileSystemEventHandler):
             # 显示当前待接收的文件数量和列表
             print(f"当前待接收的文件数量：{len(self.toBeColleted_filelist_pop)}")
             print(f"当前待接收的文件列表：{self.toBeColleted_filelist_pop}")
+            # 每隔5分钟检查一次
             time.sleep(300)
             print(f"{datetime.now()}")
             print("继续监视中...\n")
