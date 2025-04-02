@@ -14,7 +14,7 @@ from DailyFileGenerator import MapsheetDailyFile, CurrentDateFiles
 import re
 from tabulate import tabulate
 
-#! 需要改进的两个方向
+#! 需要改进的方向
 #! 1. 利用继承使得MyHandler类获得和MonitorMapSheet类的属性和方法
 #! 2. 监控对象结束后，自动退出监控
 #! 3. 可能存在已经获得当日的完成路线后，程序会跳过更新的情况
@@ -327,6 +327,7 @@ class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         observer = Observer()
         observer.schedule(event_handler, wechat_path, recursive=True)
 
+        print(3*'\n', 5*"-", "当前日期：", datenow.yyyymmdd_str, 5*"-")
         print(f'开始监视微信文件夹...\n')
         observer.start()
 
@@ -346,12 +347,10 @@ class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         
 if __name__ == "__main__":
 
-    # datenow = DateType(date_datetime=datetime.now())
+    datenow = DateType(date_datetime=datetime.now())
     # 测试日期
-    datenow = DateType(date_datetime=datetime(2025, 4, 3))
+    # datenow = DateType(date_datetime=datetime(2025, 4, 3))
     
-    print(3*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
-
     event_handler = MyHandler(currentDate=datenow)
-
+    # 手动启动监视方法
     event_handler.obsserverService()
