@@ -13,121 +13,105 @@ from watchdog.events import FileSystemEventHandler
 from DailyFileGenerator import KMZFile, MapsheetDailyFile, CurrentDateFiles, list_fullpath_of_files_with_keywords, find_files_with_max_number
 import re
 import subprocess
+from tabulate import tabulate
 
 
-def monitor_folder(duration):
+# 单个图幅
+class MonitorMapSheet(MapsheetDailyFile):
+    """_summary_
+        该类继承自MapsheetsDailyFile类，主要用于监视图幅文件的变化
+        增加了__hasPlan方法，用于检查当天的计划路线文件是否存在
+    Args:
+        MapsheetDailyFile (_type_): _description_
     """
-    监视文件夹中的文件变化，动态显示剩余时间
-    :param duration: 监视的总时间（秒）
+    def __init__(self, mapsheetFileName: str, currentDate: 'DateType'):
+
+        super().__init__(mapsheetFileName, currentDate)
+
+        # 检查是否有当日计划
+        self.fileToReceiveFlag: bool = False
+        self.__hasPlan()
+        """
+        记录当天接收到的完成路线数量
+        有可能反复接收到多个完成路线文件：如果self.fileToReceiveFlag为True同时self.matchedFileCountNum>=1，则说明当天的计划路线文件已经接收完成
+        与此同时，self.currentfilename会有值，存储当天已完成的路线文件名
+        """
+        self.matchedFileCountNum: int = 0
+
+    def __hasPlan(self):
+        """
+        通过检查当天的计划路线文件是否存在，来判断是否有当日计划待接收
+        :return: bool
+        """
+        # NOTE: 后续需要增加从Excel表格中获取判断的逻辑
+        planFilePath = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes", f"{self.mapsheetFileName}_plan_routes_{self.currentDate.yyyymmdd_str}.kmz")
+        if os.path.exists(planFilePath):
+            self.fileToReceiveFlag = True
+        else:
+            self.fileToReceiveFlag = False
+        return self.fileToReceiveFlag
+
+    def update(self):
+        """
+        在接收完成路线文件时，更新当前图幅的状态
+        """
+        # NOTE: 使用观察者模式来通知接收完成路线文件，并计算完成的点数
+        # 接收的数量加1
+        self.matchedFileCountNum += 1
+
+        self.getCurrentDateFile(self)
+        self.findlastFinished(self)
+        self.findNextPlan(self)
+        self.dailyIncrease()
+        self.soFarfinished()
+        self.__onScreenDisplay()
+        return self
+
+    def __onScreenDisplay(self):
+        """
+        在屏幕上以表格的形式显示改图幅当天的接收完成路线文件的数量
+        """
+        print(f"第{self.matchedFileCountNum}次更新")
+        headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
+        if self.nextfilepath:
+            table_data = [[self.teamNumber, self.romanName, self.teamleader, f'{self.dailyincreasePointNum}', '#', f'{self.currentTotalPointNum}']]
+        else:
+            table_data = [[self.teamNumber, self.romanName, self.teamleader, f'{self.dailyincreasePointNum}', '-', f'{self.currentTotalPointNum}']]
+        print(tabulate(table_data, headers, tablefmt="grid"))
+
+        if self.errorMsg:
+            print(f"{self.errorMsg}")
+
+
+# 待收集的图幅集合
+class MonitorMapSheetCollection(object):
     """
-    start_time = time.time()
-    end_time = start_time + duration
-
-    while time.time() < end_time:
-        remaining_time = int(end_time - time.time())
-        print(f"监视文件夹中的文件变化，剩余时间：{remaining_time} 秒", end='\r')
-        time.sleep(1)
-
-    print("\n微信文件夹持续监视中...'")
-
-class MyHandler(FileSystemEventHandler):
-    def __init__(self, date: DateType, filelist: list):
-        self.date = date
-        self.filelist = filelist
-        self.collect_file_list = []
-
-    def on_created(self, event):
-        # print(f'File created: {event.src_path}')
-        # print(f'有文件创建更新')
-        filename = os.path.basename(event.src_path)
-        if filename.endswith(".kmz"):
-            match = re.search(r'\d{8}', filename)
-            if match and match.group() == self.date.yyyymmdd_str:
-                lower_filename = filename.lower()
-                index = lower_filename.find('_finished_points_and_tracks_')
-                if index != -1:
-                    mapsheet_name = filename[:index]
-                    if mapsheet_name.lower() in [item.lower() for item in self.filelist]:
-                        print(f"\n获取到kmz文件，验证kmz文件中...")
-                        kmz = KMZFile(event.src_path)
-                        if kmz.errorMsg:
-                            print(f"文件{filename}中存在错误：{kmz.errorMsg}")
-                        else:
-                            print(f"文件{filename}验证通过")
-                            #TODO: 需要执行当天的点数量检查
-                            filenameDaily = MapsheetDailyFile(mapsheet_name, self.date)
-                            print(f"{self.date.yyyymmdd_str}日{filename}完成点数：{filenameDaily.dailyincreasePointNum}")
-                            del filenameDaily
-                        # 清除kmz对象
-                        del kmz
-                        if mapsheet_name not in self.collect_file_list:
-                            self.collect_file_list.append(mapsheet_name)
-                        else:
-                            print(f"图幅{mapsheet_name}已经收集")
-                        print(f"已收集的文件列表：{self.collect_file_list}, 还缺少的文件列表：{list(set(self.filelist) - set(self.collect_file_list))}")
-                        if set(self.filelist) == set(self.collect_file_list):
-                            print(f"当天计划路线中的图幅信息已全部收集")
-                            time.sleep(30)
-                            # TODO: 调用数据收集函数
-                            #! 暂时利用Version 1中的代码
-                            # 执行 CMD 命令
-                            # self.execute_collection()
-                            self.execute_collection_version_2()
-                            exit()
-        if not self.collect_file_list:
-            print(f"未收集到任何文件")
-        print("继续监视目标文件夹...")
-
-    def execute_collection_version1(self):
-        print("开始数据收集...")
-        cmd_command = f"python310 D:\RouteDesigen\PythonRun\daily_statistics.py {self.date.yyyymmdd_str}"
-        print(cmd_command)
-        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
-        print(result.stdout)
-        print("数据收集完成，开始合并KMZ文件...")
-        cmd_command = f"python310 D:\RouteDesigen\PythonRun\mergeKMZandRender.py {self.date.yyyymmdd_str}"
-        print(cmd_command)
-        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
-        print(result.stdout)
-        print("合并KMZ文件完成")
-    
-    @staticmethod
-    def execute_collection_version_2():
-        print("开始数据收集...")
-        cmd_command = f"python310 D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\main.py"
-        result = subprocess.run(cmd_command, shell=True, capture_output=True, text=True)
-        print(result.stdout)
-        print("数据收集完成")
-
-    # def on_deleted(self, event):
-    #     print(f'File deleted: {event.src_path}')
-    
-    # def on_moved(self, event):
-    #     print(f'File moved: from {event.src_path} to {event.dest_path}')
-
-    def reportTable(self):
-         pass
-
-
-class Monitor(object):
+    需要收集的图幅列表
+    为容器类
+    """
+    # 类变量，存储图幅信息
     maps_info: dict = None
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
             cls.mapsInfo()
-            cls.instance = super(Monitor, cls).__new__(cls)
+            cls.instance = super(MonitorMapSheetCollection, cls).__new__(cls)
         return cls.instance
 
     def __init__(self, currentDate):
         self.currentDate = currentDate
-        self._mapsheet_filename_list = []
+        # 待收集的图幅实例列表
+        self.mapSheetTobeCollect: list[MonitorMapSheet] = []
+        # 待收集的图幅名称列表
+        self.mapSheetTobeCollect_namelist = []
+        # 所有的图幅名称列表
+        self.mapSheet_namelist = []
         self.__setMapsheetList()
-        self.mapdicts ={}
 
     @classmethod
     def mapsInfo(cls):
         """
-        调用CurrentDateFiles类中的mapsInfo方法，从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
+        调用CurrentDateFiles类中的mapsInfo方法，从100K图幅名称信息表中获取图幅的信息
         """
         # print("开始获取图幅信息...")
         cls.maps_info = CurrentDateFiles.mapsInfo()
@@ -137,95 +121,197 @@ class Monitor(object):
 
     def __setMapsheetList(self):
         # 设置每天需要收集的图幅列表
-        # 检查当天PlanRoutes文件夹是否存在，同时获取当天的计划路线列表
-        plan_routes_folder = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, "Planned routes")
-        # 如果当天的计划路线文件夹存在，则获取当天的计划路线列表
-        mapsheet_list = []
-        if os.path.exists(plan_routes_folder) and os.path.isdir(plan_routes_folder):
-            plan_routes_list = [file for file in os.listdir(plan_routes_folder) if file.endswith(".kmz")]
-            # print(f"当天计划路线列表：{plan_routes_list}")
-            for file_name in plan_routes_list:
-                lower_file_name = file_name.lower()
-                index = lower_file_name.find('_plan_routes_')
-                if index != -1:
-                    mapsheet_list.append(file_name[:index])
-            print(f"{self.currentDate}当天计划路线中的图幅数量：{len(mapsheet_list)}")
-            print(f"{self.currentDate}当天计划路线中的图幅名称列表：{mapsheet_list}")
-            mapsheet_filename_list = [info['File Name'] for mapsheet in mapsheet_list for sequence, info in self.maps_info.items() if info['File Name'].lower() == mapsheet.lower()]
-            self._mapsheet_filename_list = mapsheet_filename_list
-            if len(self._mapsheet_filename_list) == len(plan_routes_list):
-                print(f"当天计划路线中的图幅信息获取成功")
-                return True
-            else:
-                print(f"当天计划路线中的图幅信息获取失败")
-                return False
+        # 所有的图幅信息
+        # mapsheet_list = []
+        # 当天需要收集的图幅列表
+        # mapsheet_tobeCollect_list = []
+        for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1):
+            mapsheetFileName = self.__class__.maps_info[sequence]['File Name'] 
+            # 实例化 MonitorMapSheet类
+            mapsheet = MonitorMapSheet(mapsheetFileName, self.currentDate)
+            # 将所有的图幅名称添加到列表中
+            self.mapSheet_namelist.append(mapsheetFileName)
+            self.mapSheetTobeCollect.append(mapsheet)
+            # 检查当天的计划路线文件是否存在，如果存在，则将图幅名称添加到列表中
+            if mapsheet.fileToReceiveFlag:
+                # mapsheet_tobeCollect_list.append(mapsheetFileName)
+                # print(f"当天计划路线中的图幅名称：{mapsheetFileName}")
+                self.mapSheetTobeCollect_namelist.append(mapsheetFileName)
+        return self
 
     def __contains__(self, item):
-        return item in self._mapsheet_filename_list
+        return item in self.mapSheetTobeCollect
+
+
+class MyHandler(FileSystemEventHandler):
+    """
+    待接收的文件监视器
+
+    self.currentDate: 当前日期
+    self.toBeColleted_filelist: 待接收的文件列表
+                                在接收到有效文件后，弹出该文件名，直到列表为空
+    """
+    def __init__(self, currentDate: DateType, toBeColleted_filelist: list, mapsheetFileName_list: list):
+        self.currentDate = currentDate
+        # 待接收的文件目录
+        self.toBeColleted_filelist = toBeColleted_filelist
+        self.toBeColleted_filelist_pop = toBeColleted_filelist
+        # 所有的图幅名称列表
+        self.mapsheetFileName_list = mapsheetFileName_list
+
+    def on_created(self, event):
+        # print(f'File created: {event.src_path}')
+        # print(f'有文件创建更新')
+        on_observed_filename = os.path.basename(event.src_path).lower()
+        if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
+            index_1 = on_observed_filename.find('_finished_points_and_tracks_')
+            index_2 = on_observed_filename.find('_plan_routes_')
+            if index_1 != -1:
+                self.__finishFileValidate(on_observed_filename)
+            elif index_2 != -1:
+                self.__planFileValidate(on_observed_filename)
+            else:
+                print(f"文件名称不符合要求：{on_observed_filename}")            
+        else:
+            print(f"文件名称不符合要求：{on_observed_filename}")
+        print("继续监视目标文件夹...")
+        print("\n")
+
+
+    def __fileNameValidateDate(self, on_observed_filename):
+        """
+        验证文件名中的日期信息是否符合要求
+        :param filename: 文件名
+        :return: bool
+        """
+        if on_observed_filename.endswith(".kmz"):
+            matchedDate_yyyymmdd_str = re.search(r'\d{8}', on_observed_filename)
+            # print(f"从文件名称匹配到的日期：{matchedDate_yyyymmdd_str.group()}")
+            try:
+                on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
+                # print(f"on_observed_file_datetime：{on_observed_file_datetime}")
+            except ValueError:
+                print(f"文件名中的日期格式不正确)：{on_observed_filename}")
+                # 如果文件名中的日期大于当前日期，则合法
+            # on_observed_file_datetime_date = on_observed_file_datetime.date()
+            # currentdate_date = self.currentDate.date_datetime.date()
+            if on_observed_file_datetime.date() >= self.currentDate.date_datetime.date():
+                return True
+            else:
+                print(f"无法从文件名匹配到有效日期（格式错误/日期不为当天/日期不为下一天)：{on_observed_filename}")
+                return False
+        else:
+            print(f"文件名格式错误(日期不正确)：{on_observed_filename}")
+            return False
+
+    def __fileNameValidateMapSheetName(self, on_observed_filename):
+        """
+        验证文件名中的图幅信息是否符合要求
+        :param filename: 文件名
+        :return: bool
+        """
+        for item in self.mapsheetFileName_list:
+            if on_observed_filename.startswith(item.lower()):
+                # break
+                return True
+        else:
+            print(f"文件名中没有包含有效的图幅名称：{on_observed_filename}")
+            return False
     
-    def starter(self):
-        # 获取微信文件夹路径
-        for mapsheet_filename in self._mapsheet_filename_list:
-            mapsheet_dict = {}
-            # 获取每个图幅的文件路径
-            fullpath_finished = list_fullpath_of_files_with_keywords(wechat_path, [mapsheet_filename, 'finished_points_and_tracks', '.kmz', self.currentDate.yyyymmdd_str])
-            #TODO: 需要增加判断，修改为第二天的计划路线文件夹
-            # fullpath_plan = list_fullpath_of_files_with_keywords(wechat_path, [mapsheet_filename, 'plan_routes', '.kmz', self.currentDate.yyyymm_str])
-
-            if fullpath_finished:
-                mapsheet_dict["Finished"] = "Acquired"
-                mapsheet_dict["Finished File Number"] = len(fullpath_finished)
-                # print(fullpath_finished)
+    def __finishFileValidate(self, on_observed_filename):
+        """
+        验证文件名是否符合要求
+        :param filename: 文件名
+        :return: bool
+        """
+        if on_observed_filename.endswith(".kmz"):
+            matchedDate_yyyymmdd_str = re.search(r'\d{8}', on_observed_filename)
+            # print(f"从文件名称匹配到的日期：{matchedDate_yyyymmdd_str.group()}")
+            on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
+            # 如果文件名中的日期为当前日期，则合法
+            if on_observed_file_datetime.date() == self.currentDate.date_datetime.date():
+                for item in currentdatefilelist.mapSheetTobeCollect:
+                    toBeCollectFileName = item.mapsheetFileName + '_finished_points_and_tracks_' + self.currentDate.yyyymmdd_str
+                    index = on_observed_filename.find(toBeCollectFileName.lower())
+                    if index != -1:
+                        # print(f"\n获取到有效计划路线kmz文件")
+                        item.update()
+                        if item.mapsheetFileName in self.toBeColleted_filelist_pop:
+                            # 删除已完成的文件名
+                            self.toBeColleted_filelist_pop.remove(item.mapsheetFileName)
+                        return True
+                else:
+                    print(f"文件名中没有包含有效完成点名称：{on_observed_filename}")
+                    return False
             else:
-                mapsheet_dict["Finished"] = ""
-                mapsheet_dict["Finished File Number"] = 0
-            # if fullpath_finished:
-            #     mapsheet_dict["Plan"] = "Acquired"
-            #     mapsheet_dict["Plan File Number"] = len(fullpath_plan)
-            # else:
-            #     mapsheet_dict["Plan"] = ""
-            #     mapsheet_dict["Plan File Number"] = 0
-            self.mapdicts[mapsheet_filename] = mapsheet_dict
-        print(self.mapdicts)
-
-        collect_flag_list = []
-        for key, value in self.mapdicts.items():
-            # 如果所有的值Finished都>0，则直接调用数据收集函数
-            if value["Finished File Number"] > 0:
-                print(f"图幅{key}的文件已经收集")
-                collect_flag_list.append(True)
+                print(f"无法从完成点文件名中匹配出有效日期（格式错误/日期不为当天)：{on_observed_filename}")
+                return False
+        else:
+            return False
+            
+    def __planFileValidate(self, on_observed_filename):
+        """
+        验证文件名是否符合要求
+        :param filename: 文件名
+        :return: bool
+        """
+        if on_observed_filename.endswith(".kmz"):
+            matchedDate_yyyymmdd_str = re.search(r'\d{8}', on_observed_filename)
+            # print(f"从文件名称匹配到的日期：{matchedDate_yyyymmdd_str.group()}")
+            on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
+            # 如果文件名中的日期大于当前日期，则合法
+            if on_observed_file_datetime.date() > self.currentDate.date_datetime.date():
+                for item in currentdatefilelist.mapSheetTobeCollect:
+                    # TODO: 这里需要修改，增加字符串拼接的逻辑，应包括日期字符串
+                    toBeCollectFileName = item.mapsheetFileName  + '_plan_routes_'
+                    index = on_observed_filename.find(toBeCollectFileName.lower())
+                    if index != -1:
+                        # print(f"\n获取到有效计划路线kmz文件")
+                        item.update()
+                        return True
+                else:
+                    print(f"文件名中没有包含有效的计划路线名称：{on_observed_filename}")
+                    return False
             else:
-                collect_flag_list.append(False)
-        if all(collect_flag_list):
-            print("当天完成点已经收齐，开始启动数据收集")
-            MyHandler.execute_collection_version_2
-            print("数据收集完成")
-            exit()
+                print(f"无法从计划路线文件名中匹配出有效日期（格式错误/日期不为下一天)：{on_observed_filename}")
+                return False
+        else:
+            return False
+        
+    def obsserverService(self):
+        """
+        Purpose: 
+        开始监视微信文件夹
+        """
+        observer = Observer()
+        observer.schedule(event_handler, wechat_path, recursive=True)
 
+        print(f'开始监视微信文件夹...\n')
+        observer.start()
 
+        while self.toBeColleted_filelist_pop != []:
+            # 显示当前待接收的文件数量和列表
+            print(f"当前待接收的文件数量：{len(self.toBeColleted_filelist_pop)}")
+            print(f"当前待接收的文件列表：{self.toBeColleted_filelist_pop}")
+            time.sleep(300)
+            print(f"{datetime.now()}")
+            print("继续监视中...\n")
+        else:
+            print(f"所有待接收的文件已经接收完成，退出监视...")
+            observer.stop()
+
+        
 if __name__ == "__main__":
+
     datenow = DateType(date_datetime=datetime.now())
     # 测试日期
     # datenow = DateType(date_datetime=datetime(2024, 12, 26))
     wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
-    currentdatefilelist = Monitor(datenow)
-    # print(currentdatefilelist._mapsheet_filename_list)
-    currentdatefilelist.starter()
 
-    event_handler = MyHandler(date=datenow, filelist=currentdatefilelist._mapsheet_filename_list)
+    currentdatefilelist = MonitorMapSheetCollection(datenow)
 
-    observer = Observer()
-    observer.schedule(event_handler, wechat_path, recursive=True)
+    print(3*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
 
-    print(5*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
-    print(f'开始监视微信文件夹...\n')
-    observer.start()
+    event_handler = MyHandler(currentDate=datenow, toBeColleted_filelist=currentdatefilelist.mapSheetTobeCollect_namelist, mapsheetFileName_list=currentdatefilelist.mapSheet_namelist)
 
-    try:
-        while True:
-            time.sleep(300)
-            print(f"{datetime.now()}")
-            print("继续监视中...\n")
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+    event_handler.obsserverService()
