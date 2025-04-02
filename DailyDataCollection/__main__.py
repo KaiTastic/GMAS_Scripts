@@ -26,6 +26,7 @@ def parse_args():
         raise ValueError("日期长度不正确，请确保长度为8位")
     return date_str, monitor_bool
 
+
 class DataCollectNow():
 
     def __init__(self, colletionDate: DateType):
@@ -80,7 +81,6 @@ def main():
         print("以非监控模式运行中...")
         executor = DataCollectNow(colletionDate)
         executor()
-
 
 
 if __name__ == "__main__":
