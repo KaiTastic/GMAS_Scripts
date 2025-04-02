@@ -1,6 +1,6 @@
 """
 This module is used to monitor the daily data collection process. It will check the status of the data collection.
-用来监视微信文件夹中数据的更新
+该模块用来监视微信文件夹中数据的更新
 """
 
 import os
@@ -10,9 +10,8 @@ import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from DailyFileGenerator import KMZFile, MapsheetDailyFile, CurrentDateFiles, list_fullpath_of_files_with_keywords, find_files_with_max_number
+from DailyFileGenerator import MapsheetDailyFile, CurrentDateFiles
 import re
-import subprocess
 from tabulate import tabulate
 
 #! 需要改进的两个方向
