@@ -15,6 +15,11 @@ import re
 import subprocess
 from tabulate import tabulate
 
+#! 需要改进的两个方向
+#! 1. 利用继承使得MyHandler类获得和MonitorMapSheet类的属性和方法
+#! 2. 监控对象结束后，自动退出监控
+#! 3. 可能存在已经获得当日的完成路线后，程序会跳过更新的情况
+
 
 # 单个图幅
 class MonitorMapSheet(MapsheetDailyFile):
@@ -37,13 +42,11 @@ class MonitorMapSheet(MapsheetDailyFile):
         # 检查是否有当日计划
         self.fileToReceiveFlag: bool = False
         self.__hasPlan()
-        """
-        有可能反复接收到多个完成路线文件：
-        """
         self.matchedFinishedFileCountNum: int = 0
         # 记录当天接收到的计划路线数量
         self.matchedPlanFileCountNum: int = 0
 
+    # TODO: 这里需要在测试无误后删除
     # def update(self):
     #     """
     #     在接收完成路线文件时，更新当前图幅的状态
@@ -83,8 +86,6 @@ class MonitorMapSheet(MapsheetDailyFile):
         # 接收的数量加1
         self.matchedFinishedFileCountNum += 1
         self.findNextPlan(self)
-
-
 
     def __hasPlan(self):
         """
@@ -135,9 +136,11 @@ class MonitorMapSheetCollection(object):
         # 待收集的图幅实例列表
         self.mapSheetTobeCollect: list[MonitorMapSheet] = []
         # 待收集的图幅名称列表
-        self.mapSheetTobeCollect_namelist = []
+        self.mapSheetTobeCollect_namelist_list = []
         # 所有的图幅名称列表
-        self.mapSheet_namelist = []
+        self.mapSheet_namelist_list = []
+        # 记录当天的计划路线文件数量
+        self.plannedRouteFileNum: int = 0
         self.__setMapsheetList()
 
     @classmethod
@@ -162,13 +165,17 @@ class MonitorMapSheetCollection(object):
             # 实例化 MonitorMapSheet类
             mapsheet = MonitorMapSheet(mapsheetFileName, self.currentDate)
             # 将所有的图幅名称添加到列表中
-            self.mapSheet_namelist.append(mapsheetFileName)
+            self.mapSheet_namelist_list.append(mapsheetFileName)
             self.mapSheetTobeCollect.append(mapsheet)
             # 检查当天的计划路线文件是否存在，如果存在，则将图幅名称添加到列表中
             if mapsheet.fileToReceiveFlag:
-                # mapsheet_tobeCollect_list.append(mapsheetFileName)
-                # print(f"当天计划路线中的图幅名称：{mapsheetFileName}")
-                self.mapSheetTobeCollect_namelist.append(mapsheetFileName)
+                # 当日的计划数目+1
+                self.plannedRouteFileNum += 1
+                # 检查当天的完成点文件是否已经识别出来,如果已经识别出来，则不会被添加到列表中
+                if mapsheet.currentfilename is None:
+                    # mapsheet_tobeCollect_list.append(mapsheetFileName)
+                    # print(f"当天计划路线中的图幅名称：{mapsheetFileName}")
+                    self.mapSheetTobeCollect_namelist_list.append(mapsheetFileName)
         return self
 
     def __contains__(self, item):
@@ -183,27 +190,32 @@ class MyHandler(FileSystemEventHandler):
     self.toBeColleted_filelist: 待接收的文件列表
                                 在接收到有效文件后，弹出该文件名，直到列表为空
     """
-    def __init__(self, currentDate: DateType, toBeColleted_filelist: list, mapsheetFileName_list: list):
+    def __init__(self, currentDate: DateType, toBeColleted_filelist: list, mapsheetFileName_list: list, plannedRouteFileNum: int):
+
         self.currentDate = currentDate
-        # 待接收的文件目录
+        # 待接收的文件
         self.toBeColleted_filelist = toBeColleted_filelist
         self.toBeColleted_filelist_pop = toBeColleted_filelist
+        # 当天的计划路线文件数量
+        self.plannedRouteFileNum = plannedRouteFileNum
         # 所有的图幅名称列表
         self.mapsheetFileName_list = mapsheetFileName_list
 
     def on_created(self, event):
         # print(f'File created: {event.src_path}')
-        # print(f'有文件创建更新')
+        print(f'有文件创建更新: {event.src_path}')
         on_observed_filename = os.path.basename(event.src_path).lower()
         if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
             index_1 = on_observed_filename.find('_finished_points_and_tracks_')
             index_2 = on_observed_filename.find('_plan_routes_')
+            # 如果文件名中包含'_finished_points_and_tracks_'，则说明是完成点文件
             if index_1 != -1:
                 self.__finishFileValidate(on_observed_filename)
+            # 如果文件名中包含'_plan_routes_'，则说明是计划路线文件
             elif index_2 != -1:
                 self.__planFileValidate(on_observed_filename)
             else:
-                print(f"文件名称不符合要求：{on_observed_filename}")            
+                print(f"文件名称不符合要求（无法判断是完成点文件还是计划线路）：{on_observed_filename}")            
         else:
             print(f"文件名称不符合要求：{on_observed_filename}")
         print("继续监视目标文件夹...")
@@ -212,25 +224,20 @@ class MyHandler(FileSystemEventHandler):
 
     def __fileNameValidateDate(self, on_observed_filename):
         """
-        验证文件名中的日期信息是否符合要求
-        :param filename: 文件名
-        :return: bool
+        验证文件名中的日期信息是否符合格式要求：8位数字，即YYYYMMDD，同时可转换为有效的日期
         """
         if on_observed_filename.endswith(".kmz"):
+            # 从文件名称匹配到的日期
             matchedDate_yyyymmdd_str = re.search(r'\d{8}', on_observed_filename)
-            # print(f"从文件名称匹配到的日期：{matchedDate_yyyymmdd_str.group()}")
             try:
                 on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
-                # print(f"on_observed_file_datetime：{on_observed_file_datetime}")
             except ValueError:
                 print(f"文件名中的日期格式不正确)：{on_observed_filename}")
-                # 如果文件名中的日期大于当前日期，则合法
-            # on_observed_file_datetime_date = on_observed_file_datetime.date()
-            # currentdate_date = self.currentDate.date_datetime.date()
+            # 如果文件名中的日期大于等于当前日期，则合法
             if on_observed_file_datetime.date() >= self.currentDate.date_datetime.date():
                 return True
             else:
-                print(f"无法从文件名匹配到有效日期（格式错误/日期不为当天/日期不为下一天)：{on_observed_filename}")
+                print(f"无法从文件名匹配到有效日期（日期格式错误/日期不为当天/日期不为下一天)：{on_observed_filename}")
                 return False
         else:
             print(f"文件名格式错误(日期不正确)：{on_observed_filename}")
@@ -312,7 +319,6 @@ class MyHandler(FileSystemEventHandler):
         
     def obsserverService(self):
         """
-        Purpose: 
         开始监视微信文件夹
         """
         observer = Observer()
@@ -322,8 +328,8 @@ class MyHandler(FileSystemEventHandler):
         observer.start()
 
         while self.toBeColleted_filelist_pop != []:
-            # 显示当前待接收的文件数量和列表
-            print(f"当前待接收的文件数量：{len(self.toBeColleted_filelist_pop)}")
+            # 显示当前待接收的文件数量和列表和Plan的数量，表示为(n/m)格式
+            print(f"当前待接收的文件数量/计划数量：{len(self.toBeColleted_filelist_pop)}","/", self.plannedRouteFileNum)
             print(f"当前待接收的文件列表：{self.toBeColleted_filelist_pop}")
             # 每隔5分钟检查一次
             time.sleep(300)
@@ -345,6 +351,6 @@ if __name__ == "__main__":
 
     print(3*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
 
-    event_handler = MyHandler(currentDate=datenow, toBeColleted_filelist=currentdatefilelist.mapSheetTobeCollect_namelist, mapsheetFileName_list=currentdatefilelist.mapSheet_namelist)
+    event_handler = MyHandler(currentDate=datenow, toBeColleted_filelist=currentdatefilelist.mapSheetTobeCollect_namelist_list, mapsheetFileName_list=currentdatefilelist.mapSheet_namelist_list, plannedRouteFileNum=currentdatefilelist.plannedRouteFileNum)
 
     event_handler.obsserverService()
