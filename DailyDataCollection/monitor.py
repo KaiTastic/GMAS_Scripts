@@ -181,24 +181,25 @@ class MonitorMapSheetCollection(object):
         return item in self.mapSheetTobeCollect
 
 
-class MyHandler(FileSystemEventHandler):
+class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
     """
     待接收的文件监视器
 
     self.currentDate: 当前日期
-    self.toBeColleted_filelist: 待接收的文件列表
+    self.mapSheetTobeCollect_namelist_list: 待接收的文件列表
                                 在接收到有效文件后，弹出该文件名，直到列表为空
     """
-    def __init__(self, currentDate: DateType, toBeColleted_filelist: list, mapsheetFileName_list: list, plannedRouteFileNum: int):
+    def __init__(self, currentDate: DateType):
 
-        self.currentDate = currentDate
+        super().__init__(currentDate)
+        # self.currentDate = currentDate
         # 待接收的文件
-        self.toBeColleted_filelist = toBeColleted_filelist
-        self.toBeColleted_filelist_pop = toBeColleted_filelist
-        # 当天的计划路线文件数量
-        self.plannedRouteFileNum = plannedRouteFileNum
-        # 所有的图幅名称列表
-        self.mapsheetFileName_list = mapsheetFileName_list
+        # self.mapSheetTobeCollect_namelist_list = mapSheetTobeCollect_namelist_list
+        self.mapSheetTobeCollect_namelist_list_pop = self.mapSheetTobeCollect_namelist_list.copy()
+        # # 当天的计划路线文件数量
+        # self.plannedRouteFileNum = plannedRouteFileNum
+        # # 所有的图幅名称列表
+        # self.mapSheet_namelist_list = mapSheet_namelist_list
 
     def on_created(self, event):
         # print(f'File created: {event.src_path}')
@@ -248,7 +249,7 @@ class MyHandler(FileSystemEventHandler):
         :param filename: 文件名
         :return: bool
         """
-        for item in self.mapsheetFileName_list:
+        for item in self.mapSheet_namelist_list:
             if on_observed_filename.startswith(item.lower()):
                 # break
                 return True
@@ -268,15 +269,15 @@ class MyHandler(FileSystemEventHandler):
             on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
             # 如果文件名中的日期为当前日期，则合法
             if on_observed_file_datetime.date() == self.currentDate.date_datetime.date():
-                for item in currentdatefilelist.mapSheetTobeCollect:
+                for item in self.mapSheetTobeCollect:
                     toBeCollectFileName = item.mapsheetFileName + '_finished_points_and_tracks_' + self.currentDate.yyyymmdd_str
                     index = on_observed_filename.find(toBeCollectFileName.lower())
                     if index != -1:
                         # print(f"\n获取到有效计划路线kmz文件")
                         item.updateFinished()
-                        if item.mapsheetFileName in self.toBeColleted_filelist_pop:
+                        if item.mapsheetFileName in self.mapSheetTobeCollect_namelist_list_pop:
                             # 删除已完成的文件名
-                            self.toBeColleted_filelist_pop.remove(item.mapsheetFileName)
+                            self.mapSheetTobeCollect_namelist_list_pop.remove(item.mapsheetFileName)
                         return True
                 else:
                     print(f"文件名中没有包含有效完成点名称：{on_observed_filename}")
@@ -299,7 +300,7 @@ class MyHandler(FileSystemEventHandler):
             on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
             # 如果文件名中的日期大于当前日期，则合法
             if on_observed_file_datetime.date() > self.currentDate.date_datetime.date():
-                for item in currentdatefilelist.mapSheetTobeCollect:
+                for item in self.mapSheetTobeCollect:
                     # TODO: 这里需要修改，增加字符串拼接的逻辑，应包括日期字符串
                     toBeCollectFileName = item.mapsheetFileName  + '_plan_routes_'
                     index = on_observed_filename.find(toBeCollectFileName.lower())
@@ -320,16 +321,19 @@ class MyHandler(FileSystemEventHandler):
         """
         开始监视微信文件夹
         """
+
+        wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
+
         observer = Observer()
         observer.schedule(event_handler, wechat_path, recursive=True)
 
         print(f'开始监视微信文件夹...\n')
         observer.start()
 
-        while self.toBeColleted_filelist_pop != []:
+        while self.mapSheetTobeCollect_namelist_list_pop != []:
             # 显示当前待接收的文件数量和列表和Plan的数量，表示为(n/m)格式
-            print(f"当前待接收的文件数量/计划数量：{len(self.toBeColleted_filelist_pop)}","/", self.plannedRouteFileNum)
-            print(f"当前待接收的文件列表：{self.toBeColleted_filelist_pop}")
+            print(f"当前待接收的文件数量/计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
+            print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}")
             # 每隔5分钟检查一次
             time.sleep(300)
             print(f"{datetime.now()}")
@@ -337,19 +341,17 @@ class MyHandler(FileSystemEventHandler):
         else:
             print(f"所有待接收的文件已经接收完成，退出监视...")
             observer.stop()
+            observer.join()
 
         
 if __name__ == "__main__":
 
-    datenow = DateType(date_datetime=datetime.now())
+    # datenow = DateType(date_datetime=datetime.now())
     # 测试日期
-    # datenow = DateType(date_datetime=datetime(2024, 12, 26))
-    wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
-
-    currentdatefilelist = MonitorMapSheetCollection(datenow)
-
+    datenow = DateType(date_datetime=datetime(2025, 4, 3))
+    
     print(3*'\n', 5*"*", "当前日期：", datenow.yyyymmdd_str, 5*"*")
 
-    event_handler = MyHandler(currentDate=datenow, toBeColleted_filelist=currentdatefilelist.mapSheetTobeCollect_namelist_list, mapsheetFileName_list=currentdatefilelist.mapSheet_namelist_list, plannedRouteFileNum=currentdatefilelist.plannedRouteFileNum)
+    event_handler = MyHandler(currentDate=datenow)
 
     event_handler.obsserverService()
