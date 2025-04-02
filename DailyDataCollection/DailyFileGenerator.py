@@ -868,7 +868,8 @@ class MapsheetDailyFile(object):
         return cls.instance
 
     def __init__(self, mapsheetFileName: str, date: 'DateType'):
-
+        # 图幅的基本信息
+        # 图幅文件名称
         self.mapsheetFileName:str = mapsheetFileName
         # 图幅序号
         self.sequence: int = None
@@ -907,7 +908,7 @@ class MapsheetDailyFile(object):
         self.nextfilepath = None
         self.nextPlacemarks: ObservationData = None
         # 本日新增点数、线路数、点要素和线要素
-        self.dailyincreasePointNum: int = None
+        self.dailyIncreasePointNum: int = None
         self.dailyincreaseRouteNum: int = None
         self.dailyincreasePoints: dict = {}
         self.dailyincreaseRoutes: list = []
@@ -1026,7 +1027,7 @@ class MapsheetDailyFile(object):
                 # print(f"在工作文件夹中查找{instance.mapsheetFileName}日期{file_path}的文件")
                 if os.path.exists(file_path):
                     instance.lastDate = DateType(date_datetime=lastDate_datetime2)
-                    #TODO: 将文件拷贝至当前日期文件夹中，需要补充
+                    # NOTE: 如果当前日期的文件为None，则需要将之前的文件拷贝至当前日期的文件夹
                     if instance.currentfilename is None:
                         dest = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", os.path.basename(file_path))
                         if file_path != dest:
@@ -1035,6 +1036,11 @@ class MapsheetDailyFile(object):
                             os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)
                             instance.lastfilepath = dest
                     else:
+                        #! 此处清理旧文件的效果需要验证
+                        # NOTE: 需要清理当前文件夹中的之前的完成文件
+                        fileTobeRemoved = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz")
+                        if os.path.exists(fileTobeRemoved) and os.path.isfile(fileTobeRemoved)
+                            os.remove(fileTobeRemoved)
                         instance.lastfilepath = file_path
                     # print(f"在工作文件夹中找到{instance.lastDate.yyyymmdd_str}的文件: {instance.lastfilepath}")
                     break
@@ -1123,7 +1129,6 @@ class MapsheetDailyFile(object):
                         break
                     else:
                         instance.nextfilepath = file_path
-
                         break
         if instance.nextfilepath:
             instance.nextfilename = os.path.basename(instance.nextfilepath)
@@ -1163,15 +1168,15 @@ class MapsheetDailyFile(object):
         """
         if self.currentPlacemarks is None:
             dailyincreasePlacemarks = 0
-            self.dailyincreasePointNum = 0
+            self.dailyIncreasePointNum = 0
             self.dailyincreaseRouteNum = 0
         if self.currentPlacemarks and self.lastPlacemarks:
             dailyincreasePlacemarks = self.currentPlacemarks - self.lastPlacemarks
-            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyIncreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
         if self.currentPlacemarks is not None and self.lastPlacemarks is None:
             dailyincreasePlacemarks = self.currentPlacemarks
-            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyIncreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
             print(f"提示：{self.mapsheetFileName}是否为第一次提交？")
         return self
@@ -1186,7 +1191,7 @@ class MapsheetDailyFile(object):
             return None
     
     def __str__(self):
-        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
+        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyIncreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
     
 
     
@@ -1309,7 +1314,7 @@ class CurrentDateFiles(object):
         if self._totalDaiyIncreasePointNum is None:
             total = 0
             for mapsheet in self.currentDateFiles:
-                total += mapsheet.dailyincreasePointNum
+                total += mapsheet.dailyIncreasePointNum
             self._totalDaiyIncreasePointNum = total
         return self._totalDaiyIncreasePointNum
     
@@ -1331,7 +1336,7 @@ class CurrentDateFiles(object):
             sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
             dailyPoints = {}
             for mapsheet in sorted_mapsheets:
-                dailyPoints[mapsheet.romanName] = mapsheet.dailyincreasePointNum
+                dailyPoints[mapsheet.romanName] = mapsheet.dailyIncreasePointNum
             self._dailyIncreasedPoints = dailyPoints
         return self._dailyIncreasedPoints
     
