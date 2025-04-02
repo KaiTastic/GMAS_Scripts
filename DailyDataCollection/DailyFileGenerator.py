@@ -1136,11 +1136,11 @@ class MapsheetDailyFile(object):
         MapsheetDailyFile.getCurrentDateFile(self)
         MapsheetDailyFile.findlastFinished(self)
         MapsheetDailyFile.findNextPlan(self)
-        MapsheetDailyFile.__dailyIncrease(self)
-        MapsheetDailyFile.__Finished(self)
+        self.dailyIncrease()
+        self.soFarfinished()
         return self
     
-    def __Finished(self):
+    def soFarfinished(self):
         """
         计算截止当天的总计点数和线路数
         """
@@ -1156,7 +1156,7 @@ class MapsheetDailyFile(object):
         return self
         
     
-    def __dailyIncrease(self):
+    def dailyIncrease(self):
         """
         计算当天新增的点要素和线要素
         """
@@ -1837,21 +1837,8 @@ class DataSubmition(object):
 
 if __name__ == "__main__":
 
-    #KMZFile类测试
-    #错误路径
-    # kmz = KMZFile(filepath=r"D:\Workspace\2024\20241224\Ad_Dawadami_finished_points_and_tracks_20241224.kmz")
-    # 正确路径
-    # kmz = KMZFile(filepath=r"D:\RouteDesigen\202412\20241224\Finished points\Ad_Dawadami_finished_points_and_tracks_20241224.kmz")
-    # print(kmz.placemarks)
-    # exit()
-
-    # MapsheetDailyFile类测试
-    # Ad_Dawadami = MapsheetDailyFile("Ad_Dawadami", DateType(yyyymmdd_str="20241226"))
-    # print(Ad_Dawadami.__dict__)
-    # exit()
-
-    date = DateType(date_datetime=datetime.now())
     # 回溯日期测试
+    date = DateType(date_datetime=datetime.now())
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         collection = CurrentDateFiles(date)
         print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
