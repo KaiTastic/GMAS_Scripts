@@ -908,7 +908,7 @@ class MapsheetDailyFile(object):
         self.nextfilepath = None
         self.nextPlacemarks: ObservationData = None
         # 本日新增点数、线路数、点要素和线要素
-        self.dailyIncreasePointNum: int = None
+        self.dailyincreasePointNum: int = None
         self.dailyincreaseRouteNum: int = None
         self.dailyincreasePoints: dict = {}
         self.dailyincreaseRoutes: list = []
@@ -1168,15 +1168,15 @@ class MapsheetDailyFile(object):
         """
         if self.currentPlacemarks is None:
             dailyincreasePlacemarks = 0
-            self.dailyIncreasePointNum = 0
+            self.dailyincreasePointNum = 0
             self.dailyincreaseRouteNum = 0
         if self.currentPlacemarks and self.lastPlacemarks:
             dailyincreasePlacemarks = self.currentPlacemarks - self.lastPlacemarks
-            self.dailyIncreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
         if self.currentPlacemarks is not None and self.lastPlacemarks is None:
             dailyincreasePlacemarks = self.currentPlacemarks
-            self.dailyIncreasePointNum = len(dailyincreasePlacemarks.points)
+            self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
             print(f"提示：{self.mapsheetFileName}是否为第一次提交？")
         return self
@@ -1191,7 +1191,7 @@ class MapsheetDailyFile(object):
             return None
     
     def __str__(self):
-        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyIncreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
+        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
     
 
     
@@ -1314,7 +1314,7 @@ class CurrentDateFiles(object):
         if self._totalDaiyIncreasePointNum is None:
             total = 0
             for mapsheet in self.currentDateFiles:
-                total += mapsheet.dailyIncreasePointNum
+                total += mapsheet.dailyincreasePointNum
             self._totalDaiyIncreasePointNum = total
         return self._totalDaiyIncreasePointNum
     
@@ -1336,7 +1336,7 @@ class CurrentDateFiles(object):
             sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
             dailyPoints = {}
             for mapsheet in sorted_mapsheets:
-                dailyPoints[mapsheet.romanName] = mapsheet.dailyIncreasePointNum
+                dailyPoints[mapsheet.romanName] = mapsheet.dailyincreasePointNum
             self._dailyIncreasedPoints = dailyPoints
         return self._dailyIncreasedPoints
     
