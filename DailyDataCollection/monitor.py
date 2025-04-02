@@ -181,7 +181,7 @@ class MonitorMapSheetCollection(object):
         return item in self.mapSheetTobeCollect
 
 
-class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
+class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
     """
     待接收的文件监视器
 
@@ -317,19 +317,16 @@ class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         else:
             return False
         
-    def obsserverService(self):
+    def obsserverService(self, event_handler, executor=None):
         """
         开始监视微信文件夹
         """
-
-        wechat_path = os.path.join(WECHAT_FOLDER, datenow.yyyy_mm_str)
+        wechat_path = os.path.join(WECHAT_FOLDER, self.currentDate.yyyy_mm_str)
 
         observer = Observer()
         observer.schedule(event_handler, wechat_path, recursive=True)
-
-        print(3*'\n', 5*"-", "当前日期：", datenow.yyyymmdd_str, 5*"-")
-        print(f'开始监视微信文件夹...\n')
         observer.start()
+        # print(f'开始监视微信文件夹...\n')
 
         while self.mapSheetTobeCollect_namelist_list_pop != []:
             # 显示当前待接收的文件数量和列表和Plan的数量，表示为(n/m)格式
@@ -340,7 +337,13 @@ class MyHandler(FileSystemEventHandler, MonitorMapSheetCollection):
             print(f"{datetime.now()}")
             print("继续监视中...\n")
         else:
-            print(f"所有待接收的文件已经接收完成，退出监视...")
+            print(f"所有待接收的文件已经全部接收完成，退出监视...")
+            if executor:
+                # 执行文件处理任务
+                executor()
+                pass
+
+            # 停止监视
             observer.stop()
             observer.join()
 
@@ -350,7 +353,7 @@ if __name__ == "__main__":
     datenow = DateType(date_datetime=datetime.now())
     # 测试日期
     # datenow = DateType(date_datetime=datetime(2025, 4, 3))
-    
-    event_handler = MyHandler(currentDate=datenow)
+
+    event_handler = DataHandler(currentDate=datenow)
     # 手动启动监视方法
     event_handler.obsserverService()
