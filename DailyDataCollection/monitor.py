@@ -305,7 +305,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
 
             # 每隔10分钟检查一次
             time.sleep(600)
-            print("\n", f"{datetime.now()}", " ","持续监测中...", "\n")
+            print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
             
         else:
             print(f"所有待接收的文件已经全部接收完成,退出监视...")
