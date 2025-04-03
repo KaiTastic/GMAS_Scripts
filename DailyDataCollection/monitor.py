@@ -290,7 +290,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         while self.mapSheetTobeCollect_namelist_list_pop != []:
             # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
             print(f"当前待接收的文件数量/计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
-            print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}")
+
             # 如果当前时间为晚上7点,则进入催促模式
             if (datetime.now().hour >= 19 and datetime.now().minute >= 0) or (len(self.mapSheetTobeCollect_namelist_list_pop) <= 3):
                 print(f"进入催促模式...")
@@ -299,8 +299,14 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                     for item in self.mapSheetTobeCollect:
                         if item_filename == item.mapsheetFileName:
                             print(f"请注意：{item.teamNumber}" "{item_filename}文件未接收完成,责任人：{item.teamleader}")
+                print("\n")
+            else:
+                print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+
             # 每隔10分钟检查一次
             time.sleep(600)
+            print("\n", f"{datetime.now()}", " ","持续监测中...", "\n")
+            
         else:
             print(f"所有待接收的文件已经全部接收完成,退出监视...")
             if executor:
