@@ -1039,7 +1039,7 @@ class MapsheetDailyFile(object):
                         # NOTE: 需要清理当前文件夹中的之前的完成文件
                         fileTobeRemoved = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz")
                         if os.path.exists(fileTobeRemoved) and os.path.isfile(fileTobeRemoved):
-                            print("当日文件已经存在，需要当日文件夹中的旧文件: ", fileTobeRemoved)
+                            print("当日文件已经存在，需要移除当日文件夹中的旧文件: ", fileTobeRemoved)
                             os.remove(fileTobeRemoved)
                         instance.lastfilepath = file_path
                     # print(f"在工作文件夹中找到{instance.lastDate.yyyymmdd_str}的文件: {instance.lastfilepath}")
