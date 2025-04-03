@@ -47,7 +47,7 @@ MAP_PROJECT_FOLDER = "Finished observation points of Group3"
 
 # 设置文件向后回溯查找的日期，格式为"YYYYMMDD"
 # 一般设置为该批次图幅开始的日期，例如"20240901"
-TRACEBACK_DATE = "20250301"
+TRACEBACK_DATE = "20250310"
 # 设置文件向后回溯查找的天数
 TRACEBACK_DAYS = 60
 # 设置文件向前查找的天数
