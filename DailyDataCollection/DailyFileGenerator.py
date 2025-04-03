@@ -1036,10 +1036,10 @@ class MapsheetDailyFile(object):
                             os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)
                             instance.lastfilepath = dest
                     else:
-                        #! 此处清理旧文件的效果需要验证
                         # NOTE: 需要清理当前文件夹中的之前的完成文件
-                        fileTobeRemoved = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz")
+                        fileTobeRemoved = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz")
                         if os.path.exists(fileTobeRemoved) and os.path.isfile(fileTobeRemoved):
+                            print("当日文件已经存在，需要当日文件夹中的旧文件: ", fileTobeRemoved)
                             os.remove(fileTobeRemoved)
                         instance.lastfilepath = file_path
                     # print(f"在工作文件夹中找到{instance.lastDate.yyyymmdd_str}的文件: {instance.lastfilepath}")
@@ -1081,7 +1081,8 @@ class MapsheetDailyFile(object):
                         instance.lastDate = DateType(date_datetime=lastDate_datetime)
                         instance.lastfilepath = fetched_file
                         break
-        if instance.lastfilepath:
+        # NOTE: 2025年4月3日增加instance不是None且为有效文件的判断
+        if instance.lastfilepath is not None and os.path.exists(instance.lastfilepath) and os.path.isfile(instance.lastfilepath):
             instance.lastfilename = os.path.basename(instance.lastfilepath)
             file = KMZFile(filepath=instance.lastfilepath)
             instance.lastPlacemarks = file.placemarks
