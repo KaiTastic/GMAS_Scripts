@@ -90,7 +90,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         print(tabulate(table_data, headers, tablefmt="grid"))
 
         if self.errorMsg:
-            print(f"{self.errorMsg}")
+            print(f"图幅文件中存在错误信息：\n{self.errorMsg}")
 
 
 # 待收集的图幅集合
