@@ -15,8 +15,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="处理日期字符串")
     parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="8位长度日期字符串，格式为\'YYYYMMDD\'")
     parser.add_argument("--monitor", nargs='?', default=False, type=bool, help="是否持续监控微信文件夹")
+    parser.add_argument("--endtime", nargs='?', default=None, type=str, help="停止监控的时间，格式为\'HHMMSS\'")
     date_str = parser.parse_args().date
     monitor_bool = parser.parse_args().monitor
+    endtime_str = parser.parse_args().endtime
     if len(date_str) == 8:
         try:
             datetime.strptime(date_str, "%Y%m%d")
@@ -24,7 +26,7 @@ def parse_args():
             raise ValueError("日期不合法或格式不正确，请确保格式为'YYYYMMDD'")
     else:
         raise ValueError("日期长度不正确，请确保长度为8位")
-    return date_str, monitor_bool
+    return date_str, monitor_bool, endtime_str
 
 
 class DataCollectNow():
@@ -64,10 +66,13 @@ class DataCollectNow():
 
 def main():
 
-    date_str, monitor_bool = parse_args()
+    date_str, monitor_bool, endtime_str = parse_args()
     print(3*'\n', 15*"-", "当前日期：", date_str, 15*"-")
 
     colletionDate = DateType(yyyymmdd_str=date_str)
+    # 解析时间字符串
+    if endtime_str is None:
+        endtime = datetime.strptime(endtime_str, "%H%M%S")
 
     if monitor_bool:
         # 监控模式
@@ -75,7 +80,7 @@ def main():
         # 这里可以添加监控逻辑
         event_handler = DataHandler(currentDate=colletionDate)
         # 手动启动监视方法
-        event_handler.obsserverService(event_handler=event_handler, executor=DataCollectNow(colletionDate))
+        event_handler.obsserverService(event_handler=event_handler, executor=DataCollectNow(colletionDate), endtime)
     else:
         # 非监控模式
         print("以非监控模式运行中...")
