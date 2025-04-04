@@ -16,6 +16,7 @@ from tabulate import tabulate
 
 #! 需要改进的方向
 #! 1. 可能存在已经获得当日的完成路线后,程序会跳过更新的情况
+#! 2. 将error信息纳入是否接收的判断中
 
 
 # 单个图幅
@@ -278,7 +279,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         else:
             return False
         
-    def obsserverService(self, event_handler, executor=None):
+    def obsserverService(self, event_handler, executor=None, endtime=None):
         """开始监视微信文件夹
         """
         wechat_path = os.path.join(WECHAT_FOLDER, self.currentDate.yyyy_mm_str)
@@ -287,35 +288,60 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         observer.schedule(event_handler, wechat_path, recursive=True)
         observer.start()
 
-        while self.mapSheetTobeCollect_namelist_list_pop != []:
-            # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
-            print(f"当前待接收的文件数量/计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
+        if self.plannedRouteFileNum != 0:
 
-            # 如果当前时间为晚上7点,则进入催促模式
-            if (datetime.now().hour >= 19 and datetime.now().minute >= 0) or (len(self.mapSheetTobeCollect_namelist_list_pop) <= 3):
-                print(f"进入催促模式...")
-                for item_filename in self.mapSheetTobeCollect_namelist_list_pop:
-                    # 提醒发送催促消息
-                    for item in self.mapSheetTobeCollect:
-                        if item_filename == item.mapsheetFileName:
-                            print(f"请注意：{item.teamNumber}" "{item_filename}文件未接收完成,责任人：{item.teamleader}")
-                print("\n")
+            while self.mapSheetTobeCollect_namelist_list_pop != []:
+                # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
+                print(f"当前待接收的文件数量/当日计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
+
+                # 如果当前时间为晚上7点,则进入催促模式
+                if (datetime.now().hour >= 19 and datetime.now().minute >= 0) or (len(self.mapSheetTobeCollect_namelist_list_pop) <= 3):
+                    print(f"进入催促模式...")
+                    for item_filename in self.mapSheetTobeCollect_namelist_list_pop:
+                        # 提醒发送催促消息
+                        for item in self.mapSheetTobeCollect:
+                            if item_filename == item.mapsheetFileName:
+                                print(f"请注意：{item.teamNumber}", f"{item.mapsheetFileName}文件未接收完成,责任人：{item.teamleader}")
+                    print("\n")
+                else:
+                    print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+
+                # 每隔20分钟检查一次
+                time.sleep(1200)
+                print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
+                
             else:
-                print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+                print(f"所有待接收的文件已经全部接收完成,退出监视...")
+                if executor:
+                    # 执行文件处理任务
+                    executor()
 
-            # 每隔10分钟检查一次
-            time.sleep(600)
-            print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
-            
+                # 停止监视
+                observer.stop()
+                observer.join()
         else:
-            print(f"所有待接收的文件已经全部接收完成,退出监视...")
-            if executor:
-                # 执行文件处理任务
-                executor()
+            # 如果当天没有待接收的完成点,则进入计划路线接收模式
+            # TODO: 增加一个终止时间
+            if endtime is None:
+                endtime = datetime.now().replace(hour=21, minute=00, second=0, microsecond=0)
 
-            # 停止监视
-            observer.stop()
-            observer.join()
+            print(f"当天没有待接收的完成点，转入计划路线接收模式...\n预计接停止收时间：{endtime.hour}点{endtime.minute}分")
+            # 时间同上
+            while datetime.now() <= endtime:
+                # 每隔10分钟检查一次
+                time.sleep(600)
+                print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
+
+            else:
+                print(f"已到截止时间{endtime.hour}点{endtime.minute}分，停止接收路线计划,退出监视...")
+                if executor:
+                    # 执行文件处理任务
+                    executor()
+
+                # 停止监视
+                observer.stop()
+                observer.join()
+
 
         
 if __name__ == "__main__":
