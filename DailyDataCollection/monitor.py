@@ -321,10 +321,6 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 observer.stop()
                 observer.join()
         else:
-            # 如果当天没有待接收的完成点,则进入计划路线接收模式
-            # TODO: 增加一个终止时间
-            if endtime is None:
-                endtime = datetime.now().replace(hour=21, minute=00, second=0, microsecond=0)
 
             print(f"当天没有待接收的完成点，转入计划路线接收模式...\n预计接停止收时间：{endtime.hour}点{endtime.minute}分")
             # 时间同上

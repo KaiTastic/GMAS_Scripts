@@ -76,7 +76,12 @@ def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
     print(3*'\n', 15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-")
-    print(3*'\n', 13*"-", "监控停止时间：", endtime.hour(), ":", endtime.minute(), 13*"-")
+
+    # TODO: 增加一个默认终止时间
+    if endtime is None:
+        endtime = datetime.now().replace(hour=21, minute=00, second=0, microsecond=0)
+
+    print(3*'\n', 13*"-", "监控停止时间：", endtime.hour, ":", endtime.minute, 13*"-")
 
     
 
