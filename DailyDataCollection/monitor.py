@@ -171,9 +171,9 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         self.mapSheetTobeCollect_namelist_list_pop = self.mapSheetTobeCollect_namelist_list.copy()
 
     def on_created(self, event):
+        on_observed_filename = os.path.basename(event.src_path).lower()
         if on_observed_filename.endswith(".kmz"):
             print(f'有KMZ文件创建更新: {event.src_path}')
-        on_observed_filename = os.path.basename(event.src_path).lower()
         if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
             index_1 = on_observed_filename.find('_finished_points_and_tracks_')
             index_2 = on_observed_filename.find('_plan_routes_')
