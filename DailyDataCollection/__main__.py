@@ -26,7 +26,15 @@ def parse_args():
             raise ValueError("日期不合法或格式不正确，请确保格式为'YYYYMMDD'")
     else:
         raise ValueError("日期长度不正确，请确保长度为8位")
-    return date_str, monitor_bool, endtime_str
+    
+    date_datetype = DateType(yyyymmdd_str=date_str)
+
+        # 解析时间字符串
+    if endtime_str:
+        endtime = datetime.strptime(endtime_str, "%H%M%S")
+    else:
+        endtime = None
+    return date_datetype, monitor_bool, endtime
 
 
 class DataCollectNow():
@@ -66,25 +74,23 @@ class DataCollectNow():
 
 def main():
 
-    date_str, monitor_bool, endtime_str = parse_args()
-    print(3*'\n', 15*"-", "当前日期：", date_str, 15*"-")
+    date_datetype, monitor_bool, endtime = parse_args()
+    print(3*'\n', 15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-")
+    print(3*'\n', 13*"-", "监控停止时间：", endtime.hour(), ":", endtime.minute(), 13*"-")
 
-    colletionDate = DateType(yyyymmdd_str=date_str)
-    # 解析时间字符串
-    if endtime_str is None:
-        endtime = datetime.strptime(endtime_str, "%H%M%S")
+    
 
     if monitor_bool:
         # 监控模式
         print("以监控模式运行中...")
         # 这里可以添加监控逻辑
-        event_handler = DataHandler(currentDate=colletionDate)
+        event_handler = DataHandler(currentDate=date_datetype)
         # 手动启动监视方法
-        event_handler.obsserverService(event_handler=event_handler, executor=DataCollectNow(colletionDate), endtime)
+        event_handler.obsserverService(event_handler=event_handler, executor=DataCollectNow(date_datetype), endtime=endtime)
     else:
         # 非监控模式
         print("以非监控模式运行中...")
-        executor = DataCollectNow(colletionDate)
+        executor = DataCollectNow(date_datetype)
         executor()
 
 
