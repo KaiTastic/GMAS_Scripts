@@ -174,20 +174,20 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         on_observed_filename = os.path.basename(event.src_path).lower()
         if on_observed_filename.endswith(".kmz"):
             print(f'有KMZ文件创建更新: {event.src_path}')
-        if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
-            index_1 = on_observed_filename.find('_finished_points_and_tracks_')
-            index_2 = on_observed_filename.find('_plan_routes_')
-            # 如果文件名中包含'_finished_points_and_tracks_',则说明是完成点文件
-            if index_1 != -1:
-                self.__finishFileValidate(on_observed_filename)
-            # 如果文件名中包含'_plan_routes_',则说明是计划路线文件
-            elif index_2 != -1:
-                self.__planFileValidate(on_observed_filename)
-            else:
-                print(f"文件名称不符合要求（无法判断是完成点文件/计划线路文件）：{on_observed_filename}")            
-        else:
-            print(f"文件未识别：{on_observed_filename}")
-        print("继续监视目标文件夹...", end="\n")
+            if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
+                index_1 = on_observed_filename.find('_finished_points_and_tracks_')
+                index_2 = on_observed_filename.find('_plan_routes_')
+                # 如果文件名中包含'_finished_points_and_tracks_',则说明是完成点文件
+                if index_1 != -1:
+                    self.__finishKMZFileValidate(on_observed_filename)
+                # 如果文件名中包含'_plan_routes_',则说明是计划路线文件
+                elif index_2 != -1:
+                    self.__planKMZFileValidate(on_observed_filename)
+                else:
+                    print(f"文件名称不符合要求（无法判断是完成点文件/计划线路文件）：{on_observed_filename}")            
+        # else:
+        #     print(f"文件未识别：{on_observed_filename}")
+        # print("文件未识别,继续监视目标文件夹...", end="\n")
 
     def __fileNameValidateDate(self, on_observed_filename):
         """验证文件名中的日期信息是否符合格式要求：8位数字,即YYYYMMDD,同时可转换为有效的日期
@@ -221,9 +221,9 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         else:
             print(f"文件名中没有包含有效的图幅名称：{on_observed_filename}")
             return False
-    
-    def __finishFileValidate(self, on_observed_filename):
-        """验证文件名是否符合要求
+
+    def __finishKMZFileValidate(self, on_observed_filename):
+        """验证KMZ文件的名称是否符合要求
         :param filename: 文件名
         :return: bool
         """
@@ -251,9 +251,8 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         else:
             return False
             
-    def __planFileValidate(self, on_observed_filename):
-        """
-        验证文件名是否符合要求
+    def __planKMZFileValidate(self, on_observed_filename):
+        """验证KMZ文件的名称是否符合要求
         :param filename: 文件名
         :return: bool
         """
