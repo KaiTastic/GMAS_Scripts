@@ -7,24 +7,21 @@ Surface_not_clean = ['41221A021-1-LW4.jpg', '41221A022-1-LW3.jpg', '41221A023-1-
 Other_reason = ['44232B227_FSP07.jpg']
 
 
-
-
 import os
 import shutil
-
 
 
 def find_file(filename, search_path):
     """
     Search for a file in the given directory and its subdirectories.
-
     :param filename: The name of the file to search for.
     :param search_path: The directory to search in.
     :return: The full path to the file if found, otherwise None.
     """
     for root, dirs, files in os.walk(search_path):
-        if filename in files:
-            return os.path.join(root, filename.lower())
+        # Convert files to lowercase for case-insensitive comparison
+        if filename.lower() in (f.lower() for f in files):
+            return os.path.join(root, filename)
     return None
 
 
@@ -37,12 +34,6 @@ def copy_file_to_directory(file_path, destination_directory):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
     shutil.copy(file_path, destination_directory)
-    pass
-
-
-
-
-
 
 
 search_path = r"D:\Group1-Batch1_Revised_20250213"
