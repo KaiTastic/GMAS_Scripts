@@ -40,24 +40,24 @@ def list_fullpath_of_files_with_keywords(directory: str, keywords: list) -> list
 
 def find_files_with_max_number(directory: str) -> dict:
     """
-    从指定目录中查找包含相同基础文件名的文件，并返回括号中数字最大的文件
+    从指定目录中查找包含相同基础文件名的文件, 并返回括号中数字最大的文件
     """
     files_dict = {}
     # 遍历目录中的所有文件
     for root, _, filenames in os.walk(directory):
         for filename in filenames:
-            # 去掉括号中的数字，例如：'file(1).txt' 返回 'file.txt'
+            # 去掉括号中的数字, 例如：'file(1).txt' 返回 'file.txt'
             base_name = re.sub(r'\(\d+\)', '', filename)
-            # 在文件名中查找括号内的数字。正则表达式 `r'\((\d+)\)'` 匹配括号内的一个或多个数字，并返回一个 `Match` 对象。如果没有找到匹配项，则返回 `None`
+            # 在文件名中查找括号内的数字。正则表达式 `r'\((\d+)\)'` 匹配括号内的一个或多个数字, 并返回一个 `Match` 对象。如果没有找到匹配项, 则返回 `None`
             match = re.search(r'\((\d+)\)', filename)
-            # 从 `Match` 对象中提取括号内的数字，并将其转换为整数。如果找到了匹配项，则使用 `int(match.group(1))` 提取括号内的数字；否则，返回 -1
-            # 提取括号中的数字，例如：'file(1).txt' 返回 1，'file.txt' 返回 -1
+            # 从 `Match` 对象中提取括号内的数字, 并将其转换为整数。如果找到了匹配项, 则使用 `int(match.group(1))` 提取括号内的数字；否则, 返回 -1
+            # 提取括号中的数字, 例如：'file(1).txt' 返回 1, 'file.txt' 返回 -1
             number = int(match.group(1)) if match else -1        
             file_path = os.path.join(root, filename)
-            # 如果文件名不在字典中，则将其添加到字典中
+            # 如果文件名不在字典中, 则将其添加到字典中
             if base_name not in files_dict:
                 files_dict[base_name] = (file_path, number)
-            # 如果文件名在字典中，则比较括号中的数字，保留数字最大的文件
+            # 如果文件名在字典中, 则比较括号中的数字, 保留数字最大的文件
             else:
                 existing_file, existing_number = files_dict[base_name]
                 if number > existing_number:
@@ -114,7 +114,7 @@ class GeneralIO(FileIO):
     def write_as(self, newpath: str = None):
         """
         write_as 另存为新文件
-        另存为新文件，将当前文件复制到新路径，将内存中的文件更新并更新当前文件路径
+        另存为新文件, 将当前文件复制到新路径, 将内存中的文件更新并更新当前文件路径
         :param newpath: 新文件路径
         :type newpath: str
         :raises FileNotFoundError: _description_
@@ -123,13 +123,13 @@ class GeneralIO(FileIO):
             logger.error(f"新文件路径为空: {newpath}")
             return False
         if os.path.isdir(newpath):
-            logger.error(f"文件路径{newpath}是一个目录，不是文件")
+            logger.error(f"文件路径{newpath}是一个目录, 不是文件")
             return False
-        #TODO: 另存为新文件，需要利用os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)解决权限问题？
+        #TODO: 另存为新文件, 需要利用os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)解决权限问题？
         # Step 1: 从当前文件路径复制文件到新路径
-        # 先检查新路径是否存在，如果存在，询问用户是否覆盖
+        # 先检查新路径是否存在, 如果存在, 询问用户是否覆盖
         if os.path.exists(newpath) and os.path.isfile(newpath):
-            user_input = input(f"文件 '{newpath}' 已存在，是否覆盖？(YES(Y)/NO(N)): ").lower()
+            user_input = input(f"文件 '{newpath}' 已存在, 是否覆盖？(YES(Y)/NO(N)): ").lower()
             if user_input not in ['yes', 'y']:
                 print("操作已取消")
                 return False
@@ -303,17 +303,17 @@ class ObservationData:
         if self.kml_content:
             self.__getPoints()
             self.__getRoutes()
-            # 在解析KML内容后删除KML内容，以释放内存
+            # 在解析KML内容后删除KML内容, 以释放内存
             del self.kml_content
             # 检查点号
             self.__pointCheck()
 
     def __getPoints(self) -> None: 
         """
-        从KML内容中提取点要素，包括OBSID、经度和纬度
+        从KML内容中提取点要素, 包括OBSID、经度和纬度
         """
         root = etree.fromstring(self.kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
-        # Step 1: 通过Point元素提取点要素，Point元素下的name元素为OBSID，coordinates元素为经纬度，name元素可能为空或不符合命名规范，coordinates元素一定存在
+        # Step 1: 通过Point元素提取点要素, Point元素下的name元素为OBSID, coordinates元素为经纬度, name元素可能为空或不符合命名规范, coordinates元素一定存在
         for placemark in root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'):
             point = placemark.find('.//{http://www.opengis.net/kml/2.2}Point')
             if point is not None:
@@ -332,7 +332,7 @@ class ObservationData:
                         else:
                             self.__errorMsg = [error]
                         # logger.warning(error)
-        # Step 2: 通过Description元素提取点要素，Description元素下的内容可能包含OBSID、经度和纬度3个要素，OBSID、经度或纬度均可能为空
+        # Step 2: 通过Description元素提取点要素, Description元素下的内容可能包含OBSID、经度和纬度3个要素, OBSID、经度或纬度均可能为空
         for description in root.findall('.//{http://www.opengis.net/kml/2.2}description'):
             if description is not None and description.text:
                 obspidPattern = re.compile(ObservationData.OSPID_PATTERN)
@@ -349,7 +349,7 @@ class ObservationData:
                 if obspid and longitude and latitude:
                     if not obspid in self.points:
                         self.points[obspid] = { 'longitude': longitude, 'latitude': latitude}
-                # 如果OBSID、经度和纬度中有一个为空，则记录日志
+                # 如果OBSID、经度和纬度中有一个为空, 则记录日志
                 if obspid and not longitude and not latitude:
                     error = f"点要素{obspid}的属性表中缺少经度值和纬度值"
                     if type(self.__errorMsg) == list:
@@ -367,7 +367,7 @@ class ObservationData:
         self.pointsCount = len(self.points)
 
     def __getRoutes(self) -> None:
-        # 查找所有的Placemark元素下的LineString元素下的coordinates元素，提取线要素
+        # 查找所有的Placemark元素下的LineString元素下的coordinates元素, 提取线要素
         root = etree.fromstring(self.kml_content, parser=etree.XMLParser(encoding='utf-8',recover=True))
         for placemark in root.findall('.//{http://www.opengis.net/kml/2.2}Placemark'):
             linestring = placemark.find('.//{http://www.opengis.net/kml/2.2}LineString')
@@ -378,32 +378,32 @@ class ObservationData:
         self.routesCount = len(self.routes)
 
     def __pointCheck(self) -> bool:
-        # 通过第self.points字典的键，第6位解析组号并存储在字典中
-        # 得到一个字典，键为组号，值为OBSID
+        # 通过第self.points字典的键, 第6位解析组号并存储在字典中
+        # 得到一个字典, 键为组号, 值为OBSID
         obsptidStatistics_dict = {}
         for key in self.points:
             teamkey = key[5]
             if teamkey not in obsptidStatistics_dict:
                 obsptidStatistics_dict[teamkey] = []
             obsptidStatistics_dict[teamkey].append(key)
-        #TODO 计算前5位，判断是否有重复值？
-        #TODO 可以不做，因为OBSID是唯一的，同时该类可以是多个图幅的数据，不同图幅的图幅号不同
-        # 分别计算第六位相同的个数（每组的点数），以及第六位相同的all_matches列表元素后三位是否连续（小组点数是否连续）
-        # 建立与statistics_dict相同的字典，键值为原键值+"组"
+        #TODO 计算前5位, 判断是否有重复值？
+        #TODO 可以不做, 因为OBSID是唯一的, 同时该类可以是多个图幅的数据, 不同图幅的图幅号不同
+        # 分别计算第六位相同的个数（每组的点数）, 以及第六位相同的all_matches列表元素后三位是否连续（小组点数是否连续）
+        # 建立与statistics_dict相同的字典, 键值为原键值+"组"
         statistics_dict = {}
         for key, values in obsptidStatistics_dict.items():
             count = len(values)
-            values.sort(key=lambda x: int(x[-3:]))  # 按后三位数字排序，bool
-            is_duplicate = len(values) != len(set(values)) # 检查是否有重复的点号，bool
+            values.sort(key=lambda x: int(x[-3:]))  # 按后三位数字排序, bool
+            is_duplicate = len(values) != len(set(values)) # 检查是否有重复的点号, bool
             is_consecutive = all(int(values[i][-3:]) + 1 == int(values[i + 1][-3:]) for i in range(len(values) - 1))    # 检查是否连续
-            # 遍历数组，检查相邻元素之间的差是否为1
+            # 遍历数组, 检查相邻元素之间的差是否为1
             pointValues = [int(value[-3:]) for value in values]
             gaps = []
             for i in range(1, count):
                 if pointValues[i] - pointValues[i - 1] != 1:
-                    # 如果差不为1，记录间断的位置
+                    # 如果差不为1, 记录间断的位置
                     gaps.append((f"{key}{pointValues[i - 1]}", f"{key}{pointValues[i]}"))
-            # 如果有间断，输出间断的位置
+            # 如果有间断, 输出间断的位置
             if gaps:
                 msg = f"组{key}的点号间断位置：{gaps}"
             else:
@@ -419,7 +419,7 @@ class ObservationData:
         total_completed_points = sum(value["完成点数"] for key, value in statistics_dict.items())
         # 检查总完成点数是否等于所有“完成点数相加”
         total_points_match = total_completed_points == len(self.points)
-        # 如果以上条件均满足，则输出“验证通过”
+        # 如果以上条件均满足, 则输出“验证通过”
         if all_consecutive and all_not_duplicate and total_points_match:
             return True
         else:
@@ -430,7 +430,7 @@ class ObservationData:
 
     
     def __add__(self: 'ObservationData', other: 'ObservationData') -> 'ObservationData':
-        """用加法操作实现两个文件数据合并，得到一个新的字典"""
+        """用加法操作实现两个文件数据合并, 得到一个新的字典"""
         if not isinstance(other, ObservationData):
             raise TypeError("Operands must be of type 'ObservationData'")
         # 创建新的ObservationData对象
@@ -444,7 +444,7 @@ class ObservationData:
         return new_file
 
     def __sub__(self, other: 'ObservationData') -> 'ObservationData':
-        """用减法操作实现两个文件数据的差异，得到一个新的字典"""
+        """用减法操作实现两个文件数据的差异, 得到一个新的字典"""
         if not isinstance(other, ObservationData):
             logger.error("数据类型必须是'ObservationData'")
             return None
@@ -484,7 +484,7 @@ class KMZFile(FileAttributes, GeneralIO):
     
     def __init__(self, filepath: str = None, placemarks: ObservationData = None):
         super().__init__(filepath)
-        # TODO: 如果注释掉，在main函数测试中，会在原1219行报错
+        # TODO: 如果注释掉, 在main函数测试中, 会在原1219行报错
         # TODO: File "D:\MacBook\MacBookDocument\SourceCode\GMAS\dailyDataCollection\DailyFileGenerator.py", line 1222, in totalPointNum
         # TODO: totalNum += mapsheet.lastPlacemarks.pointsCount
         # TODO: AttributeError: 'NoneType' object has no attribute 'pointsCount'
@@ -515,7 +515,7 @@ class KMZFile(FileAttributes, GeneralIO):
             self._pointsCount = self._placemarks.pointsCount
             self._routes = self._placemarks.routes
             self._routesCount = self._placemarks.routesCount
-            # 如果self._placemarks.errorMsg是一个列表且不为空，则将其添加到__errorMsg中
+            # 如果self._placemarks.errorMsg是一个列表且不为空, 则将其添加到__errorMsg中
             if type(self._placemarks.errorMsg) == list and self._placemarks.errorMsg != []:
                 self.__errorMsg.append(self._placemarks.errorMsg)
                 print("KMZ初始化时发现的错误", self.errorMsg)
@@ -589,7 +589,7 @@ class KMZFile(FileAttributes, GeneralIO):
                         self.__errorMsg.append(placemarks.errorMsg)
                         # print("KMZ读取时候发现的错误", self.errorMsg)
                     self._placemarks = placemarks
-                    #! 删除KML内容，释放内存
+                    #! 删除KML内容, 释放内存
                     del self._kml_content
             else:
                 logger.error("在KMZ文件中没有找到 KML文件")
@@ -680,7 +680,7 @@ class KMZFile(FileAttributes, GeneralIO):
         style = etree.SubElement(document, "Style", id="lineStyle")
         line_style = etree.SubElement(style, "LineStyle")
         color = etree.SubElement(line_style, "color")
-        color.text = "ff000000"  # 黑色，格式为 AABBGGRR
+        color.text = "ff000000"  # 黑色, 格式为 AABBGGRR
         width = etree.SubElement(line_style, "width")
         width.text = "1"  # 线宽度
         # 添加线数据
@@ -811,16 +811,16 @@ class DateIterator(object):
     def __init__(self, start_date: str, direction: str = 'forward'):
         """
         __init__
-            初始化迭代器，start_date为起始日期，direction为迭代方向
+            初始化迭代器, start_date为起始日期, direction为迭代方向
         args:
-            start_date: 起始日期，格式为 'YYYYMMDD'
-            direction: 迭代方向，可选值为 'forward' 或 'backward'
-                        'forward': 从起始日期开始向后迭代，即向前（下一天）迭代
-                        'backward': 从起始日期开始向前迭代，即向后（上一天）迭代
+            start_date: 起始日期, 格式为 'YYYYMMDD'
+            direction: 迭代方向, 可选值为 'forward' 或 'backward'
+                        'forward': 从起始日期开始向后迭代, 即向前（下一天）迭代
+                        'backward': 从起始日期开始向前迭代, 即向后（上一天）迭代
         """
         # 将字符串日期转换为 datetime 对象
         self.date = datetime.strptime(start_date, "%Y%m%d")
-        self.direction = direction  # 'forward' 为下一天，'backward' 为前一天
+        self.direction = direction  # 'forward' 为下一天, 'backward' 为前一天
 
     def __iter__(self):
         """返回迭代器自身"""
@@ -857,7 +857,7 @@ class MapsheetDailyFile(object):
     def __new__(cls, *args, **kwargs):
         # 如果类属性中没有实例（第一次创建）
         # 尝试获取CurrentDateFiles.maps_info属性
-        # 如果不存在，则自行初始化MapsheetsDailyFile.maps_info属性
+        # 如果不存在, 则自行初始化MapsheetsDailyFile.maps_info属性
         if not hasattr(cls, 'instance'):
             if CurrentDateFiles.maps_info:
                 cls.maps_info = CurrentDateFiles.maps_info
@@ -887,7 +887,7 @@ class MapsheetDailyFile(object):
         self.teamNumber: str = None
         # 图幅组长/负责人姓名
         self.teamleader: str = None
-        # 从 mapsheet_info 字典中获取图幅信息，获取以上属性
+        # 从 mapsheet_info 字典中获取图幅信息, 获取以上属性
         if not self.__mapsheetInfo():
             print(f"图幅文件名称{self.mapsheetFileName}未找到")
         
@@ -924,8 +924,8 @@ class MapsheetDailyFile(object):
     def __mapsheetInfo(self):
         """
         根据 File Name 从 mapsheet_info 字典中获取 Sequence 并赋值给实例变量 self.sequence
-        如果 mapsheet_info 字典中没有该文件，则返回 False
-        如果 mapsheet_info 字典中有该文件，则返回 True
+        如果 mapsheet_info 字典中没有该文件, 则返回 False
+        如果 mapsheet_info 字典中有该文件, 则返回 True
         同时获取图幅的其他信息并赋值给实例变量
         """
         if self.__class__.maps_info:
@@ -949,27 +949,27 @@ class MapsheetDailyFile(object):
 
             return True
         # else:
-        #     print(f"类属性maps_info不存在，请先通过类方法'MapsheetDailyFile.mapsInfo()'获取图幅信息")
+        #     print(f"类属性maps_info不存在, 请先通过类方法'MapsheetDailyFile.mapsInfo()'获取图幅信息")
         return False
 
     @classmethod
     def getCurrentDateFile(cls, instance):
         """
-        获取当天的文件，文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
-        一般情况下，当天的文件是最新的文件，因此优先查找当天的文件，但微信中可能会有多个文件，后缀名为(1),(2)...等，因此需要进一步处理
-                            处理方式为：()中的数字最大的文件为当天最新的文件，或者时间最新的文件为当天最新的文件？？？
+        获取当天的文件, 文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
+        一般情况下, 当天的文件是最新的文件, 因此优先查找当天的文件, 但微信中可能会有多个文件, 后缀名为(1),(2)...等, 因此需要进一步处理
+                            处理方式为：()中的数字最大的文件为当天最新的文件, 或者时间最新的文件为当天最新的文件？？？
         """
         #NOTE: 
         """2025年04月01日
             此处需要增加逻辑如下：
-            如果查找的日期为当前日期，则在微信文件夹中优先查找；如果查找的日期不是当前日期，
+            如果查找的日期为当前日期, 则在微信文件夹中优先查找；如果查找的日期不是当前日期, 
         if instance.currentDate.yyyymmdd_str == datetime.now().strftime("%Y%m%d"):
-            # 如果当前日期等于今天，则在微信文件夹中优先查找
+            # 如果当前日期等于今天, 则在微信文件夹中优先查找
             folder = os.path.join(WECHAT_FOLDER)
             searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
             # print(f"在微信记录中查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list)
         else:
-            # 如果当前日期不等于今天，则在工作文件夹（已经归档的文件夹）中优先查找
+            # 如果当前日期不等于今天, 则在工作文件夹（已经归档的文件夹）中优先查找
             folder = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points")
             searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
             # print(f"在工作文件夹中查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list)
@@ -980,14 +980,14 @@ class MapsheetDailyFile(object):
         # Step 1: 在当天的工作文件夹中查找当天的文件
         if os.path.exists(file_path):
             instance.currentfilepath = file_path
-        # Step 2: 在微信聊天记录文件夹中查找当天的文件，如果有更新的文件，则拷贝至工作文件夹，替换原有文件
+        # Step 2: 在微信聊天记录文件夹中查找当天的文件, 如果有更新的文件, 则拷贝至工作文件夹, 替换原有文件
         # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
         folder = os.path.join(WECHAT_FOLDER)
         searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
         # print(f"在微信记录中查找查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list) 
         if searchedFile_list:
             #TODO: 用find_files_with_max_number函数二次验证获取的文件
-            # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+            # 选择时间最新的文件(区别于用find_files_with_max_number函数, 获取文件名中数字最大的文件)
             fetched_file = max(searchedFile_list, key=os.path.getctime)
             # 如果工作文件夹中的文件不存在
             if not os.path.exists(file_path):
@@ -997,7 +997,7 @@ class MapsheetDailyFile(object):
                 instance.currentfilepath = file_path
             else:
                 if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=fetched_file).hashMD5:
-                    # 将获取的文件拷贝至工作文件夹，并进行了重命名
+                    # 将获取的文件拷贝至工作文件夹, 并进行了重命名
                     shutil.copy(fetched_file, file_path)
                     os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
                     instance.currentfilepath = file_path
@@ -1018,7 +1018,7 @@ class MapsheetDailyFile(object):
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}之前的文件")
         lastDate_datetime1 = instance.currentDate.date_datetime
         while lastDate_datetime1 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
-            # Step 1: 在工作文件夹（当前日期）中直接查找，在对应的时间日期直接快速查找
+            # Step 1: 在工作文件夹（当前日期）中直接查找, 在对应的时间日期直接快速查找
             lastDate_datetime2 = instance.currentDate.date_datetime
             while lastDate_datetime2 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
                 lastDate_datetime2 -= timedelta(days=1)
@@ -1027,7 +1027,7 @@ class MapsheetDailyFile(object):
                 # print(f"在工作文件夹中查找{instance.mapsheetFileName}日期{file_path}的文件")
                 if os.path.exists(file_path):
                     instance.lastDate = DateType(date_datetime=lastDate_datetime2)
-                    # NOTE: 如果当前日期的文件为None，则需要将之前的文件拷贝至当前日期的文件夹
+                    # NOTE: 如果当前日期的文件为None, 则需要将之前的文件拷贝至当前日期的文件夹
                     if instance.currentfilename is None:
                         dest = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", os.path.basename(file_path))
                         if file_path != dest:
@@ -1039,7 +1039,7 @@ class MapsheetDailyFile(object):
                         # NOTE: 需要清理当前文件夹中的之前的完成文件
                         fileTobeRemoved = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz")
                         if os.path.exists(fileTobeRemoved) and os.path.isfile(fileTobeRemoved):
-                            print("当日文件已经存在，需要移除当日文件夹中的旧文件: ", fileTobeRemoved)
+                            print("当日文件已经存在, 需要移除当日文件夹中的旧文件: ", fileTobeRemoved)
                             os.remove(fileTobeRemoved)
                         instance.lastfilepath = file_path
                     # print(f"在工作文件夹中找到{instance.lastDate.yyyymmdd_str}的文件: {instance.lastfilepath}")
@@ -1060,13 +1060,13 @@ class MapsheetDailyFile(object):
                 searchedFile_list = list_fullpath_of_files_with_keywords(date_folder, [instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
                 if searchedFile_list:
                     #TODO: 用find_files_with_max_number函数二次验证获取的文件（也许不用？一般是唯一值）
-                    # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                    # 选择时间最新的文件(区别于用find_files_with_max_number函数, 获取文件名中数字最大的文件)
                     fetched_file = max(searchedFile_list, key=os.path.getctime)
                     instance.lastDate = DateType(date_datetime=lastDate_datetime)
                     instance.lastfilepath = fetched_file
                     break
             else:
-                # 如果在TRACEBACK_DATE之后未找到文件，在循环结束后在微信聊天记录文件夹中查找
+                # 如果在TRACEBACK_DATE之后未找到文件, 在循环结束后在微信聊天记录文件夹中查找
                 # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
                 lastDate_datetime = instance.currentDate.date_datetime
                 folder = os.path.join(WECHAT_FOLDER)
@@ -1076,7 +1076,7 @@ class MapsheetDailyFile(object):
                     searchedFile_list = list_fullpath_of_files_with_keywords(folder, [search_date_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]) 
                     if searchedFile_list:
                         #TODO: 用find_files_with_max_number函数二次验证获取的文件
-                        # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                        # 选择时间最新的文件(区别于用find_files_with_max_number函数, 获取文件名中数字最大的文件)
                         fetched_file = max(searchedFile_list, key=os.path.getctime)
                         instance.lastDate = DateType(date_datetime=lastDate_datetime)
                         instance.lastfilepath = fetched_file
@@ -1097,7 +1097,7 @@ class MapsheetDailyFile(object):
     def findNextPlan(cls, instance):
         """
         findNextPlan 通常应是查找第二天的计划文件：
-                     或周五-周六休息，周四会查找周六/周日的计划文件，因此为了冗余日期，TRACEFORWARD_DAYS = 5，即向前查找5天，找到最近的一个计划文件
+                     或周五-周六休息, 周四会查找周六/周日的计划文件, 因此为了冗余日期, TRACEFORWARD_DAYS = 5, 即向前查找5天, 找到最近的一个计划文件
         """
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}之后的计划文件")
         date = instance.currentDate.date_datetime
@@ -1106,7 +1106,7 @@ class MapsheetDailyFile(object):
             date += timedelta(days=1)
             search_date_str = date.strftime("%Y%m%d")
             # 列出微信聊天记录文件夹中包含指定日期、图幅名称和plan_tracks的文件
-            #TODO: 搜索效率低，需要优化
+            #TODO: 搜索效率低, 需要优化
             searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, instance.mapsheetFileName, "plan_routes"])
             # print(searchedFile_list) 
             if searchedFile_list:
@@ -1115,7 +1115,7 @@ class MapsheetDailyFile(object):
                 file_path = os.path.join(WORKSPACE, instance.nextDate.yyyymm_str, instance.nextDate.yyyymmdd_str, "Planned routes", f"{instance.mapsheetFileName}_plan_routes_{instance.nextDate.yyyymmdd_str}.kmz")
                 latestFile = max(searchedFile_list, key=os.path.getctime)
                 if not os.path.exists(file_path):
-                    # 选择时间最新的文件(区别于用find_files_with_max_number函数，获取文件名中数字最大的文件)
+                    # 选择时间最新的文件(区别于用find_files_with_max_number函数, 获取文件名中数字最大的文件)
                     os.makedirs(os.path.dirname(file_path), exist_ok=True)
                     shutil.copy(latestFile, file_path)
                     os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
@@ -1123,7 +1123,7 @@ class MapsheetDailyFile(object):
                     break
                 else:
                     if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=latestFile).hashMD5:
-                        # 将获取的文件拷贝至工作文件夹，并进行重命名
+                        # 将获取的文件拷贝至工作文件夹, 并进行重命名
                         shutil.copy(latestFile, file_path)
                         os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
                         instance.nextfilepath = file_path
@@ -1186,7 +1186,7 @@ class MapsheetDailyFile(object):
     def errorMsg(self):
         if self.__errorMsg:
             # 将错误信息转换为字符串格式
-            errors = f'{self.teamNumber}，负责人/联络人:{self.teamleader}:\n\t{self.__errorMsg}\n'
+            errors = f'{self.teamNumber}, 负责人/联络人:{self.teamleader}:\n\t{self.__errorMsg}\n'
             return errors
         else:
             return None
@@ -1235,7 +1235,7 @@ class CurrentDateFiles(object):
         self._allRoutes: list = None
         # 本日各图幅完成的点数量
         self._dailyIncreasedPoints: dict = None
-        # 截止本日，各图幅各自完成的点的总数
+        # 截止本日, 各图幅各自完成的点的总数
         self._dailyFinishedPoints: dict = None
         # 本日各图幅完成的线数量
         pass
@@ -1256,12 +1256,12 @@ class CurrentDateFiles(object):
         # df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, index_col=7)
         # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
         filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
-        # 如果Sequence列长度值不等于 SEQUENCE_MAX - SEQUENCE_MIN + 1，需要报错
-        # 如果Sequence列有重复值，需要报错
+        # 如果Sequence列长度值不等于 SEQUENCE_MAX - SEQUENCE_MIN + 1, 需要报错
+        # 如果Sequence列有重复值, 需要报错
         if len(filtered_df) != SEQUENCE_MAX - SEQUENCE_MIN+1 or filtered_df['Sequence'].duplicated().any():
-            print("图幅信息有误，请检查图幅信息表(Sequence值错误：重复值/缺少定义)\n程序退出")
+            print("图幅信息有误, 请检查图幅信息表(Sequence值错误：重复值/缺少定义)\n程序退出")
             exit()
-        # 处理可能的 NaN 值，将其填充为一个默认整数值，例如 0
+        # 处理可能的 NaN 值, 将其填充为一个默认整数值, 例如 0
         # filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].fillna(-1)
         # 确保 'Sequence' 列为 int 类型
         # filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].astype(int)
@@ -1270,11 +1270,11 @@ class CurrentDateFiles(object):
         # print(filtered_df['Sequence'].values)
         # 判断是否有重复值
         if filtered_df['Sequence'].duplicated().any():
-            print("图幅信息表中存在重复的图幅序号，请检查图幅信息表\n程序退出")
+            print("图幅信息表中存在重复的图幅序号, 请检查图幅信息表\n程序退出")
             exit()
         # # 按照 'Sequence' 列值从小到大排序
         sorted_df = filtered_df.sort_values(by='Sequence')
-        # # 获取图幅名称、罗马名称和拉丁名称，并存储为字典
+        # # 获取图幅名称、罗马名称和拉丁名称, 并存储为字典
         # 构建以 'Sequence' 为键的字典
         cls.maps_info = {
             row['Sequence']: {
@@ -1293,7 +1293,7 @@ class CurrentDateFiles(object):
         # print(json.dumps(cls.maps_info, indent=4, ensure_ascii=False))
         # 检查是否获取了所有的图幅信息
         if len(cls.maps_info) != SEQUENCE_MAX - SEQUENCE_MIN + 1:
-            print("图幅信息有误，请检查图幅信息表\n程序退出")
+            print("图幅信息有误, 请检查图幅信息表\n程序退出")
             exit()
         return cls.maps_info
     
@@ -1301,8 +1301,8 @@ class CurrentDateFiles(object):
         """
         Purpose: 
         """
-        # 每次实例化时，获取当天的所有文件
-        # 如果调用了__datacollect()方法，说明需要重新获取当天的文件，因此需要清空当前的文件列表
+        # 每次实例化时, 获取当天的所有文件
+        # 如果调用了__datacollect()方法, 说明需要重新获取当天的文件, 因此需要清空当前的文件列表
         self.currentDateFiles = []
         for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX+1):
             mapsheetFileName = self.__class__.maps_info[sequence]['File Name']
@@ -1378,7 +1378,7 @@ class CurrentDateFiles(object):
         """
         totalPointNum 截止当天所有文件的点要素总数
                       累加当天的文件的点要素数量
-                      如果当天的文件为空，累加上一次提交的文件的点要素总数
+                      如果当天的文件为空, 累加上一次提交的文件的点要素总数
         """
         if self._totalPointNum is None:
             totalNum = 0
@@ -1450,7 +1450,7 @@ class CurrentDateFiles(object):
         return self.__errorMsg
 
     def __contains__(self, key):
-        #! 重写__contains__方法，用于判断图幅文件是否存在
+        #! 重写__contains__方法, 用于判断图幅文件是否存在
         return key in self.currentDateFiles
     
     def dailyKMZReport(self):
@@ -1461,7 +1461,7 @@ class CurrentDateFiles(object):
         """_summary_
 
         Args:
-            date_str (str): 日期字符串，格式为“YYYY/MM/DD”
+            date_str (str): 日期字符串, 格式为“YYYY/MM/DD”
             excel_filename (str): Excel文件路径
             minSequenceValue (int): 最小填图序列号
             maxSequenceValue (int): 最大填图序列号
@@ -1510,7 +1510,7 @@ class CurrentDateFiles(object):
         # 写入合计行到最后一行
         for col_num, value in enumerate(total_Point_Num_footer, start=1):
             sheet.cell(row=maxTableRows, column=col_num, value=value)
-        # 从第四行起，写入图幅罗马名称
+        # 从第四行起, 写入图幅罗马名称
         for i, value in enumerate(romanNames_list, start=4):
             sheet.cell(row=i, column=1, value=value)
         # 设置字体样式
@@ -1574,7 +1574,7 @@ class CurrentDateFiles(object):
                 cell = sheet.cell(row=row+1, column=col+1)
                 cell.border = border
 
-        # 设置多列的宽度，adjusted_width是单元格宽度，比最大长度多2
+        # 设置多列的宽度, adjusted_width是单元格宽度, 比最大长度多2
         for column in sheet.columns:
             max_length = 0
             column = [cell for cell in column]
@@ -1584,7 +1584,7 @@ class CurrentDateFiles(object):
                         max_length = len(cell.value)
                 except Exception:
                     pass
-            adjusted_width = (max_length + 2)  # 设置单元格宽度，比最大长度多2
+            adjusted_width = (max_length + 2)  # 设置单元格宽度, 比最大长度多2
             sheet.column_dimensions[column[0].column_letter].width = adjusted_width
 
         # 创建一个居中对齐的对象
@@ -1607,7 +1607,7 @@ class CurrentDateFiles(object):
         sheet.cell(row=maxTableRows-1, column=3).value = f"=SUM(C4:C{maxTableRows-2})"
         sheet.cell(row=maxTableRows-1, column=4).value = f"=SUM(D4:D{maxTableRows-2})"
 
-        # 先设置值，再合并单元格
+        # 先设置值, 再合并单元格
         sheet.cell(row=1, column=2).value = self.currentDate.yyyy_str + "/" + self.currentDate.mm_str + "/" + self.currentDate.dd_str
 
         sheet.merge_cells('B1:D1')
@@ -1629,16 +1629,16 @@ class CurrentDateFiles(object):
         map_name_list = []
         # 当天新增点数
         daily_collection_list = []
-        # 截止当天，图幅完成的总点数
+        # 截止当天, 图幅完成的总点数
         daily_Finished_list = []
         # 图幅第二天的野外计划
         daily_plan_list = []
         for key, value in self.dailyIncreasedPoints.items():
             map_name_list.append(key)
             x = ''  # Define x with an appropriate value
-            # 各个图幅当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+            # 各个图幅当天的完成点数, 如果完成点数为0, 则显示空字符串, 否则显示完成点数
             daily_collection_list.append(x if self.dailyIncreasedPoints[key] == 0 else self.dailyIncreasedPoints[key])
-            # 各个图幅截止当天的完成点数，如果完成点数为0，则显示空字符串，否则显示完成点数
+            # 各个图幅截止当天的完成点数, 如果完成点数为0, 则显示空字符串, 否则显示完成点数
             daily_Finished_list.append(x if self.dailyFinishedPoints[key] == 0 else self.dailyFinishedPoints[key])
             daily_plan_list.append(self.DailyPlans[key])
         table_data = []
@@ -1655,7 +1655,7 @@ class CurrentDateFiles(object):
         dailyExcel = os.path.join(WORKSPACE, self.currentDate.yyyymm_str, self.currentDate.yyyymmdd_str, f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx")
         completed_points = [value for key, value in self.dailyIncreasedPoints.items()]
         # 将列表中的0值替换为np.nan
-        # 如果注释掉下面这行代码，那么0值将会被替换为np.nan，列表中的0值将不会被写入到Excel文件中
+        # 如果注释掉下面这行代码, 那么0值将会被替换为np.nan, 列表中的0值将不会被写入到Excel文件中
         # completed_points = [value if value != 0 else np.nan for value in completed_points]
         completed_points_series = pd.Series(completed_points)
         book = load_workbook(dailyExcel)
@@ -1673,7 +1673,7 @@ class CurrentDateFiles(object):
     
     def dailyStaticReportUpdate(self):
         #! 需要补全相关内容
-        # NOTE: 主要解决总表的每日更新，包括每日完成点数的更新和
+        # NOTE: 主要解决总表的每日更新, 包括每日完成点数的更新和
         """
         dailyStaticReportUpdate 更新每日统计报告
         """
@@ -1687,7 +1687,7 @@ class CurrentDateFiles(object):
         map_name_list = []
         # 当天新增点数
         daily_collection_list = []
-        # 截止当天，图幅完成的总点数
+        # 截止当天, 图幅完成的总点数
         daily_Finished_list = []
         # 图幅第二天的野外计划
         daily_plan_list = []
@@ -1699,12 +1699,12 @@ class CurrentDateFiles(object):
     
 class DataSubmition(object):
     """
-    根据COLLECTION_WEEKDAYS列表，在每周的某一天：
+    根据COLLECTION_WEEKDAYS列表, 在每周的某一天：
     1. 输出shp文件
-    2. 在制图工程文件夹下创建目录，并拷贝截止当天的shp
+    2. 在制图工程文件夹下创建目录, 并拷贝截止当天的shp
     3. 拷贝一周前的shp文件（或kmz文件）
     4. 生成一周新增的shp文件
-    5. 调用ArcPy，生成一周报告
+    5. 调用ArcPy, 生成一周报告
     """
     SHP_EXTENSIONS = ['.shp', '.shx', '.dbf', '.prj']
 
@@ -1720,7 +1720,7 @@ class DataSubmition(object):
         pass
 
     def weeklyPointToShp(self):
-        # 在制图工程文件夹下建立新文件夹，如果已存在则删除清理文件树
+        # 在制图工程文件夹下建立新文件夹, 如果已存在则删除清理文件树
         week_report_folder = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}")
         weekdayDir = os.path.join(WORKSPACE, MAP_PROJECT_FOLDER, f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}")
         if os.path.exists(weekdayDir):
@@ -1732,16 +1732,16 @@ class DataSubmition(object):
         self.pointDictToShp(self.pointDict, output_shp_file)
 
 
-        # 将shp文件压缩为zip文件，如果zip文件已存在，则删除
+        # 将shp文件压缩为zip文件, 如果zip文件已存在, 则删除
         zip_file = os.path.join(WORKSPACE, self.date.yyyymm_str, self.date.yyyymmdd_str, f"GMAS_points_until_{self.date.yyyymmdd_str}.zip")
         if os.path.exists(zip_file):
             os.remove(zip_file)
         with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for ext in DataSubmition.SHP_EXTENSIONS:
                 zipf.write(output_shp_file.replace('.shp', ext), os.path.basename(output_shp_file).replace('.shp', ext))
-        logger.info(f"截止今日的完成点已生成SHP文件，并已压缩为ZIP文件: {zip_file}")
+        logger.info(f"截止今日的完成点已生成SHP文件, 并已压缩为ZIP文件: {zip_file}")
 
-        # 尝试从多种路径读取一周前的文件(zip，shp)
+        # 尝试从多种路径读取一周前的文件(zip, shp)
         # 工作目录下的存档文件夹中的zip文件
         one_week_ago = DateType(date_datetime=(self.date.date_datetime - timedelta(days=7)))
         # 从制图工程文件夹中的shp文件
@@ -1775,7 +1775,7 @@ class DataSubmition(object):
         diff_dict = {k: v for k, v in self.pointDict.items() if k not in one_week_ago_points_dict}
 
         one_week_ago_nextday = DateType(date_datetime=(self.date.date_datetime - timedelta(days=6)))
-        logger.info(f"{one_week_ago_nextday.yyyymmdd_str}至{self.date.yyyymmdd_str}，本周新增点要素: {len(diff_dict)}")
+        logger.info(f"{one_week_ago_nextday.yyyymmdd_str}至{self.date.yyyymmdd_str}, 本周新增点要素: {len(diff_dict)}")
 
         weekly_increase_shp_file = os.path.join(week_report_folder, f"GMAS_points_{one_week_ago_nextday.yyyymmdd_str}_{self.date.yyyymmdd_str}.shp")
         self.pointDictToShp(diff_dict, weekly_increase_shp_file)
