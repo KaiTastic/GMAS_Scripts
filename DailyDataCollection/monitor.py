@@ -321,7 +321,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 observer.join()
         else:
 
-            print(f"当天没有待接收的完成点，转入计划路线接收模式...\n预计接停止收时间：{endtime.hour}点{endtime.minute}分")
+            print(f"当天没有待接收的完成点，转入计划路线接收模式...\n预计接停止收时间:", f"{endtime.hour:02}", ":", f"{endtime.minute:02}")
             # 时间同上
             while datetime.now() <= endtime:
                 # 每隔10分钟检查一次
@@ -329,7 +329,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
 
             else:
-                print(f"已到截止时间{endtime.hour}点{endtime.minute}分，停止接收路线计划,退出监视...")
+                print(f"已到截止时间:", f"{endtime.hour:02}", ":", f"{endtime.minute:02}分，停止接收路线计划,退出监视...")
                 if executor:
                     # 执行文件处理任务
                     executor()
