@@ -1,3 +1,10 @@
+"""
+Batch 1 数据处理脚本
+This script is designed to search for specific files in a given directory and its subdirectories, and copy them to designated output directories based on their categories. The categories are defined by lists of filenames that are not shown, blurry, or not clean. The script uses the os and shutil libraries to handle file operations.
+"""
+# -*- coding: utf-8 -*-
+
+
 Surface_not_shown = ['44234B241_FSP02.jpg', '41221B086-1-LF1.jpg', '41221B086-1-LF2.jpg', '41221B104-1-LF3.jpg', '41221B104-1-LF4.jpg', '41221B118-1-LW4.jpg', '41221B166-2-LF1.jpg', '41221B166-2-LF2.jpg', '41221B172-1-LW4.jpg', '41221B173-2-LF1.jpg', '41221B173-2-LF2.jpg', '41221B187-1-LW3.jpg', '41221B187-2-LF1.jpg', '41221B187-2-LF2.jpg', '41221B187-2-LF3.jpg', '42224B077-1-LF4.jpg', '42224B082-1-LF3.jpg', '42224B088-1-LF2.jpg', '45234A003-1-LF4.jpg', '45234B025-1-LF1.jpg', '45234B025-1-LF2.jpg', '45234B025-1-LW1.jpg', '45234B027-1-LF3.jpg', '45234B027-1-LF4.jpg', '45234B030-1-LF2.jpg', '45234B030-1-LF3.jpg', '45234B031-1-LF1.jpg', '45234B031-1-LF2.jpg', '45234B031-1-LF3.jpg', '45234B031-1-LF4.jpg', '45234B038-1-LF1.jpg', '45234B038-1-LF2.jpg', '45234B050-1-LF1.jpg', '45234B050-1-LF2.jpg', '45234B051-1-LF1.jpg', '45234B051-1-LF2.jpg', '45234B051-1-LF3.jpg', '45234B065-1-LF2.jpg', '45234B065-1-LF3.jpg', '45234B065-1-LW2.jpg', '45234B070-1-LW1.jpg', '45234B070-1-LW2.jpg', '45234B085-1-LF4.jpg', '45234B107-1-LW1.jpg', '45234B107-1-LW2.jpg', '45234B132-1-LF3.jpg', '45234B132-1-LF4.jpg', '45234B138-1-LF3.jpg', '45234B140-1-LF3.jpg', '45234B140-1-LF4.jpg', '45234B141-1-LF3.jpg', '45234B141-1-LF4.jpg', '45234B142-1-LF1.jpg', '45234B142-1-LF2.jpg', '45234B142-1-LF3.jpg', '45234B142-1-LW3.jpg', '45234B221-1-LF1.jpg', '45234B221-1-LF2.jpg', '45234B226-1-LF2.jpg', '45234B227-1-LW4.jpg', '45234B228-1-LF1.jpg', '45234B228-1-LF2.jpg', '45234B228-1-LF4.jpg', '45234B228-1-Lw3.jpg', '45234B228-1-LW4.jpg']
 
 Photo_blurry = ['45234A093-1-LF3.jpg', '45234A093-1-LF4.jpg', '45234A097-1-LF1.jpg', '45234A097-1-LF2.jpg', '45234A097-1-LF3.jpg', '45234A100-1-LF3.jpg', '45234A113-1-LF2.jpg', '45234A116-1-LF1.jpg', '45234A116-1-LF4.jpg', '45234A116-1-LF3.jpg', '45234A117-1-LF4.jpg', '45234A118-1-LF1.jpg', '45234A118-1-LF4.jpg', '45234A122-1-LF1.jpg', '45234A122-1-LF4.jpg', '45234A128-1-LF4.jpg', '45234A129-1-LF3.jpg', '45234A131-1-LF1.jpg', '45234A183-1-LF3.jpg', '45234A183-1-LF1.jpg', '45234A183-1-LF4.jpg', '45234A184-1-LF4.jpg', '45234A184-1-LF2.jpg', '45234A184-1-LF4.jpg', '45234A184-1-LF3.jpg', '45234A185-1-LF4.jpg', '45234A185-1-LF2.jpg', '45234A187-1-LF3.jpg', '45234A189-1-LF1.jpg', '45234A189-1-LF2.jpg', '45234A191-1-LF4.jpg', '45234A191-1-LF2.jpg', '45234A191-1-LF3.jpg', '45234A191-1-LF4.jpg', '45234A210-1-LF2.jpg', '45234A210-1-LF4.jpg', '45234A232-1-LF1.jpg', '45234A232-1-LF3.jpg', '45234A232-1-LF2.jpg', '45234A232-1-LF4.jpg', '45234A276-1-LF3.jpg', '45234A277-1-LF3.jpg', '45234A277-1-LF4.jpg', '45234A278-1-LF1.jpg', '45234A278-1-LF2.jpg', '45234A278-1-LF3.jpg', '45234A278-1-LF4.jpg', '45234A284-1-LF2.jpg', '45234A312-1-LF3.jpg', '45234A368-1-LF2.jpg', '45234B025-1-LF4.jpg', '45234B027-1-LF2.jpg', '45234B027-1-LF3.jpg', '45234B029-1-LF1.jpg', '45234B029-1-LF3.jpg', '45234B051-1-LF4.jpg', '45234B285-1-LF3.jpg', '45234B285-1-LF4.jpg', '45234B409-1-LF4.jpg', '45234B413-1-LF1.jpg', '45234B413-1-LF2.jpg', '45234B418-1-LF1.jpg', '45234B418-1-LF4.jpg', '41221A052-1-LW1.jpg', '41221A080-2-LW4.jpg', '41221B010-2-LW3.jpg', '41221B048-1-LW2.jpg', '41221B048-1-LF2.jpg', '41221B172-1-LW1.jpg', '41221B187-1-LF2.jpg', '42224A028-1-LW1.jpg', '45234A001-1-LW4.jpg', '45234B050-1-LF3.jpg', '45234B050-1-LW3.jpg', '45234B050-1-LW4.jpg', '45234B051-1-LW4.jpg', '45234B052-1-LF3.jpg']
@@ -36,7 +43,10 @@ def copy_file_to_directory(file_path, destination_directory):
     shutil.copy(file_path, destination_directory)
 
 
-search_path = r"D:\Group1-Batch1_Revised_20250213"
+search_path = r"F:\SpecMeasurements\Deliverable\Group1-Batch1-FTIR(Newly added)_20250213"
+output_Surface_not_shown_path = os.path.join(search_path, "Surface_not_shown")
+output_Photo_blurry_path = os.path.join(search_path, "Photo_blurry")
+output_Surface_not_clean_path = os.path.join(search_path, "Surface_not_clean")
 
 
 if __name__ == "__main__":
@@ -46,31 +56,34 @@ if __name__ == "__main__":
         file_path = find_file(file, search_path)
         if file_path:
             # print(f"Found {file} at {file_path}")
-            copy_file_to_directory(file_path, r"D:\Group1-Batch1_Revised_20250213\Surface_not_shown")
+            copy_file_to_directory(file_path, output_Surface_not_shown_path)
         else:
             print(f"{file} not found")
+
 
     print("Photo_blurry 数量:", len(Photo_blurry))
     for file in Photo_blurry:
         file_path = find_file(file, search_path)
         if file_path:
-            copy_file_to_directory(file_path, r"D:\Group1-Batch1_Revised_20250213\Photo_blurry")
+            copy_file_to_directory(file_path, output_Photo_blurry_path)
         else:
             print(f"{file} not found")
+
 
     for file in Surface_not_clean:
         file_path = find_file(file, search_path)
         if file_path:
-            copy_file_to_directory(file_path, r"D:\Group1-Batch1_Revised_20250213\Surface_not_clean")
+            copy_file_to_directory(file_path, output_Surface_not_clean_path)
         else:
             print(f"{file} not found")
     print("Surface_not_clean 数量:", len(Surface_not_clean))
+
 
     print("Other_reason 数量:", len(Other_reason))
     for file in Other_reason:
         file_path = find_file(file, search_path)
         if file_path:
-            copy_file_to_directory(file_path, r"D:\Group1-Batch1_Revised_20250213\Other_reason")
+            copy_file_to_directory(file_path, output_Surface_not_shown_path)
         else:
             print(f"{file} not found in {search_path}")
 
