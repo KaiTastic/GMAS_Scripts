@@ -10,12 +10,12 @@ from monitor import DataHandler
 def parse_args():
     """
     解析命令行参数
-    无参数输入时，默认--date为当天，有参数时，为指定参数
+    无参数输入时, 默认--date为当天, 有参数时, 为指定参数
     """
     parser = argparse.ArgumentParser(description="处理日期字符串")
-    parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="8位长度日期字符串，格式为\'YYYYMMDD\'")
+    parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="8位长度日期字符串, 格式为\'YYYYMMDD\'")
     parser.add_argument("--monitor", nargs='?', default=False, type=bool, help="是否持续监控微信文件夹")
-    parser.add_argument("--endtime", nargs='?', default=None, type=str, help="停止监控的时间，格式为\'HHMMSS\'")
+    parser.add_argument("--endtime", nargs='?', default=None, type=str, help="停止监控的时间, 格式为\'HHMMSS\'")
     date_str = parser.parse_args().date
     monitor_bool = parser.parse_args().monitor
     endtime_str = parser.parse_args().endtime
@@ -23,9 +23,9 @@ def parse_args():
         try:
             datetime.strptime(date_str, "%Y%m%d")
         except ValueError:
-            raise ValueError("日期不合法或格式不正确，请确保格式为'YYYYMMDD'")
+            raise ValueError("日期不合法或格式不正确, 请确保格式为'YYYYMMDD'")
     else:
-        raise ValueError("日期长度不正确，请确保长度为8位")
+        raise ValueError("日期长度不正确, 请确保长度为8位")
     
     date_datetype = DateType(yyyymmdd_str=date_str)
 
@@ -42,7 +42,7 @@ class DataCollectNow():
     def __init__(self, colletionDate: DateType):
         """
         初始化数据采集类
-        :param colletionDate: DateType 对象，包含日期信息
+        :param colletionDate: DateType 对象, 包含日期信息
         """
         self.colletionDate = colletionDate
 
@@ -64,10 +64,10 @@ class DataCollectNow():
         # 将当天的点写入到Excel文件
         collection.dailyExcelReportUpdate()
 
-        # 如果当天是设定的日期，则将 KMZ 文件转换为 SHP 文件，并将 SHP 文件拷贝至制图工程文件夹
+        # 如果当天是设定的日期, 则将 KMZ 文件转换为 SHP 文件, 并将 SHP 文件拷贝至制图工程文件夹
         for weekday in COLLECTION_WEEKDAYS:
             if self.colletionDate.date_datetime.weekday() == weekday:
-                print('\n'*2, f"今天是{self.colletionDate.date_datetime.strftime('%A')}，需要生成周报", '\n'*2)
+                print('\n'*2, f"今天是{self.colletionDate.date_datetime.strftime('%A')}, 需要生成周报", '\n'*2)
                 certainReport = DataSubmition(self.colletionDate, collection.allPoints)
                 certainReport.weeklyPointToShp()
 
@@ -79,9 +79,9 @@ def main():
 
     # TODO: 增加一个默认终止时间
     if endtime is None:
-        endtime = datetime.now().replace(hour=21, minute=00, second=0, microsecond=0)
+        endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
 
-    print(3*'\n', 13*"-", "监控停止时间：", endtime.hour, ":", endtime.minute, 13*"-")
+    print(3*'\n', 13*"-", "监控停止时间：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}", 13*"-")
 
     
 
