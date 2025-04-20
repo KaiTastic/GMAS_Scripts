@@ -445,17 +445,21 @@ class ObservationData:
 
     def __sub__(self, other: 'ObservationData') -> 'ObservationData':
         """用减法操作实现两个文件数据的差异, 得到一个新的字典"""
+
+        # 创建新的KMLFile对象
+        new_file = ObservationData()
+
         if not isinstance(other, ObservationData):
             logger.error("数据类型必须是'ObservationData'")
             return None
         # 验证一个字典的键是否是另一个字典键的子集
         if not (self.points.keys() <= other.points.keys() or other.points.keys() <= self.points.keys()):
-            logger.error("KML文件中的点要素不是另一个的子集")
-            return None
+            #! 如果kmz文件重点点要素不为自己关系，则返回空文件类，以免调用出错
+            logger.error("两个KML文件中的点要素不是另一个的子集")
+            return new_file
         # if not (set(self.routes) <= set(other.routes) or set(other.routes) <= set(self.routes)):
         #     raise ValueError("KML文件中的线要素不是另一个的子集")
-        # 创建新的KMLFile对象
-        new_file = ObservationData()
+
         # 计算点要素的差异
         new_file.points = {key: value for key, value in self.points.items() if key not in other.points}
         new_file.points.update({key: value for key, value in other.points.items() if key not in self.points})
