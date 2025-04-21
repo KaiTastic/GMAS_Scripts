@@ -12,26 +12,40 @@ def parse_args():
     解析命令行参数
     无参数输入时, 默认--date为当天, 有参数时, 为指定参数
     """
-    parser = argparse.ArgumentParser(description="处理日期字符串")
-    parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="8位长度日期字符串, 格式为\'YYYYMMDD\'")
+    parser = argparse.ArgumentParser(description="处理日期字符串; 是否以监控模式持续监控微信文件夹; 是否停止监控的时间")
+    parser.add_argument("--date", nargs='?', default=datetime.now().strftime("%Y%m%d"), type=str, help="收集数据的日期, 默认为当天, 8位长度日期字符串, 格式为\'YYYYMMDD\'")
     parser.add_argument("--monitor", nargs='?', default=False, type=bool, help="是否持续监控微信文件夹")
-    parser.add_argument("--endtime", nargs='?', default=None, type=str, help="停止监控的时间, 格式为\'HHMMSS\'")
+    parser.add_argument("--endtime", nargs='?', default=None, type=str, help="停止监控的时间, 长度为6位, 格式为\'HHMMSS\'")
+
     date_str = parser.parse_args().date
     monitor_bool = parser.parse_args().monitor
     endtime_str = parser.parse_args().endtime
+
+    # 验证日期字符串的长度和格式
     if len(date_str) == 8:
         try:
             datetime.strptime(date_str, "%Y%m%d")
+            date_datetype = DateType(yyyymmdd_str=date_str)
         except ValueError:
             raise ValueError("日期不合法或格式不正确, 请确保格式为'YYYYMMDD'")
     else:
         raise ValueError("日期长度不正确, 请确保长度为8位")
     
-    date_datetype = DateType(yyyymmdd_str=date_str)
-
-        # 解析时间字符串
+    # 验证监控模式参数
+    if isinstance(monitor_bool, bool):
+        monitor_bool = monitor_bool
+    else:
+        raise ValueError("监控模式参数不合法, 请确保为布尔值")
+    
+    # 验证停止监控时间格式
     if endtime_str:
-        endtime = datetime.strptime(endtime_str, "%H%M%S")
+        if len(endtime_str) == 6:
+            try:
+                endtime = datetime.strptime(endtime_str, "%H%M%S")
+            except ValueError:
+                raise ValueError("时间不合法或格式不正确, 请确保格式为'HHMMSS'")
+        else:
+            raise ValueError("时间长度不正确, 请确保长度为6位")
     else:
         endtime = None
     return date_datetype, monitor_bool, endtime
@@ -75,19 +89,18 @@ class DataCollectNow():
 def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
-    print(3*'\n', 15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-")
+    print(3*'\n',15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-", 3*'\n')
 
-    # TODO: 增加一个默认终止时间
-    if endtime is None:
-        endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
-
-    print(3*'\n', 13*"-", "监控停止时间：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}", 13*"-")
-
-    
 
     if monitor_bool:
         # 监控模式
         print("以监控模式运行中...")
+
+        # 增加一个默认终止时间
+        if endtime is None:
+            endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
+
+        print(1*'\n', 13*"-", "监控停止时间为：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}", 13*"-")
         # 这里可以添加监控逻辑
         event_handler = DataHandler(currentDate=date_datetype)
         # 手动启动监视方法
