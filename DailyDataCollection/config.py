@@ -39,7 +39,7 @@ else:
 MONIT_TIME_INTERVAL_SECOND = 59
 
 # 设置监视状态刷新时间间隔（分）
-MONIT_STATUS_INTERVAL_MINUTE = 10
+MONIT_STATUS_INTERVAL_MINUTE = 20
 
 # 100K图幅名称信息等查询表格（lookup table） 
 SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
