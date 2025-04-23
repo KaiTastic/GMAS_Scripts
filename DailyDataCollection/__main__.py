@@ -97,7 +97,7 @@ def main():
         # 增加一个默认终止时间
         if endtime is None:
             endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
-        print(f"以监控模式运行中...\n监控状态刷新间隔为 {MONIT_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为 {endtime}")
+        print(f"以监控模式运行中...\n监控状态刷新间隔为： {MONIT_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为： {endtime}")
 
 
         # 这里可以添加监控逻辑

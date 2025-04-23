@@ -308,9 +308,10 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                     print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}")
 
                 datetime_now = datetime.now()
-                # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态
-                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0 and (0 <= datetime_now.second <= 8):
+                # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态，第二个判断条件是为了避免在整点时显示多次
+                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0 and (0 <= datetime_now.second < MONIT_TIME_INTERVAL_SECOND):
                     print("\n", 15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
+
                     self.remainFileNum()
 
                     # 如果当前时间超过晚上7点,则进入催促模式
