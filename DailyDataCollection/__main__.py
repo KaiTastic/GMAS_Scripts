@@ -89,18 +89,17 @@ class DataCollectNow():
 def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
-    print(3*'\n',15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-", 3*'\n')
+    print(1*'\n',15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-", 1*'\n')
 
 
     if monitor_bool:
         # 监控模式
-        print("以监控模式运行中...")
-
         # 增加一个默认终止时间
         if endtime is None:
             endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
+        print(f"以监控模式运行中...\n文件夹状态监控刷新间隔为{MONIT_STATUS_INTERVAL_MINUTE}分钟，监控停止时间为：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}")
 
-        print(1*'\n', 13*"-", "监控停止时间为：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}", 13*"-")
+
         # 这里可以添加监控逻辑
         event_handler = DataHandler(currentDate=date_datetype)
         # 手动启动监视方法

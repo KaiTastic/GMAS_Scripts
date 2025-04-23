@@ -238,6 +238,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                     if index != -1:
                         # print(f"\n获取到有效计划路线kmz文件")
                         item.updateFinished()
+                        self.remainFileNum()
                         if item.mapsheetFileName in self.mapSheetTobeCollect_namelist_list_pop:
                             # 删除（弹出）已完成的文件名
                             self.mapSheetTobeCollect_namelist_list_pop.remove(item.mapsheetFileName)
@@ -291,24 +292,27 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         if self.plannedRouteFileNum != 0:
 
             while self.mapSheetTobeCollect_namelist_list_pop != []:
-                # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
-                print(f"当前待接收的文件数量/当日计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
 
-                # 如果当前时间为晚上7点,则进入催促模式
-                if (datetime.now().hour >= 19 and datetime.now().minute >= 0) or (len(self.mapSheetTobeCollect_namelist_list_pop) <= 3):
-                    print(f"进入催促模式...")
-                    for item_filename in self.mapSheetTobeCollect_namelist_list_pop:
-                        # 提醒发送催促消息
-                        for item in self.mapSheetTobeCollect:
-                            if item_filename == item.mapsheetFileName:
-                                print(f"请注意：{item.teamNumber}", f"{item.mapsheetFileName}文件未接收完成,责任人：{item.teamleader}")
-                    print("\n")
-                else:
-                    print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+                datetime_now = datetime.now()
+                # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态
+                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0:
+                    print("\n", 15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
+                    self.remainFileNum()
 
-                # 每隔20分钟检查一次
-                time.sleep(1200)
-                print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
+                    # 如果当前时间超过晚上7点,则进入催促模式
+                    if (datetime_now.hour >= 19 and datetime_now.minute >= 0) or (len(self.mapSheetTobeCollect_namelist_list_pop) <= 5):
+                        print(f"进入催促模式...")
+                        for item_filename in self.mapSheetTobeCollect_namelist_list_pop:
+                            # 提醒发送催促消息
+                            for item in self.mapSheetTobeCollect:
+                                if item_filename == item.mapsheetFileName:
+                                    print(f"请注意：{item.teamNumber}", f"{item.mapsheetFileName}文件未接收完成,责任人：{item.teamleader}")
+                        print("\n")
+                    # else:
+                    #     print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+
+                # 每隔设定时间检查一次
+                time.sleep(MONIT_TIME_INTERVAL_SECOND)
                 
             else:
                 print(f"所有待接收的文件已经全部接收完成,退出监视...")
@@ -337,6 +341,11 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 # 停止监视
                 observer.stop()
                 observer.join()
+    
+    def remainFileNum(self):
+        # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
+        print(f"当前待接收的文件数量/当日计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
+
 
 
         
