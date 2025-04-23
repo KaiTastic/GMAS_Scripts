@@ -36,7 +36,7 @@ else:
     raise RuntimeError("Unsupported platform: {}".format(sys.platform))
 
 # 设置文件夹刷新检查的间隔时间（秒）
-MONIT_TIME_INTERVAL_SECOND = 59
+MONIT_TIME_INTERVAL_SECOND = 5
 
 # 设置监视状态刷新时间间隔（分）
 MONIT_STATUS_INTERVAL_MINUTE = 20

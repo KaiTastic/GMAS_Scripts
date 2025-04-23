@@ -55,7 +55,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         self.findlastFinished(self)
         self.dailyIncrease()
         self.soFarfinished()
-        self.__onScreenDisplay()
+        self.__onScreenDisplay(flag='finished')
 
     def updatePlan(self):
         """在完成接收计划路线文件时,更新当前图幅的状态
@@ -64,7 +64,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         self.matchedPlanFileCountNum += 1
         # NOTE: 使用观察者模式来通知接收完成路线文件,并计算完成的点数
         self.findNextPlan(self)
-        self.__onScreenDisplay()
+        self.__onScreenDisplay(flag='plan')
 
     def __hasPlan(self):
         """通过检查当天的计划路线文件是否存在,来判断是否有当日完成点待接收
@@ -78,11 +78,17 @@ class MonitorMapSheet(MapsheetDailyFile):
             self.fileToReceiveFlag = False
         return self.fileToReceiveFlag
 
-    def __onScreenDisplay(self):
+    def __onScreenDisplay(self, flag):
         """
         在屏幕上以表格的形式显示改图幅当天的接收完成路线文件的数量
         """
-        print(f"第{self.matchedFinishedFileCountNum}次更新")
+        if flag == 'plan':
+            print(f"\n数据第{self.matchedPlanFileCountNum}次更新")
+        elif flag == 'finished':
+            print(f"\n数据第{self.matchedFinishedFileCountNum}次更新")
+        else:
+            print(f"参数错误，请检查")
+
         headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
         if self.nextfilepath:
             table_data = [[self.teamNumber, self.romanName, self.teamleader, f'{self.dailyincreasePointNum}', '#', f'{self.currentTotalPointNum}']]
@@ -238,10 +244,11 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                     if index != -1:
                         # print(f"\n获取到有效计划路线kmz文件")
                         item.updateFinished()
-                        self.remainFileNum()
                         if item.mapsheetFileName in self.mapSheetTobeCollect_namelist_list_pop:
                             # 删除（弹出）已完成的文件名
                             self.mapSheetTobeCollect_namelist_list_pop.remove(item.mapsheetFileName)
+                        # 显示剩余待接收的文件数量
+                        self.remainFileNum()
                         return True
                 else:
                     print(f"文件名中没有包含有效完成点名称：{on_observed_filename}")
@@ -289,13 +296,20 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         observer.schedule(event_handler, wechat_path, recursive=True)
         observer.start()
 
-        if self.plannedRouteFileNum != 0:
+        if self.plannedRouteFileNum > 0:
 
+            continueNum =0
             while self.mapSheetTobeCollect_namelist_list_pop != []:
+
+                continueNum += 1
+                # 第一次进入监控循环
+                if continueNum == 1:
+                    self.remainFileNum()
+                    print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}")
 
                 datetime_now = datetime.now()
                 # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态
-                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0:
+                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0 and (0 <= datetime_now.second <= 8):
                     print("\n", 15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
                     self.remainFileNum()
 
@@ -313,6 +327,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
 
                 # 每隔设定时间检查一次
                 time.sleep(MONIT_TIME_INTERVAL_SECOND)
+                print(".", end="", flush=True)
                 
             else:
                 print(f"所有待接收的文件已经全部接收完成,退出监视...")
@@ -328,9 +343,15 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
             print(f"当天没有待接收的完成点，转入计划路线接收模式...\n预计接停止收时间:", f"{endtime.hour:02}", ":", f"{endtime.minute:02}")
             # 时间同上
             while datetime.now() <= endtime:
-                # 每隔10分钟检查一次
-                time.sleep(600)
-                print("\n", 15*"-",f"{datetime.now()}", " ","持续监测中...", 15*"-", "\n")
+
+                datetime_now = datetime.now()
+                # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态，第二个判断条件是为了避免在整点时显示多次
+                if datetime_now.minute % MONIT_STATUS_INTERVAL_MINUTE == 0 and (0 <= datetime_now.second < MONIT_TIME_INTERVAL_SECOND):
+                    print("\n", 15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
+
+                # 每隔设定时间检查一次
+                time.sleep(MONIT_TIME_INTERVAL_SECOND)
+                print(".", end="", flush=True)
 
             else:
                 print(f"已到截止时间:", f"{endtime.hour:02}", ":", f"{endtime.minute:02}分，停止接收路线计划,退出监视...")

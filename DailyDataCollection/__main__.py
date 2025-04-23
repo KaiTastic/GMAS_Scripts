@@ -89,7 +89,7 @@ class DataCollectNow():
 def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
-    print(1*'\n',15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-", 1*'\n')
+    print(15*"-", "当前日期：", date_datetype.yyyymmdd_str, 15*"-", 1*'\n')
 
 
     if monitor_bool:
@@ -97,7 +97,7 @@ def main():
         # 增加一个默认终止时间
         if endtime is None:
             endtime = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
-        print(f"以监控模式运行中...\n文件夹状态监控刷新间隔为{MONIT_STATUS_INTERVAL_MINUTE}分钟，监控停止时间为：", f"{endtime.hour:02}", ":", f"{endtime.minute:02}")
+        print(f"以监控模式运行中...\n监控状态刷新间隔为 {MONIT_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为 {endtime}")
 
 
         # 这里可以添加监控逻辑
