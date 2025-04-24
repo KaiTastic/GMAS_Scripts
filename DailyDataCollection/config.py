@@ -36,10 +36,13 @@ else:
     raise RuntimeError("Unsupported platform: {}".format(sys.platform))
 
 # 设置文件夹刷新检查的间隔时间（秒）
-MONIT_TIME_INTERVAL_SECOND = 5
+MONITOR_TIME_INTERVAL_SECOND = 5
 
 # 设置监视状态刷新时间间隔（分）
-MONIT_STATUS_INTERVAL_MINUTE = 20
+MONITOR_STATUS_INTERVAL_MINUTE = 20
+
+# 设置监视状态的结束时间（小时、分钟、秒），日期部分使用当前日期
+MONITOR_ENDTIME = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
 
 # 100K图幅名称信息等查询表格（lookup table） 
 SHEET_NAMES_LUT_100K = "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
