@@ -22,13 +22,13 @@ from tabulate import tabulate
 # 单个图幅
 class MonitorMapSheet(MapsheetDailyFile):
     """ 该类继承自MapsheetsDailyFile类,主要用于监视图幅文件的变化
-            属性：
+            属性: 
             fileToReceiveFlag: bool,表示当天是否有已有计划路线
             matchedFinishedFileCountNum: int,表示当天接收到的完成路线数量
                                                 如果self.fileToReceiveFlag为True同时self.matchedFinishedFileCountNum>=1,则说明当天的计划路线文件已经接收完成
                                                 与此同时,self.currentfilename会有值,存储当天已完成的路线文件名    
             matchedPlanFileCountNum: int,表示当天接收到的计划路线数量
-            方法：
+            方法: 
                 __hasPlan: 检查当天的计划路线文件是否存在,用于决定是否要接收当天的完成路线文件
                 update: 更新当前图幅的状态
                 __onScreenDisplay: 在屏幕上以表格的形式显示改图幅当天的接收完成路线文件的数量
@@ -97,7 +97,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         print(tabulate(table_data, headers, tablefmt="grid"))
 
         if self.errorMsg:
-            print(f"图幅文件中存在错误信息：\n{self.errorMsg}")
+            print(f"图幅文件中存在错误信息: \n{self.errorMsg}")
 
 
 # 待收集的图幅集合
@@ -156,7 +156,7 @@ class MonitorMapSheetCollection(object):
                 self.plannedRouteFileNum += 1
                 # 检查当天的完成点文件是否已经识别出来,如果已经识别出来（不为None）,则不会被添加到列表中
                 if mapsheet.currentfilename is None:
-                    # print(f"当天计划路线中的图幅名称：{mapsheetFileName}")
+                    # print(f"当天计划路线中的图幅名称: {mapsheetFileName}")
                     self.mapSheetTobeCollect_namelist_list.append(mapsheetFileName)
         return self
 
@@ -179,6 +179,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
     def on_created(self, event):
         on_observed_filename = os.path.basename(event.src_path).lower()
         if on_observed_filename.endswith(".kmz"):
+            print("\n"))
             print(f'有KMZ文件创建更新: {event.src_path}')
             if self.__fileNameValidateDate(on_observed_filename) and self.__fileNameValidateMapSheetName(on_observed_filename):
                 index_1 = on_observed_filename.find('_finished_points_and_tracks_')
@@ -190,13 +191,13 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 elif index_2 != -1:
                     self.__planKMZFileValidate(on_observed_filename)
                 else:
-                    print(f"文件名称不符合要求（无法判断是完成点文件/计划线路文件）：{on_observed_filename}")            
+                    print(f"文件名称不符合要求（无法判断是完成点文件/计划线路文件）: {on_observed_filename}")            
         # else:
-        #     print(f"文件未识别：{on_observed_filename}")
+        #     print(f"文件未识别: {on_observed_filename}")
         # print("文件未识别,继续监视目标文件夹...", end="\n")
 
     def __fileNameValidateDate(self, on_observed_filename):
-        """验证文件名中的日期信息是否符合格式要求：8位数字,即YYYYMMDD,同时可转换为有效的日期
+        """验证文件名中的日期信息是否符合格式要求: 8位数字,即YYYYMMDD,同时可转换为有效的日期
         """
         if on_observed_filename.endswith(".kmz"):
             # 从文件名称匹配到的日期
@@ -204,15 +205,15 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
             try:
                 on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
             except ValueError:
-                print(f"文件名中的日期不合法：{on_observed_filename}")
+                print(f"文件名中的日期不合法: {on_observed_filename}")
             # 如果文件名中的日期大于等于当前日期,则合法
             if on_observed_file_datetime.date() >= self.currentDate.date_datetime.date():
                 return True
             else:
-                print(f"无法从文件名匹配到有效日期（日期格式错误/日期不为当天/日期不为下一天)：{on_observed_filename}")
+                print(f"无法从文件名匹配到有效日期（日期格式错误/日期不为当天/日期不为下一天): {on_observed_filename}")
                 return False
         else:
-            print(f"文件名日期格式错误(不正确/不足8位)：{on_observed_filename}")
+            print(f"文件名日期格式错误(不正确/不足8位): {on_observed_filename}")
             return False
 
     def __fileNameValidateMapSheetName(self, on_observed_filename):
@@ -225,7 +226,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                 # break
                 return True
         else:
-            print(f"文件名中没有包含有效的图幅名称：{on_observed_filename}")
+            print(f"文件名中没有包含有效的图幅名称: {on_observed_filename}")
             return False
 
     def __finishKMZFileValidate(self, on_observed_filename):
@@ -251,10 +252,10 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                         self.remainFileNum()
                         return True
                 else:
-                    print(f"文件名中没有包含有效完成点名称：{on_observed_filename}")
+                    print(f"文件名中没有包含有效完成点名称: {on_observed_filename}")
                     return False
             else:
-                print(f"无法从完成点文件名中匹配出有效日期（格式错误/日期不为当天)：{on_observed_filename}")
+                print(f"无法从完成点文件名中匹配出有效日期（格式错误/日期不为当天): {on_observed_filename}")
                 return False
         else:
             return False
@@ -266,7 +267,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
         """
         if on_observed_filename.endswith(".kmz"):
             matchedDate_yyyymmdd_str = re.search(r'\d{8}', on_observed_filename)
-            # print(f"从文件名称匹配到的日期：{matchedDate_yyyymmdd_str.group()}")
+            # print(f"从文件名称匹配到的日期: {matchedDate_yyyymmdd_str.group()}")
             on_observed_file_datetime = datetime.strptime(matchedDate_yyyymmdd_str.group(), "%Y%m%d")
             # 如果文件名中的日期大于当前日期,则合法
             if on_observed_file_datetime.date() > self.currentDate.date_datetime.date():
@@ -279,10 +280,10 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                         item.updatePlan()
                         return True
                 else:
-                    print(f"文件名中没有包含有效的计划路线名称：{on_observed_filename}")
+                    print(f"文件名中没有包含有效的计划路线名称: {on_observed_filename}")
                     return False
             else:
-                print(f"无法从计划路线文件名中匹配出有效日期（格式错误/日期不为下一天)：{on_observed_filename}")
+                print(f"无法从计划路线文件名中匹配出有效日期（格式错误/日期不为下一天): {on_observed_filename}")
                 return False
         else:
             return False
@@ -301,14 +302,15 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
             # 第一次进入监控循环,显示当前待接收的文件列表
             if self.mapSheetTobeCollect_namelist_list_pop != []:
                 self.remainFileNum()
-                print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}")
+                print(f"当前待接收的文件列表: {self.mapSheetTobeCollect_namelist_list_pop}")
 
             while self.mapSheetTobeCollect_namelist_list_pop != []:
 
                 datetime_now = datetime.now()
                 # 在每个MONIT_STATUS_INTERVAL_MINUTE分钟整点显示一次监控状态，第二个判断条件是为了避免在整点时显示多次
                 if datetime_now.minute % MONITOR_STATUS_INTERVAL_MINUTE == 0 and (0 <= datetime_now.second < MONITOR_TIME_INTERVAL_SECOND):
-                    print("\n", 15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
+                    print("\n")
+                    print(15*"-",f"当前时间为 {datetime_now}, 持续监测中...", 15*"-")
 
                     self.remainFileNum()
 
@@ -319,10 +321,10 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
                             # 提醒发送催促消息
                             for item in self.mapSheetTobeCollect:
                                 if item_filename == item.mapsheetFileName:
-                                    print(f"请注意：{item.teamNumber}", f"{item.mapsheetFileName}文件未接收完成,责任人：{item.teamleader}")
+                                    print(f"请注意: {item.teamNumber}", f"{item.mapsheetFileName}文件未接收完成,责任人: {item.teamleader}")
                         print("\n")
                     # else:
-                    #     print(f"当前待接收的文件列表：{self.mapSheetTobeCollect_namelist_list_pop}\n")
+                    #     print(f"当前待接收的文件列表: {self.mapSheetTobeCollect_namelist_list_pop}\n")
 
                 # 每隔设定时间检查一次
                 time.sleep(MONITOR_TIME_INTERVAL_SECOND)
@@ -364,7 +366,7 @@ class DataHandler(FileSystemEventHandler, MonitorMapSheetCollection):
     
     def remainFileNum(self):
         # 显示当前待接收的文件数量和列表和Plan的数量,表示为(n/m)格式
-        print(f"当前待接收的文件数量/当日计划数量：{len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
+        print(f"当前待接收的文件数量/当日计划数量: {len(self.mapSheetTobeCollect_namelist_list_pop)}","/", self.plannedRouteFileNum)
 
 
 

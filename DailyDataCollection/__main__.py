@@ -165,7 +165,7 @@ class DataCollectNow():
         # 在屏幕上显示文件结果和错误信息
         collection.onScreenDisplay()
         print("\n")
-        print(f"文件中存在的错误信息：")
+        print(f"文件中存在的错误信息: ")
         for _ in collection.errorMsg:
             if _ != None:
                 print(_)
@@ -190,7 +190,7 @@ def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
     print("\n")
-    print(15*"-", "设定日期：", date_datetype.yyyymmdd_str, f"当前系统时间：{datetime.now().strftime('%H:%M:%S')}", 15*"-", 1*'\n')
+    print(15*"-", "设定日期: ", date_datetype.yyyymmdd_str, f"当前系统时间: {datetime.now().strftime('%H:%M:%S')}", 15*"-", 1*'\n')
 
 
     if monitor_bool:
@@ -198,7 +198,7 @@ def main():
         # 增加一个默认终止时间
         if endtime is None:
             endtime = MONITOR_ENDTIME
-        print(f"以监控模式运行中...\n监控状态刷新间隔为： {MONITOR_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为： {endtime.strftime('%H:%M:%S')}\n")
+        print(f"以监控模式运行中...\n监控状态刷新间隔为:  {MONITOR_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为:  {endtime.strftime('%H:%M:%S')}\n")
 
 
         # 这里可以添加监控逻辑

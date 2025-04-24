@@ -46,12 +46,12 @@ def find_files_with_max_number(directory: str) -> dict:
     # 遍历目录中的所有文件
     for root, _, filenames in os.walk(directory):
         for filename in filenames:
-            # 去掉括号中的数字, 例如：'file(1).txt' 返回 'file.txt'
+            # 去掉括号中的数字, 例如: 'file(1).txt' 返回 'file.txt'
             base_name = re.sub(r'\(\d+\)', '', filename)
             # 在文件名中查找括号内的数字。正则表达式 `r'\((\d+)\)'` 匹配括号内的一个或多个数字, 并返回一个 `Match` 对象。如果没有找到匹配项, 则返回 `None`
             match = re.search(r'\((\d+)\)', filename)
             # 从 `Match` 对象中提取括号内的数字, 并将其转换为整数。如果找到了匹配项, 则使用 `int(match.group(1))` 提取括号内的数字；否则, 返回 -1
-            # 提取括号中的数字, 例如：'file(1).txt' 返回 1, 'file.txt' 返回 -1
+            # 提取括号中的数字, 例如: 'file(1).txt' 返回 1, 'file.txt' 返回 -1
             number = int(match.group(1)) if match else -1        
             file_path = os.path.join(root, filename)
             # 如果文件名不在字典中, 则将其添加到字典中
@@ -405,7 +405,7 @@ class ObservationData:
                     gaps.append((f"{key}{pointValues[i - 1]}", f"{key}{pointValues[i]}"))
             # 如果有间断, 输出间断的位置
             if gaps:
-                msg = f"组{key}的点号间断位置：{gaps}"
+                msg = f"组{key}的点号间断位置: {gaps}"
             else:
                 msg = None
             max_value = max(values, key=lambda x: int(x[-3:]))
@@ -938,7 +938,7 @@ class MapsheetDailyFile(object):
                     self.sequence = sequence
                     break
             else:
-                print(f"文件名称未找到\n请查证是否文件名 '{self.mapsheetFileName}' 有误？\文件名列表如下：")
+                print(f"文件名称未找到\n请查证是否文件名 '{self.mapsheetFileName}' 有误？\文件名列表如下: ")
                 print(json.dumps(self.__class__.maps_info, indent=4, ensure_ascii=False))
                 print("程序退出")
                 exit()
@@ -961,11 +961,11 @@ class MapsheetDailyFile(object):
         """
         获取当天的文件, 文件名格式为图幅名称+finished_points_and_tracks+日期+.kmz
         一般情况下, 当天的文件是最新的文件, 因此优先查找当天的文件, 但微信中可能会有多个文件, 后缀名为(1),(2)...等, 因此需要进一步处理
-                            处理方式为：()中的数字最大的文件为当天最新的文件, 或者时间最新的文件为当天最新的文件？？？
+                            处理方式为: ()中的数字最大的文件为当天最新的文件, 或者时间最新的文件为当天最新的文件？？？
         """
         #NOTE: 
         """2025年04月01日
-            此处需要增加逻辑如下：
+            此处需要增加逻辑如下: 
             如果查找的日期为当前日期, 则在微信文件夹中优先查找；如果查找的日期不是当前日期, 
         if instance.currentDate.yyyymmdd_str == datetime.now().strftime("%Y%m%d"):
             # 如果当前日期等于今天, 则在微信文件夹中优先查找
@@ -1100,7 +1100,7 @@ class MapsheetDailyFile(object):
     @classmethod
     def findNextPlan(cls, instance):
         """
-        findNextPlan 通常应是查找第二天的计划文件：
+        findNextPlan 通常应是查找第二天的计划文件: 
                      或周五-周六休息, 周四会查找周六/周日的计划文件, 因此为了冗余日期, TRACEFORWARD_DAYS = 5, 即向前查找5天, 找到最近的一个计划文件
         """
         # print(f"开始查找{instance.currentDate.yyyymmdd_str}之后的计划文件")
@@ -1183,7 +1183,7 @@ class MapsheetDailyFile(object):
             dailyincreasePlacemarks = self.currentPlacemarks
             self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
-            print(f"提示：{self.mapsheetFileName}是否为第一次提交？")
+            print(f"提示: {self.mapsheetFileName}是否为第一次提交？")
         return self
     
     @property
@@ -1196,7 +1196,7 @@ class MapsheetDailyFile(object):
             return None
     
     def __str__(self):
-        return f"图幅名称：{self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误：{self.errorMsg}"
+        return f"图幅名称: {self.mapsheetFileName}\n当天文件: {self.currentfilename}\n上一次文件: {self.lastfilename}\n下一次文件: {self.nextfilename}\n当天新增点数: {self.dailyincreasePointNum}\n当天新增线路数: {self.dailyincreaseRouteNum}\n当天文件中存在的错误: {self.errorMsg}"
     
 
     
@@ -1258,12 +1258,12 @@ class CurrentDateFiles(object):
         """
         df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0)
         # df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, index_col=7)
-        # 获取数据帧：筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
+        # 获取数据帧: 筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
         filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
         # 如果Sequence列长度值不等于 SEQUENCE_MAX - SEQUENCE_MIN + 1, 需要报错
         # 如果Sequence列有重复值, 需要报错
         if len(filtered_df) != SEQUENCE_MAX - SEQUENCE_MIN+1 or filtered_df['Sequence'].duplicated().any():
-            print("图幅信息有误, 请检查图幅信息表(Sequence值错误：重复值/缺少定义)\n程序退出")
+            print("图幅信息有误, 请检查图幅信息表(Sequence值错误: 重复值/缺少定义)\n程序退出")
             exit()
         # 处理可能的 NaN 值, 将其填充为一个默认整数值, 例如 0
         # filtered_df.loc[:, 'Sequence'] = filtered_df['Sequence'].fillna(-1)
@@ -1703,7 +1703,7 @@ class CurrentDateFiles(object):
     
 class DataSubmition(object):
     """
-    根据COLLECTION_WEEKDAYS列表, 在每周的某一天：
+    根据COLLECTION_WEEKDAYS列表, 在每周的某一天: 
     1. 输出shp文件
     2. 在制图工程文件夹下创建目录, 并拷贝截止当天的shp
     3. 拷贝一周前的shp文件（或kmz文件）
@@ -1852,6 +1852,6 @@ if __name__ == "__main__":
     date = DateType(date_datetime=datetime.now())
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         collection = CurrentDateFiles(date)
-        print(f"{date}新增点数：", collection.totalDaiyIncreasePointNum, 3*"\n")
+        print(f"{date}新增点数: ", collection.totalDaiyIncreasePointNum, 3*"\n")
         date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
     exit()
