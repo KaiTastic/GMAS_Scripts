@@ -39,7 +39,7 @@ else:
 MONITOR_TIME_INTERVAL_SECOND = 10
 
 # 设置监视状态刷新时间间隔（分）
-MONITOR_STATUS_INTERVAL_MINUTE = 20
+MONITOR_STATUS_INTERVAL_MINUTE = 30
 
 # 设置监视状态的结束时间（小时、分钟、秒），日期部分使用当前日期
 MONITOR_ENDTIME = datetime.now().replace(hour=20, minute=30, second=0, microsecond=0)
@@ -59,7 +59,7 @@ TRACEBACK_DATE = "20250310"
 # 设置文件向后回溯查找的天数
 TRACEBACK_DAYS = 60
 # 设置文件向前查找的天数
-TRACEFORWARD_DAYS = 5
+TRACEFORWARD_DAYS = 7
 
 # 设置每周的星期几进行数据收集，0-6分别表示星期一至星期日
 # 周一是0，周二是1，周三是2，周四是3，周五是4，周六是5，周日是6
