@@ -451,20 +451,51 @@ class ObservationData:
         new_file = ObservationData()
 
         if not isinstance(other, ObservationData):
-            logger.error("数据类型必须是'ObservationData'")
+            msg = f"数据类型必须是'ObservationData'"
+            if type(new_file.__errorMsg) == list:
+                new_file.__errorMsg.append(msg)
+                print(new_file.__errorMsg)
+            else:
+                new_file.__errorMsg = [msg]
+                print(new_file.__errorMsg)
+            logger.error(msg)
             return None
         # 验证一个字典的键是否是另一个字典键的子集
         if not (self.points.keys() <= other.points.keys() or other.points.keys() <= self.points.keys()):
             #! 如果kmz文件重点点要素不为自己关系，则返回空文件类，以免调用出错
-            logger.error("两个KML文件中的点要素不是另一个的子集")
+            msg = f"两个KML文件中的点要素不是另一个的子集"
+            if type(new_file.__errorMsg) == list:
+                new_file.__errorMsg.append(msg)
+            else:
+                new_file.__errorMsg = [msg]
+            logger.error(msg)
             return new_file
-        # if not (set(self.routes) <= set(other.routes) or set(other.routes) <= set(self.routes)):
-        #     raise ValueError("KML文件中的线要素不是另一个的子集")
 
-        # 计算点要素的差异
-        new_file.points = {key: value for key, value in self.points.items() if key not in other.points}
-        new_file.points.update({key: value for key, value in other.points.items() if key not in self.points})
+        # 点要素的顺序减法
+        new_file.points = {
+            key: value for key, value in self.points.items() if key not in other.points
+        }
+        # 根据字典中元素差异判断是否今日点有误
+        pointCount = len(set(self.points.keys())) - len(set(other.points.keys()))
+        if pointCount < 0:
+            msg = f"今日文件有误，点数少于上一天，今日增加点为负数: {pointCount}"
+            if type(new_file.__errorMsg) == list:
+                new_file.__errorMsg.append(msg)
+            else:
+                new_file.__errorMsg = [msg]
+            logger.error(msg)
+            return new_file
+
         new_file.pointsCount = len(new_file.points)
+
+        # 线要素的顺序减法
+        new_file.routes = [
+            route for route in self.routes if route not in other.routes
+        ]
+
+        new_file.routesCount = len(new_file.routes)
+
+
         # 计算线要素的差异并去重
         # new_file.routes = list(set(self.routes).symmetric_difference(set(other.routes)))
         # new_file.routesCount = len(new_file.routes)
@@ -1191,6 +1222,8 @@ class MapsheetDailyFile(object):
             self.dailyincreaseRouteNum = 0
         if self.currentPlacemarks and self.lastPlacemarks:
             dailyincreasePlacemarks = self.currentPlacemarks - self.lastPlacemarks
+            if dailyincreasePlacemarks.errorMsg:
+                self.__errorMsg[self.currentfilename] = dailyincreasePlacemarks.errorMsg
             self.dailyincreasePointNum = len(dailyincreasePlacemarks.points)
             self.dailyincreaseRouteNum = len(dailyincreasePlacemarks.routes)
         if self.currentPlacemarks is not None and self.lastPlacemarks is None:
