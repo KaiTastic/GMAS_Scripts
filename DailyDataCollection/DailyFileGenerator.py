@@ -1,6 +1,7 @@
 import os
 import re
 import zipfile
+import pyzipper
 import shutil
 import hashlib
 import xmlschema
@@ -520,13 +521,13 @@ class KMZFile(FileAttributes, GeneralIO):
             self._routes = self._placemarks.routes
             self._routesCount = self._placemarks.routesCount
             # 如果self._placemarks.errorMsg是一个列表且不为空, 则将其添加到__errorMsg中
-            if type(self._placemarks.errorMsg) == list and self._placemarks.errorMsg != []:
-                self.__errorMsg.append(self._placemarks.errorMsg)
+            if isinstance(self._placemarks.errorMsg, list) and self._placemarks.errorMsg:
+                self.__errorMsg.extend(self._placemarks.errorMsg)
                 print("KMZ初始化时发现的错误", self.errorMsg)
             
             # if self._placemarks.errorMsg:
             #     print(self._placemarks.errorMsg)
-            #     self.__errorMsg.append(self._placemarks.errorMsg)
+            #     self.__errorMsg.extend(self._placemarks.errorMsg)
 
     def __validateKMZ(self, defaultSchema = "schema22") -> bool:
         """
@@ -550,7 +551,7 @@ class KMZFile(FileAttributes, GeneralIO):
                 # error = f"XML文件与XSD'{defaultSchema}'验证不符: {e}"
                 warning = f"XML文件与XSD'{defaultSchema}'验证不符"
                 logger.warning(warning)
-                self.__errorMsg.append(warning)
+                self.__errorMsg.extend([warning])
                 return False
     
     def read(self, filepath: str = None, validate = False, defaultSchema = "schema22"):
@@ -569,35 +570,52 @@ class KMZFile(FileAttributes, GeneralIO):
             return False
         else:
             filepath = self.filepath
+        try:
+            # NOTE: pyzipper是一个支持AES加密的zipfile模块, 需要安装pyzipper库
+            # with zipfile.ZipFile(filepath, 'r') as kmz:
+            with pyzipper.AESZipFile(filepath, 'r') as kmz:
+                # print(f"解压 KMZ 文件: {filepath}")
+                # 查找 KML 文件
+                kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
+                # print(f"KMZ 文件中的 KML 文件: {kml_files}")
+                if kml_files:
+                    kml_file = kml_files[0]
+                    # 读取 KML 文件内容
+                    with kmz.open(kml_file) as kml:
+                        self._kml_content = kml.read()
+                        # 验证KML文件是否符合XSD模式
+                        if validate:
+                            self.__validateKMZ(defaultSchema)
+                        # 解析KML内容
+                        placemarks = ObservationData(kml_content=self._kml_content)
+                        self._points = placemarks.points
+                        self._pointsCount = placemarks.pointsCount
+                        self._routes = placemarks.routes
+                        self._routesCount = placemarks.routesCount
+                        if placemarks.errorMsg:
+                            self.__errorMsg.extend(placemarks.errorMsg)
+                            # print("KMZ读取时候发现的错误", self.errorMsg)
+                        self._placemarks = placemarks
+                        #! 删除KML内容, 释放内存
+                        del self._kml_content
+                else:
+                    logger.error("在KMZ文件中没有找到 KML文件")
 
-        with zipfile.ZipFile(filepath, 'r') as kmz:
-            # print(f"解压 KMZ 文件: {filepath}")
-            # 查找 KML 文件
-            kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
-            # print(f"KMZ 文件中的 KML 文件: {kml_files}")
-            if kml_files:
-                kml_file = kml_files[0]
-                # 读取 KML 文件内容
-                with kmz.open(kml_file) as kml:
-                    self._kml_content = kml.read()
-                    # 验证KML文件是否符合XSD模式
-                    if validate:
-                        self.__validateKMZ(defaultSchema)
-                    # 解析KML内容
-                    placemarks = ObservationData(kml_content=self._kml_content)
-                    self._points = placemarks.points
-                    self._pointsCount = placemarks.pointsCount
-                    self._routes = placemarks.routes
-                    self._routesCount = placemarks.routesCount
-                    if placemarks.errorMsg:
-                        self.__errorMsg.append(placemarks.errorMsg)
-                        # print("KMZ读取时候发现的错误", self.errorMsg)
-                    self._placemarks = placemarks
-                    #! 删除KML内容, 释放内存
-                    del self._kml_content
-            else:
-                logger.error("在KMZ文件中没有找到 KML文件")
+        # except zipfile.BadZipFile:
+        #     error = f"文件不能正确解析为KMZ文件: {self._filename}"
+        #     logger.error(error)
+        #     self.__errorMsg.append(error)
+        #     return False
+        
+        except Exception as e:
+            error = f"读取文件时发生错误: {e}"
+            logger.error(f"读取文件时发生错误: {e}")
+            self.__errorMsg.append(error)
 
+            return False
+        
+        return True
+    
     def write(self, type='kmz'):
         if self._filepath is not None:
             os.makedirs(os.path.dirname(self._filepath), exist_ok=True)
@@ -980,26 +998,16 @@ class MapsheetDailyFile(object):
         """
 
         file_path = os.path.join(WORKSPACE, instance.currentDate.yyyymm_str, instance.currentDate.yyyymmdd_str, "Finished points", f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.currentDate.yyyymmdd_str}.kmz")
-        # print(f"开始查找{instance.currentDate.yyyymmdd_str}当天的文件")
-        # Step 1: 在当天的工作文件夹中查找当天的文件
-        if os.path.exists(file_path):
-            instance.currentfilepath = file_path
-        # Step 2: 在微信聊天记录文件夹中查找当天的文件, 如果有更新的文件, 则拷贝至工作文件夹, 替换原有文件
         # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
         folder = os.path.join(WECHAT_FOLDER)
         searchedFile_list = list_fullpath_of_files_with_keywords(folder, [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"])
         # print(f"在微信记录中查找查找{instance.currentDate.yyyymmdd_str}当天的文件", searchedFile_list) 
-        if searchedFile_list:
+        if len(searchedFile_list) >= 1:
             #TODO: 用find_files_with_max_number函数二次验证获取的文件
             # 选择时间最新的文件(区别于用find_files_with_max_number函数, 获取文件名中数字最大的文件)
             fetched_file = max(searchedFile_list, key=os.path.getctime)
-            # 如果工作文件夹中的文件不存在
-            if not os.path.exists(file_path):
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                shutil.copy(fetched_file, file_path)
-                os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
-                instance.currentfilepath = file_path
-            else:
+            # 如果工作文件夹中的文件存在
+            if os.path.exists(file_path) and os.path.isfile(file_path):
                 if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=fetched_file).hashMD5:
                     # 将获取的文件拷贝至工作文件夹, 并进行了重命名
                     shutil.copy(fetched_file, file_path)
@@ -1007,6 +1015,12 @@ class MapsheetDailyFile(object):
                     instance.currentfilepath = file_path
                 else:
                     instance.currentfilepath = file_path
+                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+            else:
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                shutil.copy(fetched_file, file_path)
+                os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                instance.currentfilepath = file_path
         if instance.currentfilepath:
             instance.currentfilename = os.path.basename(instance.currentfilepath)
             file = KMZFile(filepath=instance.currentfilepath)
@@ -1111,7 +1125,7 @@ class MapsheetDailyFile(object):
             search_date_str = date.strftime("%Y%m%d")
             # 列出微信聊天记录文件夹中包含指定日期、图幅名称和plan_tracks的文件
             #TODO: 搜索效率低, 需要优化
-            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, instance.mapsheetFileName, "plan_routes"])
+            searchedFile_list = list_fullpath_of_files_with_keywords(WECHAT_FOLDER, [search_date_str, instance.mapsheetFileName, "plan_routes", ".kmz"])
             # print(searchedFile_list) 
             if searchedFile_list:
                 # print(f"找到工作计划: {searchedFile_list}")
@@ -1853,5 +1867,6 @@ if __name__ == "__main__":
     while date.date_datetime > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
         collection = CurrentDateFiles(date)
         print(f"{date}新增点数: ", collection.totalDaiyIncreasePointNum, 3*"\n")
+        print(f"{collection}")
         date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
     exit()
