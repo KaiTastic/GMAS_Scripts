@@ -337,11 +337,8 @@ class ObservationData:
                                 self.__errorMsg.append(error)
                     else:
                         error = f"点要素{name.text}的标签格式不符合OBSID命名规范"
-                        if type(self.__errorMsg) == list:
-                            self.__errorMsg.append(error)
-                        else:
-                            self.__errorMsg = [error]
-                        # logger.warning(error)
+                        self.__errorMsg.append(error)
+
         # Step 2: 通过Description元素提取点要素, Description元素下的内容可能包含OBSID、经度和纬度3个要素, OBSID、经度或纬度均可能为空
         for description in root.findall('.//{http://www.opengis.net/kml/2.2}description'):
             if description is not None and description.text:
