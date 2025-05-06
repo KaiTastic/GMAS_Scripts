@@ -296,6 +296,10 @@ class ObservationData:
     pointsCount: int = 0
     routes: list = field(default_factory=list)
     routesCount: int = 0
+
+    __lablePoints: dict = field(default_factory=dict)
+    __ospidPoints: dict = field(default_factory=dict)
+
     __errorMsg: list = field(default_factory=list)
 
     kml_content: str = None
@@ -325,7 +329,12 @@ class ObservationData:
                         obspid = name.text
                         coordinates = point.find('.//{http://www.opengis.net/kml/2.2}coordinates').text.split(',')
                         longitude, latitude = coordinates[0], coordinates[1]
-                        self.points[obspid] = {'longitude': longitude, 'latitude': latitude}
+                        if obspid and longitude and latitude:
+                            if not obspid in self.__lablePoints:
+                                self.__lablePoints[obspid] = {'longitude': float(longitude), 'latitude': float(latitude)}
+                            else:
+                                error = f"点要素{obspid}的Label中存在OBSID重复"
+                                self.__errorMsg.append(error)
                     else:
                         error = f"点要素{name.text}的标签格式不符合OBSID命名规范"
                         if type(self.__errorMsg) == list:
@@ -339,32 +348,36 @@ class ObservationData:
                 obspidPattern = re.compile(ObservationData.OSPID_PATTERN)
                 longitudePattern = re.compile(ObservationData.LONGITUDE_PATTERN)
                 latitudePattern = re.compile(ObservationData.LATITUDE_PATTERN)
+
                 obspid_match = obspidPattern.search(description.text)
                 longitude_match = longitudePattern.search(description.text)
                 latitude_match = latitudePattern.search(description.text)
+
                 obspid = obspid_match.group(0) if obspid_match else None
                 longitude = float(longitude_match.group(1)) if longitude_match else None
                 latitude = float(latitude_match.group(1)) if latitude_match else None
             # if obspid == None or longitude == None or latitude == None:
             #     print(f"点要素没有OBSID{obspid}或经度{longitude}或纬度{latitude}")
                 if obspid and longitude and latitude:
-                    if not obspid in self.points:
-                        self.points[obspid] = { 'longitude': longitude, 'latitude': latitude}
-                # 如果OBSID、经度和纬度中有一个为空, 则记录日志
-                if obspid and not longitude and not latitude:
-                    error = f"点要素{obspid}的属性表中缺少经度值和纬度值"
-                    if type(self.__errorMsg) == list:
-                        self.__errorMsg.append(error)
+                    if not obspid in self.__ospidPoints:
+                        self.__ospidPoints[obspid] = { 'longitude': longitude, 'latitude': latitude}
                     else:
-                        self.__errorMsg = [error]
-                    # logger.warning(error)
-        # Step 3: 删除缺少经度或纬度的点要素
-        # for obspid, coords in self.points.items():
-        #     if coords['longitude'] == None or coords['latitude'] == None:
-        #         del self.points[obspid]
-        #         error = f"点要素{obspid}缺少经度或纬度"
-        #         self.errorMsg.append(error)
-        #         print(error)
+                        error = f"点要素{obspid}的属性表中存在OBSID重复"
+                        self.__errorMsg.append(error)
+
+                # 如果OBSID、经度和纬度中有一个为空, 则记录日志
+                if obspid and (not longitude and not latitude):
+                    error = f"点要素{obspid}的属性表中缺少经度值和纬度值"
+                    self.__errorMsg.append(error)
+                elif obspid and not longitude and latitude:
+                    error = f"点要素{obspid}的属性表中缺少经度值"
+                    self.__errorMsg.append(error)
+                elif obspid and longitude and not latitude:
+                    error = f"点要素{obspid}的属性表中缺少纬度值"
+                    self.__errorMsg.append(error)
+
+        # 合并两个字点典, 如果有重复的键, 则覆盖
+        self.points = {**self.__lablePoints, **self.__ospidPoints}
         self.pointsCount = len(self.points)
 
     def __getRoutes(self) -> None:
@@ -446,29 +459,20 @@ class ObservationData:
 
     def __sub__(self, other: 'ObservationData') -> 'ObservationData':
         """用减法操作实现两个文件数据的差异, 得到一个新的字典"""
-
         # 创建新的KMLFile对象
         new_file = ObservationData()
 
         if not isinstance(other, ObservationData):
-            msg = f"数据类型必须是'ObservationData'"
-            if type(new_file.__errorMsg) == list:
-                new_file.__errorMsg.append(msg)
-                print(new_file.__errorMsg)
-            else:
-                new_file.__errorMsg = [msg]
-                print(new_file.__errorMsg)
-            logger.error(msg)
+            error = f"数据类型必须是'ObservationData'"
+            self.__errorMsg.append(error)
+            logger.error(error)
             return None
         # 验证一个字典的键是否是另一个字典键的子集
-        if not (self.points.keys() <= other.points.keys() or other.points.keys() <= self.points.keys()):
+        if not (other.points.keys() <= self.points.keys()):
             #! 如果kmz文件重点点要素不为自己关系，则返回空文件类，以免调用出错
-            msg = f"两个KML文件中的点要素不是另一个的子集"
-            if type(new_file.__errorMsg) == list:
-                new_file.__errorMsg.append(msg)
-            else:
-                new_file.__errorMsg = [msg]
-            logger.error(msg)
+            error = f"两个KML文件中的点要素不是另一个的子集"
+            self.__errorMsg.append(error)
+            logger.error(error)
             return new_file
 
         # 点要素的顺序减法
@@ -478,24 +482,17 @@ class ObservationData:
         # 根据字典中元素差异判断是否今日点有误
         pointCount = len(set(self.points.keys())) - len(set(other.points.keys()))
         if pointCount < 0:
-            msg = f"今日文件有误，点数少于上一天，今日增加点为负数: {pointCount}"
-            if type(new_file.__errorMsg) == list:
-                new_file.__errorMsg.append(msg)
-            else:
-                new_file.__errorMsg = [msg]
-            logger.error(msg)
+            error = f"今日文件有误，点数少于上一天，今日增加点为负数: {pointCount}"
+            self.__errorMsg.append(error)
+            logger.error(error)
             return new_file
 
         new_file.pointsCount = len(new_file.points)
 
         # 线要素的顺序减法
-        new_file.routes = [
-            route for route in self.routes if route not in other.routes
-        ]
+        new_file.routes = [route for route in self.routes if route not in other.routes]
 
         new_file.routesCount = len(new_file.routes)
-
-
         # 计算线要素的差异并去重
         # new_file.routes = list(set(self.routes).symmetric_difference(set(other.routes)))
         # new_file.routesCount = len(new_file.routes)
