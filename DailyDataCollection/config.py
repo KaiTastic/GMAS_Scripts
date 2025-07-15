@@ -68,8 +68,9 @@ COLLECTION_WEEKDAYS = [5]
 
 # 设置需要统计的图幅的最小和最大序号，包括最小和最大序号
 # 例如，SEQUENCE_MIN = 1, SEQUENCE_MAX = 22，表示统计1-22图幅，序号来源于100K图幅名称信息等查询表格lookup table
-SEQUENCE_MIN = 26
-SEQUENCE_MAX = 40
+# Group 3.2 的图幅序号范围为41-51
+SEQUENCE_MIN = 41
+SEQUENCE_MAX = 51
 
 # 建立资源文件目录，并验证文件是否存在，为当前文件夹子目录中的文件
 current_path = os.path.dirname(os.path.abspath(__file__))
