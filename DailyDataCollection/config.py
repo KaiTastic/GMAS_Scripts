@@ -18,7 +18,7 @@ WORKSPACE = r"D:\RouteDesign"
 
 # 检查运行平台,并设置相应的微信聊天记录的文件夹， 请根据实际情况修改
 # Window平台: 一般为"文档\WeChat Files\WeChat Files\微信号\FileStorage\File"，填入绝对路径
-WECHAT_FOLDER_WIN = r"D:\Users\lenovo\Documents\WeChat Files\WeChat Files\bringsmile\FileStorage\File"
+WECHAT_FOLDER_WIN = r"D:\Users\lenovo\Documents\xwechat_files\bringsmile_b74d\msg\file"
 # Mac平台: 一般为"~/Documents/WeChat Files/WeChat Files/微信号/FileStorage/File"
 WECHAT_FOLDER_MACOS = os.path.expanduser("")
 # Windows 平台
