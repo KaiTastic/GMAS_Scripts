@@ -3,7 +3,7 @@ import os
 import sys
 from datetime import datetime
 from config import *
-from DailyFileGenerator import *
+from DailyFileGenerator_compat import *
 from tabulate import tabulate
 from monitor import DataHandler
 

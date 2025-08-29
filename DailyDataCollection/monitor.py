@@ -10,7 +10,7 @@ import pandas as pd
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from DailyFileGenerator import MapsheetDailyFile, CurrentDateFiles
+from DailyFileGenerator_compat import MapsheetDailyFile, CurrentDateFiles
 import re
 from tabulate import tabulate
 
