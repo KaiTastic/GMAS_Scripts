@@ -1,0 +1,19 @@
+# Image Cutter - 图像切割工具
+# 依赖包列表
+
+# 核心依赖
+tqdm==4.66.1          # 进度条显示
+Pillow==10.1.0        # 图像处理库
+numpy==1.26.0         # 数值计算库
+
+# 开发和构建依赖
+pyinstaller==6.11.1   # 用于构建可执行文件
+pyinstaller-hooks-contrib==2024.10  # PyInstaller钩子
+
+# GUI依赖 (Python内置，无需安装)
+# tkinter - GUI界面库
+
+# 注意：
+# - Python版本要求：3.10+
+# - tkinter是Python标准库的一部分，通常随Python一起安装
+# - 如果您只需要使用独立可执行文件，则无需安装这些依赖
