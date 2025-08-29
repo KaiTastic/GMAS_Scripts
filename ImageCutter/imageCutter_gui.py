@@ -4,15 +4,15 @@
 @File    :   imageCutter_gui.py
 @Time    :   2025/08/29
 @Author  :   Kai Cao 
-@Version :   1.0.0
+@Version :   2.0.0
 @Contact :   caokai_cgs@163.com
 @License :   
 @Copyright Statement:   Full Copyright
 @Desc    :   图像切割工具 - 图形化界面版本
              Python==3.10
-             tqdm==4.62.3
-             Pillow==8.4.0
-             numpy==1.21.4
+             tqdm==4.66.1
+             Pillow==10.1.0
+             numpy==1.26.0
              tkinter (内置)
 '''
 

@@ -1,6 +1,6 @@
 # Image Cutter - 图像切割工具
 
-专业的图像切割工具，专门用于分割扫描的薄片图像，支持自动计算最佳分割数量。提供命令行版本、GUI版本和独立可执行文件三种使用方式。
+图像切割工具，专门用于分割扫描的薄片图像，支持自动计算最佳分割数量。提供命令行版本、GUI版本和独立可执行文件三种使用方式。
 
 ## 目录
 
@@ -24,12 +24,16 @@
 ## 快速开始
 
 ### 方式1：独立可执行文件（推荐）
+
 无需安装Python环境，双击即可使用：
+
 - 双击运行 `启动图像切割器_GUI.bat`
 - 或直接运行 `dist/ImageCutter_GUI.exe`
 
 ### 方式2：Python源码版本
+
 需要Python 3.10环境：
+
 - GUI版本：`python imageCutter_gui.py`
 - 命令行版本：`python imageCutter.py`
 
@@ -53,21 +57,58 @@
 ImageCutter/
 ├── dist/
 │   └── ImageCutter_GUI.exe          # 独立可执行文件（28MB）
-├── build/                           # 构建临时文件夹
+├── build/                           # 构建临时文件夹（自动生成）
+├── __pycache__/                     # Python缓存文件夹（自动生成）
 ├── testImageData/                   # 测试图像数据
-├── 启动图像切割器_GUI.bat           # 快速启动脚本
-├── 构建图像切割器_GUI.bat           # 重新构建脚本  
-├── 图像切割器_GUI版本.bat           # GUI版本启动脚本
-├── imageCutter_gui.py              # GUI版本源码
-├── imageCutter.py                  # 命令行版本源码
-├── imageCutter_gui_simple.spec     # PyInstaller配置
+│   ├── 4423-1-01-05-XPL.jpg
+│   ├── 4423-1-11-15-PPL.jpg
+│   ├── 4423-2-091-095-XPL.jpg
+│   ├── 4423-2-096-098-PPL.jpg
+│   ├── 4423-2-096-098-XPL.jpg
+│   └── 4423-2-99-100-XPL.jpg
+├── 启动图像切割器_GUI.bat           # 快速启动脚本（推荐使用）
+├── 构建图像切割器_GUI.bat           # 重新构建可执行文件脚本
+├── 安装环境.bat                     # 自动安装Python环境和依赖
+├── 测试项目.bat                     # 项目完整性测试脚本
+├── 清理项目.bat                     # 清理临时文件和缓存脚本
+├── 项目信息.bat                     # 查看项目详细信息
+├── imageCutter_gui.py              # GUI版本源码（主程序）
+├── imageCutter.py                  # 核心功能模块
+├── imageCutter_gui_simple.spec     # PyInstaller配置文件
 ├── requirements.txt                # Python依赖包列表
+├── config.py                       # 项目配置文件
+├── .gitignore                      # Git版本控制忽略文件
 └── README.md                       # 项目说明文档
 ```
+
+### 主要文件说明
+
+**核心程序文件:**
+
+- `ImageCutter_GUI.exe`: 独立可执行程序，无需Python环境即可运行
+- `imageCutter_gui.py`: GUI版本源代码，包含图形界面和多线程处理
+- `imageCutter.py`: 核心功能模块，包含图像处理算法
+
+**便民批处理脚本:**
+
+- `启动图像切割器_GUI.bat`: 智能启动脚本（优先启动.exe，备选Python版本）
+- `构建图像切割器_GUI.bat`: 自动构建独立可执行文件
+- `安装环境.bat`: 一键安装Python依赖环境
+- `测试项目.bat`: 全面测试项目完整性和功能
+- `清理项目.bat`: 清理临时文件、缓存和测试数据
+- `项目信息.bat`: 查看项目状态、版本和环境信息
+
+**配置文件:**
+
+- `requirements.txt`: 精确的Python依赖版本列表
+- `config.py`: 项目配置和常量定义
+- `.gitignore`: Git版本控制忽略规则
+- `imageCutter_gui_simple.spec`: PyInstaller打包配置
 
 ## 界面预览
 
 ### GUI版本特色功能：
+
 - **友好的用户界面**: 所有参数通过图形控件设置，无需记忆命令
 - **文件夹浏览器**: 点击按钮即可选择目标文件夹
 - **实时进度显示**: 进度条显示当前处理进度和完成百分比
@@ -79,14 +120,17 @@ ImageCutter/
 ## 安装要求
 
 ### 独立可执行版本（推荐）
+
 - **系统要求**: Windows 10 或更高版本
 - **内存要求**: 建议 4GB 或更多
 - **磁盘空间**: 至少 100MB 可用空间
 - **无需额外安装**: 不需要Python环境或任何依赖包
 
 ### Python源码版本
+
 **Python版本**: 3.10
 **依赖库**:
+
 ```bash
 pip install tqdm==4.66.1 pillow==10.1.0 numpy==1.26.0
 # tkinter 是 Python 内置模块，无需额外安装
@@ -97,13 +141,16 @@ pip install tqdm==4.66.1 pillow==10.1.0 numpy==1.26.0
 ### 方式1：独立可执行文件（最简单）
 
 **快速启动（推荐）：**
+
 1. 双击运行 `启动图像切割器_GUI.bat`
 2. 程序会自动检查文件并启动GUI界面
 
 **直接运行：**
+
 - 双击 `dist/ImageCutter_GUI.exe`
 
 **功能特点：**
+
 - 无需安装Python环境
 - 一键启动，即开即用
 - 完整的图形界面功能
@@ -112,11 +159,13 @@ pip install tqdm==4.66.1 pillow==10.1.0 numpy==1.26.0
 ### 方式2：Python GUI版本
 
 **运行方式：**
+
 ```bash
 python imageCutter_gui.py
 ```
 
 **或使用批处理文件：**
+
 ```bash
 # 双击运行
 图像切割器_GUI版本.bat
@@ -125,6 +174,7 @@ python imageCutter_gui.py
 ### 方式3：命令行版本
 
 **基本使用：**
+
 ```bash
 python imageCutter.py --folder_path "D:\path\to\images" --num_splits 5 --auto_split
 ```
@@ -132,7 +182,7 @@ python imageCutter.py --folder_path "D:\path\to\images" --num_splits 5 --auto_sp
 ### GUI操作流程（适用于所有GUI版本）
 
 1. **选择文件夹**: 点击"浏览"按钮选择包含图像的文件夹
-2. **设置参数**: 
+2. **设置参数**:
    - 分割数量：使用微调框设置（建议保持自动计算）
    - 自动分割：勾选后自动使用计算的最佳分割数
    - 文件格式：下拉选择(.jpg, .png, .bmp等)
@@ -144,25 +194,27 @@ python imageCutter.py --folder_path "D:\path\to\images" --num_splits 5 --auto_sp
 ### 重新构建可执行文件
 
 如需重新构建可执行文件：
+
 ```bash
 # 双击运行
 构建图像切割器_GUI.bat
 ```
 
 或手动构建：
+
 ```bash
 pyinstaller imageCutter_gui_simple.spec
 ```
 
 ## 参数说明
 
-| 参数 | 类型 | 必需 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `--folder_path` | string | 是 | - | 图像文件夹路径 |
-| `--num_splits` | int | 是 | - | 分割块数 |
-| `--auto_split` | flag | 否 | False | 自动使用计算的分割数 |
-| `--suffix` | string | 否 | ".jpg" | 搜索的文件后缀名 |
-| `--string` | string | 否 | "_split_" | 排除的文件名字符串 |
+| 参数              | 类型   | 必需 | 默认值      | 说明                 |
+| ----------------- | ------ | ---- | ----------- | -------------------- |
+| `--folder_path` | string | 是   | -           | 图像文件夹路径       |
+| `--num_splits`  | int    | 是   | -           | 分割块数             |
+| `--auto_split`  | flag   | 否   | False       | 自动使用计算的分割数 |
+| `--suffix`      | string | 否   | ".jpg"      | 搜索的文件后缀名     |
+| `--string`      | string | 否   | "_split_" | 排除的文件名字符串   |
 
 ## 工作原理
 
@@ -176,10 +228,12 @@ pyinstaller imageCutter_gui_simple.spec
 ## 输出文件
 
 ### 分割图像
+
 - **命名格式**: `原文件名_split_编号.扩展名`
 - **示例**: `sample.jpg` → `sample_split_1.jpg`, `sample_split_2.jpg`, ...
 
 ### 日志文件
+
 - **文件名**: `inconsistent_files.log`
 - **位置**: 当前工作目录
 - **内容**: 分割数不一致的文件列表
@@ -188,35 +242,36 @@ pyinstaller imageCutter_gui_simple.spec
 
 ### 独立可执行版本使用流程：
 
-1. **快速启动**: 
+1. **快速启动**:
+
    ```
    双击 → 启动图像切割器_GUI.bat
    ```
-
 2. **选择文件夹**: 点击"浏览"选择图像文件夹
+3. **配置参数**:
 
-3. **配置参数**: 
    - 勾选"自动使用计算的分割数"（推荐）
    - 选择文件格式：.jpg（默认）
    - 排除字符串：_split_（默认）
-
 4. **开始处理**: 点击"开始处理"并观察进度
-
 5. **查看结果**: 在原文件夹中查看 `文件名_split_1.jpg` 等分割文件
 
 ### 命令行版本示例：
 
 #### 示例1：基本使用
+
 ```bash
 python imageCutter.py --folder_path "D:\images" --num_splits 3
 ```
 
 #### 示例2：自动分割
+
 ```bash
 python imageCutter.py --folder_path "D:\images" --num_splits 3 --auto_split
 ```
 
 #### 示例3：处理PNG文件
+
 ```bash
 python imageCutter.py --folder_path "D:\images" --num_splits 3 --suffix ".png"
 ```
@@ -234,18 +289,21 @@ python imageCutter.py --folder_path "D:\images" --num_splits 3 --suffix ".png"
 ### 独立可执行版本问题
 
 **Q: 程序启动后没有界面显示？**
-A: 
+A:
+
 1. 检查是否有杀毒软件阻止程序运行
 2. 尝试以管理员身份运行 `启动图像切割器_GUI.bat`
 3. 确保系统安装了最新的 Visual C++ 运行库
 
 **Q: 提示"找不到可执行文件"？**
-A: 
+A:
+
 1. 确认 `dist/ImageCutter_GUI.exe` 文件存在
 2. 如果文件丢失，运行 `构建图像切割器_GUI.bat` 重新构建
 
 **Q: 程序运行缓慢或崩溃？**
 A:
+
 1. 关闭其他占用内存的程序
 2. 确保有至少4GB可用内存
 3. 将图像文件移到本地硬盘（避免网络驱动器）
@@ -266,7 +324,8 @@ A: 对于特大图像，可能需要调整 `Image.MAX_IMAGE_PIXELS` 限制或增
 
 ## 版本历史
 
-### v2.0.0 - 独立可执行版本 (2025年8月29日)
+### v1.2.0 - 独立可执行GUI版本 (2025年8月29日)
+
 - **全新特性**:
   - 新增独立可执行文件 `ImageCutter_GUI.exe` (28MB)
   - 无需Python环境，一键启动使用
@@ -282,7 +341,8 @@ A: 对于特大图像，可能需要调整 `Image.MAX_IMAGE_PIXELS` 限制或增
   - Python 3.10.11 和 Conda 环境
   - 优化的 .spec 配置文件
 
-### v1.0.0 - GUI版本 (2025年8月29日)
+### v1.2.0 - GUI版本 (2025年8月29日)
+
 - **新增功能**:
   - 直观的图形用户界面
   - 实时进度监控和日志显示
@@ -290,13 +350,15 @@ A: 对于特大图像，可能需要调整 `Image.MAX_IMAGE_PIXELS` 限制或增
   - 多线程处理和停止功能
   - 完全兼容原有命令行功能
 
-### CLI v1.0.1 - 命令行优化版本
+### CLI v1.0.1 - 命令行优化版本(2024年12月11日)
+
 - 修复无法保存日志文件的问题
 - 增强异常处理机制
 - 改进资源管理和变量作用域
 - 添加参数验证
 
-### CLI v1.0.0 - 初始版本
+### CLI v1.0.0 - 初始版本(2024年12月10日)
+
 - 基本图像分割功能
 - 自动计算最佳分割数
 - 多线程处理支持
@@ -312,6 +374,7 @@ A: 对于特大图像，可能需要调整 `Image.MAX_IMAGE_PIXELS` 限制或增
 欢迎提交 Issue 和 Pull Request！
 
 ### 开发环境设置
+
 ```bash
 # 克隆项目
 git clone https://github.com/Kai-FnLock/GMAS_Scripts.git
@@ -325,6 +388,7 @@ python imageCutter_gui.py
 ```
 
 ### 构建可执行文件
+
 ```bash
 # 使用批处理脚本
 构建图像切割器_GUI.bat

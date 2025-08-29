@@ -9,9 +9,9 @@
 @License :   
 @Copyright Statement:   Full Copyright
 @Desc    :   Python==3.10
-             tqdm==4.62.3
-             Pillow==8.4.0
-             numpy==1.21.4
+             tqdm==4.66.1
+             Pillow==10.1.0
+             numpy==1.26.0
 '''
 
 """
