@@ -19,6 +19,15 @@ from osgeo import ogr, osr
 from openpyxl.styles import *
 from openpyxl import Workbook, load_workbook
 from tabulate import tabulate
+import warnings
+
+# 弃用警告
+warnings.warn(
+    "DailyFileGenerator.py 已被重构为模块化结构。请考虑使用新的 core 包或 DailyFileGenerator_compat.py 兼容层。"
+    "详细信息请查看 README.md 文件。",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 
 # 创建 logger 实例
@@ -1668,8 +1677,11 @@ class CurrentDateFiles(object):
     def onScreenDisplay(self):
         # 获取填图组号
         team_list = []
+        # 获取负责人列表
+        person_list = []
         for key, value in self.__class__.maps_info.items():
             team_list.append(self.__class__.maps_info[key]['Team Number'])
+            person_list.append(self.__class__.maps_info[key]['Leaders'])
         # 图幅罗马名称
         map_name_list = []
         # 当天新增点数
@@ -1689,10 +1701,10 @@ class CurrentDateFiles(object):
         table_data = []
         # 调整显示的每行顺序
         for i in range(len(map_name_list)):
-            table_data.append([team_list[i], map_name_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
+            table_data.append([team_list[i], map_name_list[i], person_list[i], daily_collection_list[i], daily_plan_list[i], daily_Finished_list[i]])
         # 添加总计行
-        table_data.append(["TOTAL", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
-        headers = ["TEAM", "NAME", "INCREASE", "PLAN", "FINISHED"]
+        table_data.append(["TOTAL", "", "", self.totalDaiyIncreasePointNum, self.totalDailyPlanNum, self.totalPointNum])
+        headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
         print(tabulate(table_data, headers, tablefmt="grid"))
 
     

@@ -1,6 +1,6 @@
 """
 ArcGIS Pro的ArcPy模块路径
-C:\Users\caokai\AppData\Local\ESRI\conda\envs\arcgispro301-py39
+C:\\Users\\caokai\\AppData\\Local\\ESRI\\conda\\envs\\arcgispro301-py39
 """
 """
 调用ArcGIS Pro的ArcPy模块，导出ArcGIS Pro布局为PDF文件
@@ -32,11 +32,12 @@ def export_layout_to_pdf(aprx_path: str, layout_name: str, output_pdf_path: str)
     layout.exportToPDF(output_pdf_path)
     print(f"布局已导出为 PDF 文件: {output_pdf_path}")
 
-# 示例调用
-aprx_path = r"D:\RouteDesigen\Finished observation points of Group1\Observation_Points_20241028_20241103.aprx"
+# 示例调用 - 使用实际存在的工程文件
+aprx_path = r"D:\RouteDesign\Finished observation points of Group3\Mahrous.aprx"
 layout_name = "Layout"
-output_pdf_path = r"D:\RouteDesigen\Finished observation points of Group1\Observation_Points_20241028_20241103.pdf"
+output_pdf_path = r"D:\RouteDesign\Finished observation points of Group3\Mahrous_export_test.pdf"
 
+# 执行导出操作
 export_layout_to_pdf(aprx_path, layout_name, output_pdf_path)
 
 
