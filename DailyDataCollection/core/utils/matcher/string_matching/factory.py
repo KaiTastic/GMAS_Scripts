@@ -57,29 +57,10 @@ def create_string_matcher(matcher_type: str = "hybrid",
         raise ValueError(f"不支持的匹配器类型: {matcher_type}. 支持的类型: exact, fuzzy, hybrid")
 
 
-def create_name_matcher(enable_fuzzy: bool = True, 
+def create_name_matcher(matcher_type: str = "hybrid", 
                        fuzzy_threshold: float = 0.65, 
                        debug: bool = False) -> NameMatcher:
     """创建名称匹配器
-    
-    Args:
-        enable_fuzzy: 是否启用模糊匹配
-        fuzzy_threshold: 模糊匹配阈值
-        debug: 是否启用调试模式
-        
-    Returns:
-        NameMatcher: 名称匹配器实例
-    """
-    if enable_fuzzy:
-        return HybridNameMatcher(fuzzy_threshold, debug)
-    else:
-        return ExactNameMatcher(debug)
-
-
-def create_name_matcher_by_type(matcher_type: str = "hybrid",
-                               fuzzy_threshold: float = 0.65,
-                               debug: bool = False) -> NameMatcher:
-    """根据类型创建名称匹配器
     
     Args:
         matcher_type: 匹配器类型 ("exact", "fuzzy", "hybrid")
@@ -102,7 +83,6 @@ def create_name_matcher_by_type(matcher_type: str = "hybrid",
         return HybridNameMatcher(fuzzy_threshold=fuzzy_threshold, debug=debug)
     else:
         raise ValueError(f"不支持的名称匹配器类型: {matcher_type}. 支持的类型: exact, fuzzy, hybrid")
-
 
 class MatcherFactory:
     """匹配器工厂类
