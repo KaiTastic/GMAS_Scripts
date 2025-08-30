@@ -6,6 +6,9 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
+# 直接导入具体类型，避免循环导入
+from .types.results import MatchResult
+
 
 class StringMatcher(ABC):
     """字符串匹配器抽象基类
@@ -72,38 +75,3 @@ class StringMatcher(ABC):
         if self.debug:
             print(f"[{self.__class__.__name__}] {message}")
 
-
-class MatchResult:
-    """匹配结果类
-    
-    封装匹配结果的详细信息
-    """
-    
-    def __init__(self, matched_string: Optional[str] = None, 
-                 similarity_score: float = 0.0,
-                 match_type: str = "none",
-                 confidence: float = 0.0):
-        """初始化匹配结果
-        
-        Args:
-            matched_string: 匹配到的字符串
-            similarity_score: 相似度分数
-            match_type: 匹配类型 (exact, fuzzy, none)
-            confidence: 置信度
-        """
-        self.matched_string = matched_string
-        self.similarity_score = similarity_score
-        self.match_type = match_type
-        self.confidence = confidence
-        self.is_matched = matched_string is not None
-    
-    def __str__(self) -> str:
-        """字符串表示"""
-        if self.is_matched:
-            return f"MatchResult(match='{self.matched_string}', score={self.similarity_score:.3f}, type={self.match_type})"
-        else:
-            return f"MatchResult(no_match, best_score={self.similarity_score:.3f})"
-    
-    def __repr__(self) -> str:
-        """详细字符串表示"""
-        return self.__str__()

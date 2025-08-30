@@ -25,21 +25,8 @@ from .config import (
     DEFAULT_EXPORTER_CONFIG
 )
 
-# 添加基础匹配结果类的导入
-try:
-    from ..base_matcher import MatchResult
-except ImportError:
-    # 如果无法导入，提供一个简单的替代实现
-    from dataclasses import dataclass
-    from typing import Optional
-    
-    @dataclass
-    class MatchResult:
-        matched_string: Optional[str] = None
-        similarity_score: float = 0.0
-        match_type: str = "none"
-        confidence: float = 0.0
-        is_matched: bool = False
+# 直接导入统一类型定义，无向后兼容
+from ..types.results import MatchResult
 
 __all__ = [
     # 基础结果类
