@@ -4,7 +4,19 @@
 """
 
 from typing import List, Optional, Tuple
-from .base_matcher import StringMatcher, MatchResult
+
+try:
+    from .base_matcher import StringMatcher
+    from .string_types.results import MatchResult
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from base_matcher import StringMatcher
+    from string_types.results import MatchResult
 
 
 class ExactStringMatcher(StringMatcher):

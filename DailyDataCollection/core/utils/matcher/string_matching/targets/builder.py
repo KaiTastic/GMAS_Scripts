@@ -6,11 +6,26 @@
 from typing import List, Optional, Dict, Any, Callable
 import re
 
-from .config import TargetType, TargetConfig, create_target_config
-from ..validators.common import (
-    DateValidator, EmailValidator, PhoneValidator, URLValidator,
-    NumberValidator, create_date_validator, create_number_validator
-)
+try:
+    from .config import TargetType, TargetConfig, create_target_config, MatchStrategy
+    from ..validators.common import (
+        DateValidator, EmailValidator, PhoneValidator, URLValidator,
+        NumberValidator, create_date_validator, create_number_validator
+    )
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    sys.path.insert(0, current_dir)
+    
+    from config import TargetType, TargetConfig, create_target_config, MatchStrategy
+    from validators.common import (
+        DateValidator, EmailValidator, PhoneValidator, URLValidator,
+        NumberValidator, create_date_validator, create_number_validator
+    )
 
 
 class TargetBuilder:
@@ -90,14 +105,13 @@ class TargetBuilder:
         # 构建正则表达式模式
         regex_pattern = r"(\d{4}[-/]?\d{2}[-/]?\d{2}|\d{2}[-/]?\d{2}[-/]?\d{4})"
         
-        config = (create_target_config(TargetType.DATE)
-                  .patterns(date_formats)
-                  .matcher_type("fuzzy")
-                  .fuzzy_threshold(fuzzy_threshold)
-                  .required(required)
-                  .weight(weight)
-                  .regex(regex_pattern)
-                  .validator(DateValidator().validate))
+        config = create_target_config(
+            target_type=TargetType.DATE,
+            patterns=date_formats,
+            matcher_strategy=MatchStrategy.FUZZY,
+            fuzzy_threshold=fuzzy_threshold,
+            required=required
+        )
         
         # 应用其他参数
         for key, value in kwargs.items():

@@ -7,8 +7,19 @@ from typing import Dict, List, Optional, Any, Tuple
 import json
 
 # 直接导入具体类型，避免循环导入
-from ..types.results import MultiMatchResult, BatchMatchResult, MatchResult, AnalysisReport
-from ..types.enums import ProcessingMode
+try:
+    from ..string_types.results import MultiMatchResult, BatchMatchResult, MatchResult, AnalysisReport
+    from ..string_types.enums import ProcessingMode
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    
+    from string_types.results import MultiMatchResult, BatchMatchResult, MatchResult, AnalysisReport
+    from string_types.enums import ProcessingMode
 
 
 class MultiResultProcessor:
@@ -275,6 +286,85 @@ class ResultAnalyzer:
             recommendations.append(f"以下目标表现较差，建议优化: {', '.join(poor_targets)}")
         
         return recommendations
+    
+    def _generate_analysis_summary(self) -> Dict[str, Any]:
+        """生成分析摘要"""
+        if not self.results:
+            return {"message": "没有结果可分析"}
+            
+        total_processed = len(self.results)
+        successful_matches = sum(1 for r in self.results if r.is_complete)
+        
+        scores = [r.overall_score for r in self.results]
+        
+        return {
+            "total_processed": total_processed,
+            "successful_matches": successful_matches,
+            "success_rate": successful_matches / total_processed,
+            "average_score": sum(scores) / len(scores),
+            "best_score": max(scores),
+            "worst_score": min(scores),
+            "summary": f"处理了 {total_processed} 个结果，成功率 {successful_matches/total_processed:.2%}"
+        }
+    
+    @staticmethod
+    def analyze_batch_results(results: List[MultiMatchResult]) -> Dict[str, Any]:
+        """静态方法：分析批量结果"""
+        if not results:
+            return {"message": "没有结果可分析", "analysis": {}}
+            
+        analyzer = ResultAnalyzer(results)
+        return analyzer._generate_analysis_summary()
+    
+    @staticmethod
+    def find_patterns(results: List[MultiMatchResult]) -> Dict[str, Any]:
+        """静态方法：查找模式"""
+        if not results:
+            return {"common_failures": [], "frequent_targets": {}, "score_ranges": {}}
+            
+        # 找出常见失败模式
+        common_failures = []
+        all_missing = []
+        for result in results:
+            all_missing.extend(result.missing_targets)
+        
+        # 统计频繁出现的目标
+        from collections import Counter
+        frequent_targets = dict(Counter(target for result in results for target in result.matches.keys()))
+        
+        # 分数范围分析
+        scores = [r.overall_score for r in results]
+        score_ranges = {
+            "min": min(scores) if scores else 0,
+            "max": max(scores) if scores else 0,
+            "avg": sum(scores) / len(scores) if scores else 0
+        }
+        
+        return {
+            "common_failures": list(set(all_missing)),
+            "frequent_targets": frequent_targets,
+            "score_ranges": score_ranges
+        }
+    
+    @staticmethod
+    def generate_report(results: List[MultiMatchResult], include_patterns: bool = False) -> str:
+        """静态方法：生成分析报告"""
+        if not results:
+            return "没有结果可分析"
+            
+        analyzer = ResultAnalyzer(results)
+        analysis = analyzer._generate_analysis_summary()
+        
+        report = f"分析报告\\n"
+        report += f"总结果数: {len(results)}\\n"
+        report += f"成功率: {analysis.get('success_rate', 0):.2%}\\n"
+        
+        if include_patterns:
+            patterns = ResultAnalyzer.find_patterns(results)
+            report += f"\\n模式分析:\\n"
+            report += f"常见目标: {list(patterns['frequent_targets'].keys())}\\n"
+            
+        return report
 
 
 class ResultExporter:
@@ -315,6 +405,41 @@ class ResultExporter:
             "best_score": max(r.overall_score for r in results),
             "worst_score": min(r.overall_score for r in results)
         }
+    
+    @staticmethod
+    def to_csv_row(result: MultiMatchResult) -> List[str]:
+        """将单个结果转换为CSV行"""
+        return [result.source_string, str(result.overall_score), str(result.is_complete), str(result.match_count)]
+    
+    @staticmethod
+    def to_csv_batch(results: List[MultiMatchResult]) -> List[List[str]]:
+        """将批量结果转换为CSV"""
+        if not results:
+            return [["source_string", "overall_score", "is_complete", "match_count"]]
+            
+        data = [["source_string", "overall_score", "is_complete", "match_count"]]
+        data.extend([ResultExporter.to_csv_row(result) for result in results])
+        return data
+    
+    @staticmethod
+    def to_json(result: MultiMatchResult) -> str:
+        """将单个结果转换为JSON"""
+        return json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def to_markdown(result: MultiMatchResult) -> str:
+        """将单个结果转换为Markdown"""
+        md = f"# 匹配结果\\n\\n"
+        md += f"**源字符串**: {result.source_string}\\n\\n"
+        md += f"**总体分数**: {result.overall_score:.3f}\\n\\n"
+        md += f"**是否完整**: {'是' if result.is_complete else '否'}\\n\\n"
+        
+        if result.matches:
+            md += "## 匹配详情\\n\\n"
+            for name, match in result.matches.items():
+                md += f"- **{name}**: {match.matched_string or 'N/A'} (分数: {match.similarity_score:.3f})\\n"
+        
+        return md
 
 
 # 导出接口

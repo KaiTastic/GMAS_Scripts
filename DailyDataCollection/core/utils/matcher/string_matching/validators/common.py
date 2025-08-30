@@ -8,12 +8,24 @@ from datetime import datetime
 from typing import Optional, List, Callable
 
 # 直接导入具体类型，避免循环导入
-from ..types.validators import Validator, ValidationResult, ValidatorType, ValidationRule, ValidationSchema
-from ..types.enums import ValidationLevel
-from ..types.configs import ValidatorConfig
+try:
+    from ..string_types.validators import Validator, ValidationResult, ValidatorType, ValidationRule, ValidationSchema
+    from ..string_types.enums import ValidationLevel
+    from ..string_types.configs import ValidatorConfig
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    
+    from string_types.validators import Validator, ValidationResult, ValidatorType, ValidationRule, ValidationSchema
+    from string_types.enums import ValidationLevel
+    from string_types.configs import ValidatorConfig
 
 # 为了兼容性，保留本地别名和实现
-# 注：原本在这里定义的 Validator 抽象基类已经移动到 types.validators 模块
+# 注：原本在这里定义的 Validator 抽象基类已经移动到 string_types.validators 模块
 
 
 class DateValidator(Validator):

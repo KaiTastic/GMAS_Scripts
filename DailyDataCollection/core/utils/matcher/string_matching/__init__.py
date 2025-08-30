@@ -12,15 +12,15 @@
 
 # === 类型定义直接导入 ===
 # 枚举类型
-from .types.enums import TargetType, MatchType, MatchStrategy, ConfidenceLevel, ValidationLevel, ProcessingMode
+from .string_types.enums import TargetType, MatchType, MatchStrategy, ConfidenceLevel, ValidationLevel, ProcessingMode
 # 配置类型
-from .types.configs import TargetConfig, MatcherConfig, ValidatorConfig, BuilderConfig
+from .string_types.configs import TargetConfig, MatcherConfig, ValidatorConfig, BuilderConfig
 # 结果类型  
-from .types.results import MatchResult, SingleMatchResult, MultiMatchResult, BatchMatchResult, AnalysisReport
+from .string_types.results import MatchResult, SingleMatchResult, MultiMatchResult, BatchMatchResult, AnalysisReport
 # 验证器类型
-from .types.validators import Validator, ValidationResult, ValidationRule
+from .string_types.validators import Validator, ValidationResult, ValidationRule
 # 基础类型
-from .types.base import BaseConfig, BaseResult
+from .string_types.base import BaseConfig, BaseResult
 
 # === 基础匹配组件 ===
 from .similarity_calculator import SimilarityCalculator

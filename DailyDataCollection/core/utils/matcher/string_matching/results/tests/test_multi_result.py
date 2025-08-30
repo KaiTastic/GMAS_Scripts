@@ -12,11 +12,13 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-from multi_result import (
-    MultiMatchResult,
+from ..multi_result import (
+    MultiResultProcessor,
     ResultAnalyzer,
     ResultExporter
 )
+from ...string_types.results import MultiMatchResult, MatchResult
+from ...string_types.enums import MatchType, ConfidenceLevel
 
 # 直接定义MatchResult类用于测试
 from dataclasses import dataclass
@@ -37,16 +39,30 @@ class TestMultiMatchResult(unittest.TestCase):
         """设置测试数据"""
         # 创建基础匹配结果
         self.matches = {
-            'city': MatchResult('北京', 0.95, 'exact', 0.90, True),
-            'district': MatchResult('朝阳区', 0.88, 'fuzzy', 0.85, True),
-            'street': MatchResult(None, 0.0, 'none', 0.0, False)
+            'city': MatchResult(
+                matched_string='北京',
+                similarity_score=0.95,
+                match_type=MatchType.EXACT,
+                confidence=0.90
+            ),
+            'district': MatchResult(
+                matched_string='朝阳区',
+                similarity_score=0.88,
+                match_type=MatchType.FUZZY,
+                confidence=0.85
+            ),
+            'street': MatchResult(
+                matched_string=None,
+                similarity_score=0.0,
+                match_type=MatchType.NONE,
+                confidence=0.0
+            )
         }
 
         self.multi_result = MultiMatchResult(
             source_string="北京市朝阳区某某街道",
             matches=self.matches,
             overall_score=0.82,
-            is_complete=False,
             missing_targets=['street'],
             metadata={"source": "address_parser", "timestamp": "2025-08-30"}
         )
@@ -146,45 +162,87 @@ class TestResultAnalyzer(unittest.TestCase):
         
         # 完全匹配的结果
         matches1 = {
-            'city': MatchResult('北京', 0.95, 'exact', 0.90, True),
-            'district': MatchResult('朝阳区', 0.90, 'exact', 0.88, True),
-            'street': MatchResult('三里屯街', 0.85, 'fuzzy', 0.80, True)
+            'city': MatchResult(
+                matched_string='北京',
+                similarity_score=0.95,
+                match_type=MatchType.EXACT,
+                confidence=0.90
+            ),
+            'district': MatchResult(
+                matched_string='朝阳区',
+                similarity_score=0.90,
+                match_type=MatchType.EXACT,
+                confidence=0.88
+            ),
+            'street': MatchResult(
+                matched_string='三里屯街',
+                similarity_score=0.85,
+                match_type=MatchType.FUZZY,
+                confidence=0.80
+            )
         }
         result1 = MultiMatchResult(
             source_string="北京市朝阳区三里屯街",
             matches=matches1,
             overall_score=0.90,
-            is_complete=True,
             missing_targets=[]
         )
         self.results.append(result1)
         
         # 部分匹配的结果
         matches2 = {
-            'city': MatchResult('上海', 0.92, 'exact', 0.88, True),
-            'district': MatchResult('黄浦区', 0.85, 'fuzzy', 0.82, True),
-            'street': MatchResult(None, 0.0, 'none', 0.0, False)
+            'city': MatchResult(
+                matched_string='上海',
+                similarity_score=0.92,
+                match_type=MatchType.EXACT,
+                confidence=0.88
+            ),
+            'district': MatchResult(
+                matched_string='黄浦区',
+                similarity_score=0.85,
+                match_type=MatchType.FUZZY,
+                confidence=0.82
+            ),
+            'street': MatchResult(
+                matched_string=None,
+                similarity_score=0.0,
+                match_type=MatchType.NONE,
+                confidence=0.0
+            )
         }
         result2 = MultiMatchResult(
             source_string="上海市黄浦区某某路",
             matches=matches2,
             overall_score=0.65,
-            is_complete=False,
             missing_targets=['street']
         )
         self.results.append(result2)
         
         # 低分结果
         matches3 = {
-            'city': MatchResult('广州', 0.60, 'fuzzy', 0.55, True),
-            'district': MatchResult(None, 0.0, 'none', 0.0, False),
-            'street': MatchResult(None, 0.0, 'none', 0.0, False)
+            'city': MatchResult(
+                matched_string='广州',
+                similarity_score=0.60,
+                match_type=MatchType.FUZZY,
+                confidence=0.55
+            ),
+            'district': MatchResult(
+                matched_string=None,
+                similarity_score=0.0,
+                match_type=MatchType.NONE,
+                confidence=0.0
+            ),
+            'street': MatchResult(
+                matched_string=None,
+                similarity_score=0.0,
+                match_type=MatchType.NONE,
+                confidence=0.0
+            )
         }
         result3 = MultiMatchResult(
             source_string="广州市某区某街道",
             matches=matches3,
             overall_score=0.30,
-            is_complete=False,
             missing_targets=['district', 'street']
         )
         self.results.append(result3)
@@ -262,15 +320,24 @@ class TestResultExporter(unittest.TestCase):
     def setUp(self):
         """设置测试数据"""
         matches = {
-            'city': MatchResult('北京', 0.95, 'exact', 0.90, True),
-            'district': MatchResult('朝阳区', 0.88, 'fuzzy', 0.85, True)
+            'city': MatchResult(
+                matched_string='北京',
+                similarity_score=0.95,
+                match_type=MatchType.EXACT,
+                confidence=0.90
+            ),
+            'district': MatchResult(
+                matched_string='朝阳区',
+                similarity_score=0.88,
+                match_type=MatchType.FUZZY,
+                confidence=0.85
+            )
         }
         
         self.multi_result = MultiMatchResult(
             source_string="北京市朝阳区",
             matches=matches,
             overall_score=0.82,
-            is_complete=True,
             missing_targets=[]
         )
 
@@ -323,16 +390,30 @@ def run_multi_result_examples():
     try:
         # 创建测试数据
         matches = {
-            'city': MatchResult('北京', 0.95, 'exact', 0.90, True),
-            'district': MatchResult('朝阳区', 0.88, 'fuzzy', 0.85, True),
-            'street': MatchResult(None, 0.0, 'none', 0.0, False)
+            'city': MatchResult(
+                matched_string='北京',
+                similarity_score=0.95,
+                match_type=MatchType.EXACT,
+                confidence=0.90
+            ),
+            'district': MatchResult(
+                matched_string='朝阳区',
+                similarity_score=0.88,
+                match_type=MatchType.FUZZY,
+                confidence=0.85
+            ),
+            'street': MatchResult(
+                matched_string=None,
+                similarity_score=0.0,
+                match_type=MatchType.NONE,
+                confidence=0.0
+            )
         }
 
         multi_result = MultiMatchResult(
             source_string="北京市朝阳区某某街道",
             matches=matches,
             overall_score=0.82,
-            is_complete=False,
             missing_targets=['street']
         )
         

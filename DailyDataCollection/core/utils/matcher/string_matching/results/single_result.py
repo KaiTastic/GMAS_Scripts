@@ -7,9 +7,21 @@ from typing import Dict, Any, Optional, List
 import json
 
 # 直接导入具体类型，避免循环导入
-from ..types.enums import MatchType, ConfidenceLevel
-from ..types.results import SingleMatchResult, MatchResult
-from ..types.validators import ValidationResult
+try:
+    from ..string_types.enums import MatchType, ConfidenceLevel
+    from ..string_types.results import SingleMatchResult, MatchResult
+    from ..string_types.validators import ValidationResult
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    
+    from string_types.enums import MatchType, ConfidenceLevel
+    from string_types.results import SingleMatchResult, MatchResult
+    from string_types.validators import ValidationResult
 
 
 class SingleResultAnalyzer:
@@ -24,6 +36,55 @@ class SingleResultAnalyzer:
             result: 要分析的单一匹配结果
         """
         self.result = result
+    
+    @staticmethod
+    def analyze_result(result: SingleMatchResult) -> Dict[str, Any]:
+        """静态方法：分析匹配结果
+        
+        Args:
+            result: 要分析的单一匹配结果
+            
+        Returns:
+            Dict[str, Any]: 分析报告
+        """
+        analyzer = SingleResultAnalyzer(result)
+        return analyzer.analyze()
+    
+    @staticmethod 
+    def compare_results(result1: SingleMatchResult, result2: SingleMatchResult) -> Dict[str, Any]:
+        """静态方法：比较两个匹配结果
+        
+        Args:
+            result1: 第一个结果
+            result2: 第二个结果
+            
+        Returns:
+            Dict[str, Any]: 比较报告
+        """
+        comparison = {
+            "basic_comparison": {
+                "result1_score": result1.similarity_score,
+                "result2_score": result2.similarity_score,
+                "result1_confidence": result1.confidence,
+                "result2_confidence": result2.confidence,
+                "score_difference": result1.similarity_score - result2.similarity_score,
+                "confidence_difference": result1.confidence - result2.confidence
+            },
+            "quality_comparison": {
+                "result1_quality": (result1.similarity_score * 0.7 + result1.confidence * 0.3),
+                "result2_quality": (result2.similarity_score * 0.7 + result2.confidence * 0.3)
+            }
+        }
+        
+        # 推荐最佳结果
+        if comparison["quality_comparison"]["result1_quality"] > comparison["quality_comparison"]["result2_quality"]:
+            comparison["recommendation"] = "result1"
+        elif comparison["quality_comparison"]["result2_quality"] > comparison["quality_comparison"]["result1_quality"]:
+            comparison["recommendation"] = "result2"
+        else:
+            comparison["recommendation"] = "equal"
+            
+        return comparison
     
     def analyze(self) -> Dict[str, Any]:
         """全面分析匹配结果
@@ -57,21 +118,21 @@ class SingleResultAnalyzer:
         quality_score = (self.result.similarity_score * 0.7 + self.result.confidence * 0.3)
         
         if quality_score >= 0.9:
-            quality_level = "excellent"
+            quality_level = "优秀"
         elif quality_score >= 0.8:
-            quality_level = "good"
+            quality_level = "良好"
         elif quality_score >= 0.6:
-            quality_level = "fair"
+            quality_level = "一般"
         elif quality_score >= 0.4:
-            quality_level = "poor"
+            quality_level = "较差"
         else:
-            quality_level = "very_poor"
+            quality_level = "很差"
         
         return {
-            "quality_score": quality_score,
-            "quality_level": quality_level,
+            "score": quality_score,
+            "level": quality_level,
             "normalized_score": self.result.similarity_score * 100,
-            "confidence_level": self.result.confidence_level.value
+            "confidence_level": self.result.get_confidence_level().value
         }
     
     def _analyze_confidence(self) -> Dict[str, Any]:
@@ -87,11 +148,20 @@ class SingleResultAnalyzer:
     def _analyze_position(self) -> Dict[str, Any]:
         """分析位置信息"""
         if self.result.match_position is not None and self.result.match_length is not None:
+            # 处理 match_position 可能是 tuple 的情况
+            if isinstance(self.result.match_position, tuple):
+                start_pos = self.result.match_position[0]
+                end_pos = start_pos + self.result.match_length
+            else:
+                start_pos = self.result.match_position
+                end_pos = start_pos + self.result.match_length
+                
             return {
                 "has_position_info": True,
                 "position": self.result.match_position,
                 "length": self.result.match_length,
-                "end_position": self.result.match_position + self.result.match_length
+                "start_position": start_pos,
+                "end_position": end_pos
             }
         else:
             return {
@@ -179,6 +249,48 @@ class SingleResultExporter:
     """
     单一匹配结果导出器
     """
+    
+    @staticmethod
+    def get_csv_headers() -> List[str]:
+        """获取CSV表头"""
+        return [
+            'target_name', 'matched_string', 'similarity_score', 'confidence',
+            'match_type', 'confidence_level', 'is_matched', 'match_position',
+            'match_length', 'preprocessing_applied', 'validation_passed'
+        ]
+    
+    @staticmethod
+    def to_csv_row(result: SingleMatchResult) -> List[str]:
+        """导出为CSV行"""
+        return [
+            str(result.target_name),
+            str(result.matched_string or ""),
+            str(result.similarity_score),
+            str(result.confidence),
+            str(result.match_type.value if hasattr(result.match_type, 'value') else result.match_type),
+            str(result.get_confidence_level().value),
+            str(result.is_matched),
+            str(result.match_position if result.match_position is not None else ""),
+            str(result.match_length if result.match_length is not None else ""),
+            str(result.preprocessing_applied),
+            str(result.validation_passed)
+        ]
+    
+    @staticmethod
+    def to_markdown(result: SingleMatchResult) -> str:
+        """导出为Markdown格式"""
+        status = "[匹配]" if result.is_matched else "[未匹配]"
+        content = f"## {status} {result.target_name}\n\n"
+        
+        if result.is_matched:
+            content += f"- **匹配字符串**: {result.matched_string}\n"
+            content += f"- **相似度分数**: {result.similarity_score:.3f}\n"
+            content += f"- **置信度**: {result.confidence:.3f}\n"
+            content += f"- **匹配类型**: {result.match_type.value if hasattr(result.match_type, 'value') else result.match_type}\n"
+        else:
+            content += f"- **最佳分数**: {result.similarity_score:.3f}\n"
+            
+        return content
     
     @staticmethod
     def to_dict(result: SingleMatchResult, include_metadata: bool = True) -> Dict[str, Any]:

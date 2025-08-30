@@ -26,7 +26,17 @@ from .config import (
 )
 
 # 直接导入统一类型定义，无向后兼容
-from ..types.results import MatchResult
+try:
+    from ..string_types.results import MatchResult
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    
+    from string_types.results import MatchResult
 
 __all__ = [
     # 基础结果类

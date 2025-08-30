@@ -6,11 +6,26 @@
 from typing import Dict, List, Optional, Tuple
 import re
 
-from .base_matcher import StringMatcher, MatchResult
-from .factory import create_string_matcher
-from .targets.config import TargetConfig
-from .targets.builder import TargetBuilder
-from .results.multi_result import MultiMatchResult, ResultAnalyzer
+try:
+    from .base_matcher import StringMatcher
+    from .string_types.results import MatchResult
+    from .factory import create_string_matcher
+    from .targets.config import TargetConfig
+    from .targets.builder import TargetBuilder
+    from .results.multi_result import MultiMatchResult, ResultAnalyzer
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from base_matcher import StringMatcher
+    from string_types.results import MatchResult
+    from factory import create_string_matcher
+    from targets.config import TargetConfig
+    from targets.builder import TargetBuilder
+    from results.multi_result import MultiMatchResult, ResultAnalyzer
 
 
 class MultiTargetMatcher:

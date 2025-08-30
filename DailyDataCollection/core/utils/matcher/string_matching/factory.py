@@ -4,11 +4,25 @@
 """
 
 from typing import Union
-from .base_matcher import StringMatcher
-from .exact_matcher import ExactStringMatcher
-from .fuzzy_matcher import FuzzyStringMatcher
-from .hybrid_matcher import HybridStringMatcher
-from .name_matcher import NameMatcher, ExactNameMatcher, FuzzyNameMatcher, HybridNameMatcher
+
+try:
+    from .base_matcher import StringMatcher
+    from .exact_matcher import ExactStringMatcher
+    from .fuzzy_matcher import FuzzyStringMatcher
+    from .hybrid_matcher import HybridStringMatcher
+    from .name_matcher import NameMatcher, ExactNameMatcher, FuzzyNameMatcher, HybridNameMatcher
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from base_matcher import StringMatcher
+    from exact_matcher import ExactStringMatcher
+    from fuzzy_matcher import FuzzyStringMatcher
+    from hybrid_matcher import HybridStringMatcher
+    from name_matcher import NameMatcher, ExactNameMatcher, FuzzyNameMatcher, HybridNameMatcher
 
 
 def create_string_matcher(matcher_type: str = "hybrid", 

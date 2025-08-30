@@ -7,7 +7,16 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 # 直接导入具体类型，避免循环导入
-from .types.results import MatchResult
+try:
+    from .string_types.results import MatchResult
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from string_types.results import MatchResult
 
 
 class StringMatcher(ABC):

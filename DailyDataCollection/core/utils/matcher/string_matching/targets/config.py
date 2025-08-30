@@ -4,8 +4,19 @@
 """
 
 # 直接导入具体类型，避免循环导入
-from ..types.enums import TargetType, MatchStrategy, ValidationLevel
-from ..types.configs import TargetConfig, BuilderConfig
+try:
+    from ..string_types.enums import TargetType, MatchStrategy, ValidationLevel
+    from ..string_types.configs import TargetConfig, BuilderConfig
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.insert(0, parent_dir)
+    
+    from string_types.enums import TargetType, MatchStrategy, ValidationLevel
+    from string_types.configs import TargetConfig, BuilderConfig
 
 def create_target_config(**kwargs):
     """创建目标配置的便利函数"""

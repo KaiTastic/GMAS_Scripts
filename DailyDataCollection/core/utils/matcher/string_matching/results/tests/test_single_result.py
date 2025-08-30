@@ -19,7 +19,7 @@ from ..single_result import (
     SingleResultExporter
 )
 from ..config import AnalyzerConfig, ExporterConfig
-from ...types.enums import MatchType, ConfidenceLevel
+from ...string_types.enums import MatchType, ConfidenceLevel
 
 
 class TestSingleMatchResult(unittest.TestCase):
@@ -72,7 +72,8 @@ class TestSingleMatchResult(unittest.TestCase):
         result_no_pos = SingleMatchResult(
             matched_string="test",
             match_position=None,
-            match_length=None
+            match_length=None,
+            target_name="test_target"
         )
         context2 = result_no_pos.get_context("some text", context_length=5)
         self.assertEqual(context2, "test")
@@ -88,7 +89,7 @@ class TestSingleMatchResult(unittest.TestCase):
             similarity_score=1.5,  # 超出范围
             confidence=-0.1,  # 超出范围
             target_name="",  # 空名称
-            match_position=-1  # 负位置
+            match_position=(-1, 0)  # 负位置
         )
         
         errors = invalid_result.validate()
@@ -97,18 +98,18 @@ class TestSingleMatchResult(unittest.TestCase):
     def test_quality_analysis(self):
         """测试质量分析"""
         analysis = SingleResultAnalyzer.analyze_result(self.result)
-        self.assertIn('quality', analysis)
-        self.assertEqual(analysis['quality']['level'], "优秀")
-        self.assertIsInstance(analysis['quality']['score'], float)
-        self.assertGreaterEqual(analysis['quality']['score'], 0.0)
-        self.assertLessEqual(analysis['quality']['score'], 1.0)
+        self.assertIn('quality_assessment', analysis)
+        self.assertEqual(analysis['quality_assessment']['level'], "优秀")
+        self.assertIsInstance(analysis['quality_assessment']['score'], float)
+        self.assertGreaterEqual(analysis['quality_assessment']['score'], 0.0)
+        self.assertLessEqual(analysis['quality_assessment']['score'], 1.0)
 
     def test_result_comparison(self):
         """测试结果比较"""
         result2 = SingleMatchResult(
             matched_string="上海市",
             similarity_score=0.80,
-            match_type="fuzzy",
+            match_type=MatchType.FUZZY,
             confidence=0.75,
             target_name="city"
         )
@@ -190,11 +191,10 @@ def run_basic_functionality_test():
         result = SingleMatchResult(
             matched_string="北京市",
             similarity_score=0.95,
-            match_type="exact", 
+            match_type=MatchType.EXACT, 
             confidence=0.90,
             target_name="city",
-            original_target="beijing",
-            match_position=0,
+            match_position=(0, 3),
             match_length=3
         )
         print("2. 单一结果创建成功")

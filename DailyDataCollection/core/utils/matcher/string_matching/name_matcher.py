@@ -5,9 +5,21 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
-from .hybrid_matcher import HybridStringMatcher
-from .exact_matcher import ExactStringMatcher
-from .fuzzy_matcher import FuzzyStringMatcher
+
+try:
+    from .hybrid_matcher import HybridStringMatcher
+    from .exact_matcher import ExactStringMatcher
+    from .fuzzy_matcher import FuzzyStringMatcher
+except ImportError:
+    # 处理独立运行的情况
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, current_dir)
+    
+    from hybrid_matcher import HybridStringMatcher
+    from exact_matcher import ExactStringMatcher
+    from fuzzy_matcher import FuzzyStringMatcher
 
 
 class NameMatcher(ABC):
