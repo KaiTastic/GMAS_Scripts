@@ -225,6 +225,111 @@ def test_specific_date_collection(test_date_str: str = None):
         return False
 
 
+def start_monitoring():
+    """启动文件监控服务"""
+    try:
+        logger.info("启动文件监控服务...")
+        
+        # 导入重构后的监控模块
+        from core.data_models import DateType
+        from core.monitor import MonitorManager
+        from config import MONITOR_ENDTIME, ENABLE_FUZZY_MATCHING, FUZZY_MATCHING_THRESHOLD
+        
+        # 设置当前日期
+        current_date = DateType(date_datetime=datetime.now())
+        logger.info(f"开始监控 {current_date.yyyymmdd_str} 的数据收集...")
+        
+        # 创建监控管理器（使用配置文件中的模糊匹配设置）
+        monitor_manager = MonitorManager(
+            current_date=current_date,
+            enable_fuzzy_matching=ENABLE_FUZZY_MATCHING,
+            fuzzy_threshold=FUZZY_MATCHING_THRESHOLD
+        )
+        
+        if ENABLE_FUZZY_MATCHING:
+            logger.info(f"模糊匹配已启用，相似度阈值: {FUZZY_MATCHING_THRESHOLD}")
+        else:
+            logger.info("使用精确匹配模式")
+        
+        # 定义完成后的处理函数
+        def post_processing():
+            """监控完成后的处理逻辑"""
+            logger.info("文件监控完成，开始执行后续处理任务...")
+            
+            # 执行数据收集和报告生成
+            try:
+                result = main()
+                if result == 0:
+                    logger.info("后续处理任务完成")
+                else:
+                    logger.error("后续处理任务执行失败")
+            except Exception as e:
+                logger.error(f"后续处理任务执行出错: {e}")
+        
+        # 启动监控
+        print(f"开始监控微信文件夹中的KMZ文件...")
+        print(f"监控日期: {current_date.yyyymmdd_str}")
+        print(f"预计结束时间: {MONITOR_ENDTIME}")
+        print("按 Ctrl+C 可以手动停止监控")
+        
+        monitor_manager.start_monitoring(
+            executor=post_processing,
+            end_time=MONITOR_ENDTIME
+        )
+        
+        logger.info("文件监控服务已结束")
+        
+    except ImportError as e:
+        logger.error(f"无法导入监控模块: {e}")
+        logger.info("尝试使用传统监控模块...")
+        return start_legacy_monitoring()
+        
+    except Exception as e:
+        logger.error(f"监控服务启动失败: {e}")
+        logger.info("尝试使用传统监控模块...")
+        return start_legacy_monitoring()
+
+
+def start_legacy_monitoring():
+    """启动传统监控服务（向后兼容）"""
+    try:
+        logger.info("启动传统文件监控服务...")
+        
+        # 导入传统监控模块
+        from deprecated.monitor_legacy import DataHandler, DateType
+        
+        # 设置当前日期
+        current_date = DateType(date_datetime=datetime.now())
+        
+        # 创建传统事件处理器
+        event_handler = DataHandler(currentDate=current_date)
+        
+        # 定义完成后的处理函数
+        def post_processing():
+            logger.info("传统监控完成，开始执行后续处理任务...")
+            try:
+                result = main()
+                if result == 0:
+                    logger.info("后续处理任务完成")
+                else:
+                    logger.error("后续处理任务执行失败")
+            except Exception as e:
+                logger.error(f"后续处理任务执行出错: {e}")
+        
+        # 启动传统监控
+        print("使用传统监控模块...")
+        event_handler.obsserverService(event_handler, executor=post_processing)
+        
+        logger.info("传统文件监控服务已结束")
+        
+    except Exception as e:
+        logger.error(f"传统监控服务也启动失败: {e}")
+        logger.error("请检查监控模块配置")
+        return False
+    
+    return True
+
+
 def historical_analysis():
     """历史数据分析示例"""
     try:
@@ -262,16 +367,18 @@ if __name__ == "__main__":
     print("=" * 40)
     
     # 选择运行模式
-    mode = input("请选择运行模式:\n1. 正常数据收集\n2. 模块测试\n3. 历史数据分析\n4. 指定日期数据收集测试\n请输入 (1-4): ").strip()
+    mode = input("请选择运行模式:\n1. 正常数据收集\n2. 启动文件监控\n3. 模块测试\n4. 历史数据分析\n5. 指定日期数据收集测试\n请输入 (1-5): ").strip()
     
     if mode == "1":
         exit_code = main()
         sys.exit(exit_code)
     elif mode == "2":
-        test_modules()
+        start_monitoring()
     elif mode == "3":
-        historical_analysis()
+        test_modules()
     elif mode == "4":
+        historical_analysis()
+    elif mode == "5":
         # 指定日期测试
         test_date = input("请输入测试日期 (格式: YYYYMMDD，直接回车使用默认日期20250828): ").strip()
         if not test_date:

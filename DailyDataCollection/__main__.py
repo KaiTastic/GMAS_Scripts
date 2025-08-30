@@ -1,14 +1,45 @@
 import argparse
 import os
 import sys
+import logging
 from datetime import datetime
 from config import *
 from DailyFileGenerator_compat import *
 from tabulate import tabulate
-from monitor import DataHandler
 
 # 增强输出编码支持，确保中文字符正确显示
 sys.stdout.reconfigure(encoding='utf-8')
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('gmas_collection.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# 尝试导入重构后的监控模块，如果失败则使用传统版本
+try:
+    from core.monitor import MonitorManager
+    MONITOR_VERSION = "NEW"
+    logger.info("成功导入重构后的监控模块")
+except ImportError as e:
+    logger.warning(f"无法导入重构后的监控模块: {e}")
+    try:
+        from deprecated.monitor_legacy import DataHandler
+        MONITOR_VERSION = "LEGACY_DEPRECATED"
+        logger.info("使用deprecated目录中的传统监控模块")
+    except ImportError:
+        try:
+            from monitor import DataHandler
+            MONITOR_VERSION = "LEGACY_CURRENT"
+            logger.info("使用当前目录中的传统监控模块")
+        except ImportError as e2:
+            logger.error(f"无法导入任何监控模块: {e2}")
+            MONITOR_VERSION = "NONE"
 
 
 # from contextlib import contextmanager
@@ -80,8 +111,9 @@ def validate_time(time_str, time_format="%H%M%S"):
     :return: 转换后的时间对象
     :raises ValueError: 如果时间格式不正确
     """
-    if len(time_str) != len(time_format.replace("%", "")):
-        raise ValueError(f"时间长度不正确, 请确保长度为{len(time_format.replace('%', ''))}位, 输入值: {time_str}")
+    expected_length = 6  # HHMMSS 格式应该是6位
+    if len(time_str) != expected_length:
+        raise ValueError(f"时间长度不正确, 请确保长度为{expected_length}位, 输入值: {time_str}")
     try:
         return datetime.strptime(time_str, time_format).time()
     except ValueError:
@@ -186,25 +218,148 @@ class DataCollectNow():
                 certainReport.weeklyPointToShp()
 
 
+def start_monitoring_with_compatibility(date_datetype, endtime):
+    """
+    启动监控服务，支持新旧版本的自动兼容
+    
+    Args:
+        date_datetype: DateType对象，包含日期信息
+        endtime: 停止监控的时间
+    
+    Returns:
+        bool: 是否成功启动监控
+    """
+    executor = DataCollectNow(date_datetype)
+    
+    if MONITOR_VERSION == "NEW":
+        return start_new_monitoring(date_datetype, endtime, executor)
+    elif MONITOR_VERSION in ["LEGACY_DEPRECATED", "LEGACY_CURRENT"]:
+        return start_legacy_monitoring(date_datetype, endtime, executor)
+    else:
+        logger.error("没有可用的监控模块")
+        print("错误: 无法启动监控服务，没有可用的监控模块")
+        return False
+
+
+def start_new_monitoring(date_datetype, endtime, executor):
+    """
+    使用新的模块化监控系统
+    """
+    try:
+        logger.info("使用重构后的监控模块启动监控...")
+        print("使用新版模块化监控系统")
+        
+        # 从配置文件导入模糊匹配设置
+        from config import ENABLE_FUZZY_MATCHING, FUZZY_MATCHING_THRESHOLD, FUZZY_MATCHING_DEBUG
+        
+        # 创建监控管理器（使用配置文件中的模糊匹配设置）
+        monitor_manager = MonitorManager(
+            current_date=date_datetype,
+            enable_fuzzy_matching=ENABLE_FUZZY_MATCHING,
+            fuzzy_threshold=FUZZY_MATCHING_THRESHOLD
+        )
+        
+        # 显示模糊匹配配置
+        if ENABLE_FUZZY_MATCHING:
+            print(f"模糊匹配已启用 (阈值: {FUZZY_MATCHING_THRESHOLD})")
+            if FUZZY_MATCHING_DEBUG:
+                print("模糊匹配调试模式已启用")
+        else:
+            print("使用精确匹配模式")
+        
+        # 定义完成后的处理函数
+        def post_processing():
+            logger.info("文件监控完成，开始执行数据收集...")
+            try:
+                executor()
+                logger.info("数据收集任务完成")
+            except Exception as e:
+                logger.error(f"数据收集任务执行出错: {e}")
+        
+        # 构建结束时间
+        if endtime:
+            end_datetime = datetime.combine(date_datetype.date_datetime.date(), endtime)
+        else:
+            end_datetime = MONITOR_ENDTIME
+        
+        # 启动监控
+        monitor_manager.start_monitoring(
+            executor=post_processing,
+            end_time=end_datetime
+        )
+        
+        logger.info("新版监控服务已结束")
+        return True
+        
+    except Exception as e:
+        logger.error(f"新版监控启动失败: {e}")
+        logger.info("尝试回退到传统监控模块...")
+        return start_legacy_monitoring(date_datetype, endtime, executor)
+
+
+def start_legacy_monitoring(date_datetype, endtime, executor):
+    """
+    使用传统的监控系统
+    """
+    try:
+        logger.info("使用传统监控模块启动监控...")
+        print("使用传统监控系统")
+        
+        # 构建结束时间
+        if endtime:
+            end_datetime = datetime.combine(date_datetype.date_datetime.date(), endtime)
+        else:
+            end_datetime = MONITOR_ENDTIME
+        
+        # 创建传统事件处理器
+        event_handler = DataHandler(currentDate=date_datetype)
+        
+        # 启动传统监控
+        event_handler.obsserverService(
+            event_handler=event_handler, 
+            executor=executor, 
+            endtime=end_datetime
+        )
+        
+        logger.info("传统监控服务已结束")
+        return True
+        
+    except Exception as e:
+        logger.error(f"传统监控启动失败: {e}")
+        print(f"错误: 监控服务启动失败 - {e}")
+        return False
+
+
 def main():
 
     date_datetype, monitor_bool, endtime = parse_args()
     print("\n")
     print(15*"-", "设定日期: ", date_datetype.yyyymmdd_str, f"当前系统时间: {datetime.now().strftime('%H:%M:%S')}", 15*"-", 1*'\n')
 
+    # 显示监控模块版本信息
+    version_info = {
+        "NEW": "重构版模块化监控系统",
+        "LEGACY_DEPRECATED": "传统监控系统 (deprecated目录)",
+        "LEGACY_CURRENT": "传统监控系统 (当前目录)",
+        "NONE": "无可用监控模块"
+    }
+    print(f"监控模块状态: {version_info.get(MONITOR_VERSION, '未知')}")
 
     if monitor_bool:
         # 监控模式
         # 增加一个默认终止时间
         if endtime is None:
-            endtime = MONITOR_ENDTIME
-        print(f"以监控模式运行中...\n监控状态刷新间隔为:  {MONITOR_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为:  {endtime.strftime('%H:%M:%S')}\n")
+            endtime = MONITOR_ENDTIME.time()
+            
+        print(f"以监控模式运行中...\n监控状态刷新间隔为:  {MONITOR_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为:  {endtime.strftime('%H:%M:%S') if hasattr(endtime, 'strftime') else endtime}\n")
 
-
-        # 这里可以添加监控逻辑
-        event_handler = DataHandler(currentDate=date_datetype)
-        # 手动启动监视方法
-        event_handler.obsserverService(event_handler=event_handler, executor=DataCollectNow(date_datetype), endtime=endtime)
+        # 启动兼容性监控
+        success = start_monitoring_with_compatibility(date_datetype, endtime)
+        if not success:
+            print("监控启动失败，转为非监控模式运行...")
+            logger.warning("监控启动失败，执行单次数据收集")
+            executor = DataCollectNow(date_datetype)
+            executor()
     else:
         # 非监控模式
         print("以非监控模式运行中...")

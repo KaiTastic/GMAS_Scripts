@@ -72,6 +72,19 @@ COLLECTION_WEEKDAYS = [5]
 SEQUENCE_MIN = 41
 SEQUENCE_MAX = 51
 
+# 模糊匹配配置
+# 是否启用文件名模糊匹配功能，用于处理轻微的拼写错误和命名变化
+ENABLE_FUZZY_MATCHING = True
+
+# 模糊匹配相似度阈值（0.0-1.0），值越高要求越严格
+# 0.65: 适合处理轻微拼写错误和常见变化
+# 0.70: 更严格，适合规范环境
+# 0.60: 更宽松，适合命名不规范的环境
+FUZZY_MATCHING_THRESHOLD = 0.65
+
+# 模糊匹配调试模式，启用时会输出详细的匹配信息
+FUZZY_MATCHING_DEBUG = False
+
 # 建立资源文件目录，并验证文件是否存在，为当前文件夹子目录中的文件
 current_path = os.path.dirname(os.path.abspath(__file__))
 # WORKSPACE = os.path.join(current_path, WORKSPACE)
