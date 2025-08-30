@@ -13,14 +13,13 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-from single_result import (
+from ..single_result import (
     SingleMatchResult,
     SingleResultAnalyzer, 
-    SingleResultExporter,
-    MatchType,
-    ConfidenceLevel
+    SingleResultExporter
 )
-from config import AnalyzerConfig, ExporterConfig
+from ..config import AnalyzerConfig, ExporterConfig
+from ...types.enums import MatchType, ConfidenceLevel
 
 
 class TestSingleMatchResult(unittest.TestCase):
@@ -31,13 +30,12 @@ class TestSingleMatchResult(unittest.TestCase):
         self.result = SingleMatchResult(
             matched_string="北京市",
             similarity_score=0.95,
-            match_type="exact", 
+            match_type=MatchType.EXACT, 
             confidence=0.90,
             target_name="city",
-            original_target="beijing",
-            match_position=0,
+            match_position=(0, 3),
             match_length=3,
-            preprocessing_applied=["normalize", "clean"],
+            preprocessing_applied=True,
             metadata={"source": "user_input", "timestamp": "2025-08-30"}
         )
 
@@ -46,7 +44,7 @@ class TestSingleMatchResult(unittest.TestCase):
         self.assertIsNotNone(self.result)
         self.assertEqual(self.result.matched_string, "北京市")
         self.assertEqual(self.result.similarity_score, 0.95)
-        self.assertEqual(self.result.match_type, "exact")
+        self.assertEqual(self.result.match_type, MatchType.EXACT)
         self.assertEqual(self.result.confidence, 0.90)
         self.assertTrue(self.result.is_matched)
 

@@ -9,9 +9,9 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from ...base_matcher import StringMatcher, MatchResult
-from ...exact_matcher import ExactMatcher
-from ...fuzzy_matcher import FuzzyMatcher
-from ...hybrid_matcher import HybridMatcher
+from ...exact_matcher import ExactStringMatcher
+from ...fuzzy_matcher import FuzzyStringMatcher
+from ...hybrid_matcher import HybridStringMatcher
 from ...similarity_calculator import SimilarityCalculator
 from ..base_test import BaseTestCase
 
@@ -28,8 +28,8 @@ class TestBaseMatcher(BaseTestCase):
     def test_exact_matcher_creation(self):
         """测试精确匹配器创建"""
         def test_func():
-            matcher = ExactMatcher(self.test_patterns)
-            return isinstance(matcher, ExactMatcher)
+            matcher = ExactStringMatcher()
+            return isinstance(matcher, ExactStringMatcher)
         
         result = self.run_test_case(
             "exact_matcher_creation",
@@ -41,7 +41,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_exact_match_success(self):
         """测试精确匹配成功"""
         def test_func():
-            matcher = ExactMatcher(["test"])
+            matcher = ExactStringMatcher()
             result = matcher.match("test")
             return result.matched_string
         
@@ -54,7 +54,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_exact_match_case_sensitive(self):
         """测试精确匹配大小写敏感"""
         def test_func():
-            matcher = ExactMatcher(["Test"], case_sensitive=True)
+            matcher = ExactStringMatcher(case_sensitive=True)
             result = matcher.match("test")
             return result.matched_string
         
@@ -67,7 +67,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_exact_match_case_insensitive(self):
         """测试精确匹配大小写不敏感"""
         def test_func():
-            matcher = ExactMatcher(["Test"], case_sensitive=False)
+            matcher = ExactStringMatcher(case_sensitive=False)
             result = matcher.match("test")
             return result.matched_string
         
@@ -80,8 +80,8 @@ class TestBaseMatcher(BaseTestCase):
     def test_fuzzy_matcher_creation(self):
         """测试模糊匹配器创建"""
         def test_func():
-            matcher = FuzzyMatcher(self.test_patterns, threshold=0.8)
-            return isinstance(matcher, FuzzyMatcher)
+            matcher = FuzzyStringMatcher(threshold=0.8)
+            return isinstance(matcher, FuzzyStringMatcher)
         
         self.run_test_case(
             "fuzzy_matcher_creation",
@@ -92,7 +92,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_fuzzy_match_similar_strings(self):
         """测试模糊匹配相似字符串"""
         def test_func():
-            matcher = FuzzyMatcher(["hello"], threshold=0.6)
+            matcher = FuzzyStringMatcher(threshold=0.6)
             result = matcher.match("helo")  # 缺少一个字母
             return result.similarity_score > 0.6
         
@@ -105,7 +105,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_fuzzy_match_threshold(self):
         """测试模糊匹配阈值"""
         def test_func():
-            matcher = FuzzyMatcher(["hello"], threshold=0.9)
+            matcher = FuzzyStringMatcher(threshold=0.9)
             result = matcher.match("helo")  # 相似度不够高
             return result.matched_string is None
         
@@ -118,8 +118,8 @@ class TestBaseMatcher(BaseTestCase):
     def test_hybrid_matcher_creation(self):
         """测试混合匹配器创建"""
         def test_func():
-            matcher = HybridMatcher(self.test_patterns, fuzzy_threshold=0.7)
-            return isinstance(matcher, HybridMatcher)
+            matcher = HybridStringMatcher(fuzzy_threshold=0.7)
+            return isinstance(matcher, HybridStringMatcher)
         
         self.run_test_case(
             "hybrid_matcher_creation",
@@ -130,7 +130,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_hybrid_match_exact_priority(self):
         """测试混合匹配精确优先"""
         def test_func():
-            matcher = HybridMatcher(["test"], fuzzy_threshold=0.5)
+            matcher = HybridStringMatcher(fuzzy_threshold=0.5)
             result = matcher.match("test")
             return result.similarity_score == 1.0
         
@@ -143,7 +143,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_hybrid_match_fuzzy_fallback(self):
         """测试混合匹配模糊回退"""
         def test_func():
-            matcher = HybridMatcher(["test"], fuzzy_threshold=0.6)
+            matcher = HybridStringMatcher(fuzzy_threshold=0.6)
             result = matcher.match("tset")  # 字母顺序错误但相似
             return 0.6 <= result.similarity_score < 1.0
         
@@ -184,7 +184,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_empty_patterns(self):
         """测试空模式列表"""
         def test_func():
-            matcher = ExactMatcher([])
+            matcher = ExactStringMatcher()
             result = matcher.match("any text")
             return result.matched_string is None
         
@@ -197,7 +197,7 @@ class TestBaseMatcher(BaseTestCase):
     def test_empty_text(self):
         """测试空文本"""
         def test_func():
-            matcher = ExactMatcher(["test"])
+            matcher = ExactStringMatcher()
             result = matcher.match("")
             return result.matched_string is None
         
@@ -211,7 +211,7 @@ class TestBaseMatcher(BaseTestCase):
         """测试特殊字符"""
         def test_func():
             special_patterns = ["@#$", "123", "test@example.com"]
-            matcher = ExactMatcher(special_patterns)
+            matcher = ExactStringMatcher()
             result = matcher.match("Contact test@example.com for info")
             return result.matched_string == "test@example.com"
         
@@ -225,7 +225,7 @@ class TestBaseMatcher(BaseTestCase):
         """测试Unicode支持"""
         def test_func():
             unicode_patterns = ["测试", "例子", "中文"]
-            matcher = ExactMatcher(unicode_patterns)
+            matcher = ExactStringMatcher()
             result = matcher.match("这是一个测试例子")
             return result.matched_string in ["测试", "例子"]
         

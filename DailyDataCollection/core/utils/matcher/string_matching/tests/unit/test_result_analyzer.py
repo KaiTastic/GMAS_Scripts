@@ -24,30 +24,40 @@ class TestResultAnalyzer(BaseTestCase):
         self.sample_results = []
         
         # 创建一个完整匹配的结果
-        result1 = MultiMatchResult("Contact john@example.com at +1-555-123-4567")
+        result1 = MultiMatchResult(source_string="Contact john@example.com at +1-555-123-4567")
         result1.matches = {
-            "email": MatchResult("john@example.com", "Contact john@example.com at +1-555-123-4567", 1.0, 8, 25),
-            "phone": MatchResult("+1-555-123-4567", "Contact john@example.com at +1-555-123-4567", 1.0, 29, 44)
+            "email": MatchResult(
+                matched_string="john@example.com",
+                similarity_score=1.0,
+                match_position=(8, 25)
+            ),
+            "phone": MatchResult(
+                matched_string="+1-555-123-4567",
+                similarity_score=1.0,
+                match_position=(29, 44)
+            )
         }
         result1.overall_score = 1.0
-        result1.is_complete = True
+        result1.missing_targets = []  # 空列表表示完全匹配
         self.sample_results.append(result1)
         
         # 创建一个部分匹配的结果
-        result2 = MultiMatchResult("Email: jane@company.org")
+        result2 = MultiMatchResult(source_string="Email: jane@company.org")
         result2.matches = {
-            "email": MatchResult("jane@company.org", "Email: jane@company.org", 1.0, 7, 23)
+            "email": MatchResult(
+                matched_string="jane@company.org",
+                similarity_score=1.0,
+                match_position=(7, 23)
+            )
         }
         result2.overall_score = 0.5
-        result2.is_complete = False
-        result2.missing_targets = ["phone"]
+        result2.missing_targets = ["phone"]  # 缺少电话号码
         self.sample_results.append(result2)
         
         # 创建一个无匹配的结果
-        result3 = MultiMatchResult("No contact information")
+        result3 = MultiMatchResult(source_string="No contact information")
         result3.overall_score = 0.0
-        result3.is_complete = False
-        result3.missing_targets = ["email", "phone"]
+        result3.missing_targets = ["email", "phone"]  # 缺少所有目标
         self.sample_results.append(result3)
     
     def test_result_analyzer_creation(self):
