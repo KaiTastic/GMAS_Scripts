@@ -33,12 +33,12 @@ def simple_call():
         # 检查结果
         if os.path.exists(output_pdf_path):
             size_mb = os.path.getsize(output_pdf_path) / (1024 * 1024)
-            print(f"✅ 成功! 文件大小: {size_mb:.2f} MB")
+            print(f"成功! 文件大小: {size_mb:.2f} MB")
         else:
-            print("❌ 失败: 文件未生成")
+            print("失败: 文件未生成")
             
     except Exception as e:
-        print(f"❌ 错误: {e}")
+        print(f"错误: {e}")
         import traceback
         traceback.print_exc()
 

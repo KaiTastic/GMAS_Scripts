@@ -35,10 +35,10 @@ def call_map_export():
         
         # 检查工程文件是否存在
         if not os.path.exists(aprx_path):
-            print(f"❌ 错误: 工程文件不存在 - {aprx_path}")
+            print(f"错误: 工程文件不存在 - {aprx_path}")
             return False
         
-        print("✅ 工程文件存在，开始导出...")
+        print("工程文件存在，开始导出...")
         
         # 调用导出函数
         export_layout_to_pdf(aprx_path, layout_name, output_pdf_path)
@@ -46,20 +46,20 @@ def call_map_export():
         # 验证输出文件
         if os.path.exists(output_pdf_path):
             file_size = os.path.getsize(output_pdf_path) / (1024 * 1024)  # MB
-            print(f"✅ 导出成功完成!")
+            print(f"导出成功完成!")
             print(f"   输出文件: {output_pdf_path}")
             print(f"   文件大小: {file_size:.2f} MB")
             return True
         else:
-            print("❌ 导出失败: 未找到输出文件")
+            print("导出失败: 未找到输出文件")
             return False
             
     except ImportError as e:
-        print(f"❌ 导入错误: {e}")
+        print(f"导入错误: {e}")
         print("   请确保mapExport.py文件在同一目录下")
         return False
     except Exception as e:
-        print(f"❌ 执行错误: {e}")
+        print(f"执行错误: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -95,7 +95,7 @@ def batch_export_maps():
         
         # 检查工程文件
         if not os.path.exists(task['aprx_path']):
-            print(f"❌ 跳过: 工程文件不存在 - {task['aprx_path']}")
+            print(f"跳过: 工程文件不存在 - {task['aprx_path']}")
             continue
         
         try:
@@ -110,13 +110,13 @@ def batch_export_maps():
             
             if os.path.exists(task['output_pdf_path']):
                 file_size = os.path.getsize(task['output_pdf_path']) / (1024 * 1024)
-                print(f"   ✅ 成功 ({file_size:.2f} MB)")
+                print(f"   成功 ({file_size:.2f} MB)")
                 success_count += 1
             else:
-                print(f"   ❌ 失败: 文件未生成")
+                print(f"   失败: 文件未生成")
                 
         except Exception as e:
-            print(f"   ❌ 错误: {e}")
+            print(f"   错误: {e}")
     
     print(f"\n批量导出完成: {success_count}/{total_count} 成功")
     return success_count
@@ -151,17 +151,17 @@ def interactive_export():
         export_layout_to_pdf(aprx_path, layout_name, output_pdf_path)
         
         if os.path.exists(output_pdf_path):
-            print(f"✅ 交互式导出成功: {output_pdf_path}")
+            print(f"交互式导出成功: {output_pdf_path}")
             return True
         else:
-            print("❌ 交互式导出失败")
+            print("交互式导出失败")
             return False
             
     except KeyboardInterrupt:
         print("\n用户取消操作")
         return False
     except Exception as e:
-        print(f"❌ 交互式导出错误: {e}")
+        print(f"交互式导出错误: {e}")
         return False
 
 
