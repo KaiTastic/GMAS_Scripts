@@ -129,7 +129,7 @@ def parse_args():
 # ============================================================================
 
 class DataCollector:
-    """数据收集器 - 简化版的数据收集逻辑"""
+    """数据收集器 - 优化版的数据收集逻辑"""
     
     def __init__(self, collection_date):
         """
@@ -137,6 +137,7 @@ class DataCollector:
         :param collection_date: DateType 对象, 包含日期信息
         """
         self.collection_date = collection_date
+        self.config = config  # 缓存配置
 
     def __call__(self):
         """执行数据收集"""
@@ -144,71 +145,135 @@ class DataCollector:
             collection = CurrentDateFiles(self.collection_date)
             
             # 显示统计信息
-            print("\n" + "="*50)
-            print("GMAS 每日数据收集报告")
-            print("="*50)
+            self._display_collection_header()
             collection.onScreenDisplay()
             
             # 显示错误信息
-            errors_found = False
-            error_by_team = {}
-            
-            # 直接遍历图幅对象来获取错误信息
-            for mapsheet in collection.currentDateFiles:
-                if hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg:
-                    errors_found = True
-                    # 获取团队信息
-                    team_number = getattr(mapsheet, 'teamNumber', '未知团队')
-                    team_leader = getattr(mapsheet, 'teamleader', '未知负责人')
-                    roman_name = getattr(mapsheet, 'romanName', '未知图幅')
-                    
-                    team_key = f"{team_number} {team_leader}"
-                    
-                    if team_key not in error_by_team:
-                        error_by_team[team_key] = []
-                    
-                    error_by_team[team_key].append(f"{roman_name}: {mapsheet.errorMsg}")
-            
-            if errors_found:
-                print(f"\n文件中存在的错误信息:")
-                # 按团队显示错误信息
-                for team_info, errors in error_by_team.items():
-                    print(f"\n{team_info}:")
-                    for error in errors:
-                        print(f"  - {error}")
-                print()
+            self._display_error_information(collection)
             
             # 生成报告
-            logger.info("生成每日报告...")
+            success = self._generate_reports(collection)
             
-            # 生成KMZ报告
+            # 生成周报告（如果需要）
+            self._generate_weekly_report_if_needed(collection)
+            
+            logger.info("数据收集完成")
+            return success
+            
+        except Exception as e:
+            logger.error(f"数据收集过程中发生错误: {e}")
+            return False
+
+    def _display_collection_header(self):
+        """显示收集报告头部"""
+        print("\n" + "="*50)
+        print(f"GMAS 每日数据收集报告 {self.collection_date.yyyymmdd_str}")
+        print("="*50)
+
+    def _display_error_information(self, collection):
+        """显示错误信息，按团队分组"""
+        error_by_team = self._organize_errors_by_team(collection)
+        
+        if error_by_team:
+            print(f"\n文件中存在的错误信息:")
+            for team_info, errors in error_by_team.items():
+                print(f"\n{team_info}:")
+                for error in errors:
+                    print(f"  - {error}")
+            print()
+
+    def _organize_errors_by_team(self, collection):
+        """将错误信息按团队组织"""
+        error_by_team = {}
+        
+        for mapsheet in collection.currentDateFiles:
+            if hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg:
+                # 获取团队信息
+                team_number = getattr(mapsheet, 'teamNumber', '未知团队')
+                team_leader = getattr(mapsheet, 'teamleader', '未知负责人')
+                roman_name = getattr(mapsheet, 'romanName', '未知图幅')
+                
+                team_key = f"{team_number} ({team_leader})"
+                
+                if team_key not in error_by_team:
+                    error_by_team[team_key] = []
+                
+                # 格式化错误信息
+                error_text = self._format_error_message(roman_name, mapsheet.errorMsg)
+                error_by_team[team_key].append(error_text)
+        
+        return error_by_team
+
+    def _format_error_message(self, roman_name, error_msg):
+        """格式化单个错误信息"""
+        error_text = f"{roman_name}: "
+        if isinstance(error_msg, dict):
+            # 如果错误信息是字典格式，逐个解析
+            for file_name, errors in error_msg.items():
+                error_text += f"\n      文件 {file_name}:"
+                if isinstance(errors, list):
+                    for error in errors:
+                        error_text += f"\n        • {error}"
+                else:
+                    error_text += f"\n        • {errors}"
+        else:
+            error_text += str(error_msg)
+        return error_text
+
+    def _generate_reports(self, collection):
+        """生成KMZ和Excel报告"""
+        logger.info("生成每日报告...")
+        
+        kmz_success = self._generate_kmz_report(collection)
+        excel_success = self._generate_excel_report(collection)
+        
+        return kmz_success and excel_success
+
+    def _generate_kmz_report(self, collection):
+        """生成KMZ报告"""
+        try:
             if collection.dailyKMZReport():
                 logger.info("KMZ报告生成成功")
+                return True
             else:
                 logger.error("KMZ报告生成失败")
-            
-            # 生成Excel报告
+                return False
+        except Exception as e:
+            logger.error(f"KMZ报告生成异常: {e}")
+            return False
+
+    def _generate_excel_report(self, collection):
+        """生成Excel报告"""
+        try:
             if collection.dailyExcelReport():
                 logger.info("Excel报告生成成功")
+                return True
             else:
                 logger.error("Excel报告生成失败")
+                return False
+        except Exception as e:
+            logger.error(f"Excel报告生成异常: {e}")
+            return False
+
+    def _generate_weekly_report_if_needed(self, collection):
+        """如果需要则生成周报告"""
+        if self._should_generate_weekly_report():
+            weekday_name = self.collection_date.date_datetime.strftime("%A")
+            print(f'\n今天是{weekday_name}, 需要生成周报\n')
+            logger.info("今天是数据提交日，生成周报告...")
             
-            # 检查是否需要生成周报告
-            if self.collection_date.date_datetime.weekday() in config['data_collection']['weekdays']:
-                print(f'\n今天是{self.collection_date.date_datetime.strftime("%A")}, 需要生成周报\n')
-                logger.info("今天是数据提交日，生成周报告...")
+            try:
                 submitter = DataSubmition(self.collection_date, collection.allPoints)
                 if submitter.weeklyPointToShp():
                     logger.info("周报告生成成功")
                 else:
                     logger.error("周报告生成失败")
-            
-            logger.info("数据收集完成")
-            return True
-            
-        except Exception as e:
-            logger.error(f"数据收集过程中发生错误: {e}")
-            return False
+            except Exception as e:
+                logger.error(f"周报告生成异常: {e}")
+
+    def _should_generate_weekly_report(self):
+        """检查是否需要生成周报告"""
+        return self.collection_date.date_datetime.weekday() in self.config['data_collection']['weekdays']
 
 
 # ============================================================================

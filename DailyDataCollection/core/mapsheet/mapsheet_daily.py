@@ -10,56 +10,187 @@ import shutil
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
+from pathlib import Path
 
 from ..data_models.observation_data import ObservationData
 from ..file_handlers.kmz_handler import KMZFile
 from ..utils.file_utils import list_fullpath_of_files_with_keywords
 
-# 导入配置
-try:
-    from config.config_manager import ConfigManager
-    config_manager = ConfigManager()
-    config = config_manager.get_config()
-    WORKSPACE = config['system']['workspace']
-    platform_config = config_manager.get_platform_config()
-    WECHAT_FOLDER = platform_config.get('wechat_folder', '')
-    TRACEBACK_DATE = config['data_collection']['traceback_date']
-    TRACEFORWARD_DAYS = config['data_collection']['traceforward_days']
-    from ..data_models.date_types import DateType
-except ImportError:
-    WORKSPACE = ""
-    WECHAT_FOLDER = ""
-    TRACEBACK_DATE = "20240101"
-    TRACEFORWARD_DAYS = 5
-    # 如果无法导入DateType，我们需要从data_models导入
-    try:
-        from ..data_models.date_types import DateType
-    except ImportError:
-        DateType = None
 
-# 创建 logger 实例
-logger = logging.getLogger('Mapsheet Daily')
-logger.setLevel(logging.ERROR)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+class MapsheetConfigError(Exception):
+    """图幅配置错误"""
+    pass
+
+
+class MapsheetFileError(Exception):
+    """图幅文件错误"""
+    pass
+
+# 导入配置
+def _load_config():
+    """
+    加载配置，使用更清晰的错误处理
+    
+    Returns:
+        dict: 包含配置信息的字典
+        
+    Raises:
+        MapsheetConfigError: 当配置加载失败时
+    """
+    try:
+        from config.config_manager import ConfigManager
+        from ..data_models.date_types import DateType
+        
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        platform_config = config_manager.get_platform_config()
+        
+        # 验证必要的配置项
+        workspace = config.get('system', {}).get('workspace', '')
+        if not workspace:
+            logger.warning("工作空间配置为空，使用默认值")
+        
+        return {
+            'workspace': workspace,
+            'wechat_folder': platform_config.get('wechat_folder', ''),
+            'traceback_date': config['data_collection']['traceback_date'],
+            'traceforward_days': config['data_collection']['traceforward_days'],
+            'date_type': DateType
+        }
+    except ImportError as e:
+        logger.warning(f"无法导入配置: {e}，使用默认配置")
+        try:
+            from ..data_models.date_types import DateType
+            date_type = DateType
+        except ImportError:
+            date_type = None
+            
+        return {
+            'workspace': "",
+            'wechat_folder': "",
+            'traceback_date': "20240101",
+            'traceforward_days': 5,
+            'date_type': date_type
+        }
+
+# 加载配置
+_config = _load_config()
+WORKSPACE = _config['workspace']
+WECHAT_FOLDER = _config['wechat_folder']
+TRACEBACK_DATE = _config['traceback_date']
+TRACEFORWARD_DAYS = _config['traceforward_days']
+DateType = _config['date_type']
+
+# 常量
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_DELAY = 1.0
+
+# 获取logger
+logger = logging.getLogger(__name__)
+
+
+class FileOperationHelper:
+    """文件操作助手类，统一处理文件操作"""
+    
+    # 文件哈希缓存，避免重复计算
+    _hash_cache: Dict[str, str] = {}
+    
+    @staticmethod
+    def get_file_hash(file_path: str) -> Optional[str]:
+        """获取文件哈希值，使用缓存优化性能"""
+        try:
+            # 获取文件修改时间作为缓存键的一部分
+            mtime = os.path.getmtime(file_path)
+            cache_key = f"{file_path}:{mtime}"
+            
+            if cache_key in FileOperationHelper._hash_cache:
+                return FileOperationHelper._hash_cache[cache_key]
+            
+            # 计算哈希值
+            kmz_file = KMZFile(filepath=file_path)
+            hash_value = kmz_file.hashMD5
+            
+            # 缓存结果
+            FileOperationHelper._hash_cache[cache_key] = hash_value
+            return hash_value
+        except Exception as e:
+            logger.warning(f"计算文件哈希失败 {file_path}: {e}")
+            return None
+    
+    @staticmethod
+    def safe_copy_file(source_file: str, dest_file: str, max_retries: int = DEFAULT_MAX_RETRIES) -> None:
+        """安全地复制文件，包含重试机制和权限处理"""
+        import time
+        
+        for attempt in range(max_retries):
+            try:
+                # 检查目标文件是否被占用，如果是则尝试删除
+                if os.path.exists(dest_file):
+                    try:
+                        FileOperationHelper.set_file_permissions(dest_file)
+                        os.remove(dest_file)
+                    except PermissionError:
+                        logger.warning(f"无法删除已存在的文件 {dest_file}，尝试重命名")
+                        backup_name = f"{dest_file}.backup_{int(time.time())}"
+                        try:
+                            os.rename(dest_file, backup_name)
+                        except PermissionError:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"第 {attempt + 1} 次复制失败，等待{DEFAULT_RETRY_DELAY}秒后重试...")
+                                time.sleep(DEFAULT_RETRY_DELAY)
+                                continue
+                            else:
+                                raise MapsheetFileError(f"无法处理目标文件 {dest_file}")
+                
+                # 执行文件复制
+                shutil.copy(source_file, dest_file)
+                FileOperationHelper.set_file_permissions(dest_file)
+                logger.info(f"成功复制文件: {source_file} -> {dest_file}")
+                return
+                
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"第 {attempt + 1} 次复制失败 ({e})，等待{DEFAULT_RETRY_DELAY}秒后重试...")
+                    time.sleep(DEFAULT_RETRY_DELAY)
+                else:
+                    raise MapsheetFileError(f"文件复制失败，已重试 {max_retries} 次: {e}")
+            except Exception as e:
+                raise MapsheetFileError(f"文件复制时发生未预期的错误: {e}")
+    
+    @staticmethod
+    def set_file_permissions(file_path: str) -> None:
+        """设置文件权限"""
+        try:
+            os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+        except PermissionError as e:
+            logger.warning(f"无法设置文件权限 {file_path}: {e}")
+        except Exception as e:
+            logger.warning(f"设置文件权限时发生错误 {file_path}: {e}")
+
+    @staticmethod
+    def ensure_directory_exists(file_path: str) -> None:
+        """确保目录存在"""
+        directory = os.path.dirname(file_path)
+        os.makedirs(directory, exist_ok=True)
 
 
 class MapsheetDailyFile:
     """图幅日文件处理类，管理单个图幅的日常文件操作"""
     
-    maps_info: Dict[int, Dict[str, Any]] = {}
+    # 类级别的图幅信息缓存
+    _maps_info: Optional[Dict[int, Dict[str, Any]]] = None
 
-    def __new__(cls, *args, **kwargs):
-        """单例模式，确保图幅信息只初始化一次"""
-        if not hasattr(cls, 'instance'):
-            # 使用新的图幅管理器
-            from .mapsheet_manager import mapsheet_manager
-            cls.maps_info = mapsheet_manager.maps_info
-        cls.instance = super(MapsheetDailyFile, cls).__new__(cls)
-        return cls.instance
+    @classmethod
+    def _load_maps_info(cls):
+        """加载图幅信息，只加载一次"""
+        if cls._maps_info is None:
+            try:
+                from .mapsheet_manager import mapsheet_manager
+                cls._maps_info = mapsheet_manager.maps_info
+            except ImportError as e:
+                logger.error(f"无法导入图幅管理器: {e}")
+                cls._maps_info = {}
 
     def __init__(self, mapsheetFileName: str, date):
         """
@@ -68,7 +199,14 @@ class MapsheetDailyFile:
         Args:
             mapsheetFileName: 图幅文件名称
             date: 日期对象
+            
+        Raises:
+            MapsheetConfigError: 配置错误
+            MapsheetFileError: 文件操作错误
         """
+        # 加载图幅信息
+        self._load_maps_info()
+        
         # 图幅的基本信息
         self.mapsheetFileName: str = mapsheetFileName
         self.sequence: Optional[int] = None
@@ -82,7 +220,7 @@ class MapsheetDailyFile:
         
         # 从 mapsheet_info 字典中获取图幅信息
         if not self.__mapsheetInfo():
-            print(f"图幅文件名称{self.mapsheetFileName}未找到")
+            raise MapsheetConfigError(f"图幅文件名称'{self.mapsheetFileName}'未找到")
         
         # 当前日期
         self.currentDate = date
@@ -127,52 +265,47 @@ class MapsheetDailyFile:
         Returns:
             bool: 是否成功获取图幅信息
         """
-        if self.__class__.maps_info:
-            for sequence, info in self.__class__.maps_info.items():
+        if self._maps_info:
+            for sequence, info in self._maps_info.items():
                 if info['File Name'] == self.mapsheetFileName:
                     self.sequence = sequence
                     break
             else:
-                print(f"文件名称未找到\n请查证是否文件名 '{self.mapsheetFileName}' 有误？\n文件名列表如下: ")
-                print(json.dumps(self.__class__.maps_info, indent=4, ensure_ascii=False))
-                print("程序退出")
-                exit()
+                # 构造可用文件名列表
+                available_files = [info['File Name'] for info in self._maps_info.values()]
+                logger.error(f"文件名称'{self.mapsheetFileName}'未找到。可用的文件名: {available_files}")
+                return False
                 
-            self.sheetID = self.__class__.maps_info[self.sequence]['Sheet ID']
-            self.group = self.__class__.maps_info[self.sequence]['Group']
-            self.arabicName = self.__class__.maps_info[self.sequence]['Arabic Name']
-            self.romanName = self.__class__.maps_info[self.sequence]['Roman Name']
-            self.latinName = self.__class__.maps_info[self.sequence]['Latin Name']
-            self.teamNumber = self.__class__.maps_info[self.sequence]['Team Number']
-            self.teamleader = self.__class__.maps_info[self.sequence]['Leaders']
+            self.sheetID = self._maps_info[self.sequence]['Sheet ID']
+            self.group = self._maps_info[self.sequence]['Group']
+            self.arabicName = self._maps_info[self.sequence]['Arabic Name']
+            self.romanName = self._maps_info[self.sequence]['Roman Name']
+            self.latinName = self._maps_info[self.sequence]['Latin Name']
+            self.teamNumber = self._maps_info[self.sequence]['Team Number']
+            self.teamleader = self._maps_info[self.sequence]['Leaders']
 
             return True
-        return False
+        else:
+            logger.error("图幅信息未加载")
+            return False
 
-    @classmethod
-    def getCurrentDateFile(cls, instance: 'MapsheetDailyFile') -> 'MapsheetDailyFile':
+    def _get_current_date_file(self) -> None:
         """
         获取当天的文件
-        
-        Args:
-            instance: MapsheetDailyFile实例
-            
-        Returns:
-            MapsheetDailyFile: 类本身（用于链式调用）
         """
         file_path = os.path.join(
             WORKSPACE, 
-            instance.currentDate.yyyymm_str, 
-            instance.currentDate.yyyymmdd_str, 
+            self.currentDate.yyyymm_str, 
+            self.currentDate.yyyymmdd_str, 
             "Finished points", 
-            f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.currentDate.yyyymmdd_str}.kmz"
+            f"{self.mapsheetFileName}_finished_points_and_tracks_{self.currentDate.yyyymmdd_str}.kmz"
         )
         
         # 列出微信聊天记录文件夹中包含指定日期、图幅名称和finished_points的文件
         folder = os.path.join(WECHAT_FOLDER)
         searchedFile_list = list_fullpath_of_files_with_keywords(
             folder, 
-            [instance.currentDate.yyyymmdd_str, instance.mapsheetFileName, "finished_points_and_tracks", ".kmz"]
+            [self.currentDate.yyyymmdd_str, self.mapsheetFileName, "finished_points_and_tracks", ".kmz"]
         )
         
         if len(searchedFile_list) >= 1:
@@ -181,157 +314,139 @@ class MapsheetDailyFile:
             
             # 如果工作文件夹中的文件存在
             if os.path.exists(file_path) and os.path.isfile(file_path):
-                if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=fetched_file).hashMD5:
+                if self._files_are_different(file_path, fetched_file):
                     # 将获取的文件拷贝至工作文件夹, 并进行了重命名
-                    cls._safe_copy_file(fetched_file, file_path)
-                    instance.currentfilepath = file_path
+                    self._safe_copy_file(fetched_file, file_path)
+                    self.currentfilepath = file_path
                 else:
-                    instance.currentfilepath = file_path
-                    cls._set_file_permissions(file_path)
+                    self.currentfilepath = file_path
+                    self._set_file_permissions(file_path)
             else:
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                cls._safe_copy_file(fetched_file, file_path)
-                instance.currentfilepath = file_path
+                FileOperationHelper.ensure_directory_exists(file_path)
+                self._safe_copy_file(fetched_file, file_path)
+                self.currentfilepath = file_path
                 
-        if instance.currentfilepath:
-            instance.currentfilename = os.path.basename(instance.currentfilepath)
-            file = KMZFile(filepath=instance.currentfilepath)
-            instance.currentPlacemarks = file.placemarks
-            if file.errorMsg:  # errorMsg现在返回None或错误列表
-                instance.__errorMsg[instance.currentfilename] = file.errorMsg
+        if self.currentfilepath:
+            self.currentfilename = os.path.basename(self.currentfilepath)
+            try:
+                file = KMZFile(filepath=self.currentfilepath)
+                self.currentPlacemarks = file.placemarks
+                if file.errorMsg:  # errorMsg现在返回None或错误列表
+                    self.__errorMsg[self.currentfilename] = file.errorMsg
+            except Exception as e:
+                logger.error(f"加载当前文件数据失败 {self.currentfilepath}: {e}")
+                raise MapsheetFileError(f"加载当前文件数据失败: {e}")
+    
+    @classmethod  
+    def getCurrentDateFile(cls, instance: 'MapsheetDailyFile') -> 'MapsheetDailyFile':
+        """向后兼容的方法"""
+        instance._get_current_date_file()
         return cls
 
     @classmethod
-    def _safe_copy_file(cls, source_file: str, dest_file: str, max_retries: int = 3):
-        """安全地复制文件，包含重试机制和权限处理"""
-        import time
-        
-        for attempt in range(max_retries):
-            try:
-                # 检查目标文件是否被占用，如果是则尝试删除
-                if os.path.exists(dest_file):
-                    try:
-                        os.chmod(dest_file, stat.S_IWRITE | stat.S_IREAD)
-                        os.remove(dest_file)
-                    except PermissionError:
-                        logger.warning(f"无法删除已存在的文件 {dest_file}，尝试重命名")
-                        backup_name = f"{dest_file}.backup_{int(time.time())}"
-                        try:
-                            os.rename(dest_file, backup_name)
-                        except PermissionError:
-                            if attempt < max_retries - 1:
-                                logger.warning(f"第 {attempt + 1} 次复制失败，等待1秒后重试...")
-                                time.sleep(1)
-                                continue
-                            else:
-                                raise
-                
-                # 执行文件复制
-                shutil.copy(source_file, dest_file)
-                cls._set_file_permissions(dest_file)
-                logger.info(f"成功复制文件: {source_file} -> {dest_file}")
-                return
-                
-            except PermissionError as e:
-                if attempt < max_retries - 1:
-                    logger.warning(f"第 {attempt + 1} 次复制失败 ({e})，等待1秒后重试...")
-                    time.sleep(1)
-                else:
-                    logger.error(f"文件复制失败，已重试 {max_retries} 次: {e}")
-                    raise
-            except Exception as e:
-                logger.error(f"文件复制时发生未预期的错误: {e}")
-                raise
+    def _safe_copy_file(cls, source_file: str, dest_file: str, max_retries: int = DEFAULT_MAX_RETRIES):
+        """安全地复制文件，包含重试机制和权限处理（向后兼容）"""
+        FileOperationHelper.safe_copy_file(source_file, dest_file, max_retries)
     
     @classmethod
     def _set_file_permissions(cls, file_path: str):
-        """设置文件权限"""
-        try:
-            os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
-        except PermissionError as e:
-            logger.warning(f"无法设置文件权限 {file_path}: {e}")
-        except Exception as e:
-            logger.warning(f"设置文件权限时发生错误 {file_path}: {e}")
+        """设置文件权限（向后兼容）"""
+        FileOperationHelper.set_file_permissions(file_path)
 
-    @classmethod
-    def findlastFinished(cls, instance: 'MapsheetDailyFile') -> None:
-        """
-        查找上一次完成的文件
-        
-        Args:
-            instance: MapsheetDailyFile实例
-        """
-        lastDate_datetime1 = instance.currentDate.date_datetime
+    def _find_last_finished_file(self) -> None:
+        """查找上一次完成的文件"""
         traceback_date = datetime.strptime(TRACEBACK_DATE, "%Y%m%d").date()
+        search_start_date = self.currentDate.date_datetime
         
-        while lastDate_datetime1.date() > traceback_date:
-            # Step 1: 在工作文件夹（当前日期）中直接查找
-            lastDate_datetime2 = instance.currentDate.date_datetime
+        while search_start_date.date() > traceback_date:
+            # 在工作文件夹中直接查找
+            search_date = self.currentDate.date_datetime
             
-            while lastDate_datetime2.date() > traceback_date:
-                lastDate_datetime2 -= timedelta(days=1)
-                search_date_str = lastDate_datetime2.strftime("%Y%m%d")
-                file_path = os.path.join(
-                    WORKSPACE, 
-                    lastDate_datetime1.strftime("%Y%m"), 
-                    lastDate_datetime1.strftime("%Y%m%d"), 
-                    "Finished points", 
-                    f"{instance.mapsheetFileName}_finished_points_and_tracks_{search_date_str}.kmz"
-                )
+            while search_date.date() > traceback_date:
+                search_date -= timedelta(days=1)
+                file_path = self._build_historical_file_path(search_date, "Finished points", "finished_points_and_tracks")
                 
                 if os.path.exists(file_path):
                     # 延迟导入以避免循环依赖
                     from ..data_models.date_types import DateType
-                    instance.lastDate = DateType(date_datetime=lastDate_datetime2)
+                    self.lastDate = DateType(date_datetime=search_date)
+                    self._handle_last_file_setup(file_path)
+                    return
                     
-                    # 如果当前日期的文件为None, 则需要将之前的文件拷贝至当前日期的文件夹
-                    if instance.currentfilename is None:
-                        dest = os.path.join(
-                            WORKSPACE, 
-                            instance.currentDate.yyyymm_str, 
-                            instance.currentDate.yyyymmdd_str, 
-                            "Finished points", 
-                            os.path.basename(file_path)
-                        )
-                        if file_path != dest:
-                            os.makedirs(os.path.dirname(dest), exist_ok=True)
-                            shutil.copy(file_path, dest)
-                            os.chmod(dest, stat.S_IWRITE | stat.S_IREAD)
-                            instance.lastfilepath = dest
-                    else:
-                        # 需要清理当前文件夹中的之前的完成文件
-                        fileTobeRemoved = os.path.join(
-                            WORKSPACE, 
-                            instance.currentDate.yyyymm_str, 
-                            instance.currentDate.yyyymmdd_str, 
-                            "Finished points", 
-                            f"{instance.mapsheetFileName}_finished_points_and_tracks_{instance.lastDate}.kmz"
-                        )
-                        if os.path.exists(fileTobeRemoved) and os.path.isfile(fileTobeRemoved):
-                            print("当日文件已经存在, 需要移除当日文件夹中的旧文件: ", fileTobeRemoved)
-                            os.remove(fileTobeRemoved)
-                        instance.lastfilepath = file_path
-                    break
-                    
-            if instance.lastfilepath:
-                break
-            lastDate_datetime1 -= timedelta(days=1)
+            search_start_date -= timedelta(days=1)
 
-    def __mapsheetfiles(self) -> None:
-        """获取图幅文件路径"""
-        # 获取当前日期文件
-        self.getCurrentDateFile(self)
-        # 查找上一次完成的文件
-        self.findlastFinished(self)
-        
-        # 处理文件信息
+    def _build_historical_file_path(self, date: datetime, folder_type: str, file_type: str) -> str:
+        """构建历史文件路径"""
+        return os.path.join(
+            WORKSPACE,
+            date.strftime("%Y%m"),
+            date.strftime("%Y%m%d"),
+            folder_type,
+            f"{self.mapsheetFileName}_{file_type}_{date.strftime('%Y%m%d')}.kmz"
+        )
+
+    def _handle_last_file_setup(self, file_path: str) -> None:
+        """处理上一次文件的设置"""
+        if self.currentfilename is None:
+            # 如果当前日期没有文件，将历史文件复制到当前日期文件夹
+            dest = os.path.join(
+                WORKSPACE, 
+                self.currentDate.yyyymm_str, 
+                self.currentDate.yyyymmdd_str, 
+                "Finished points", 
+                os.path.basename(file_path)
+            )
+            if file_path != dest:
+                try:
+                    FileOperationHelper.ensure_directory_exists(dest)
+                    shutil.copy(file_path, dest)
+                    FileOperationHelper.set_file_permissions(dest)
+                    self.lastfilepath = dest
+                except Exception as e:
+                    logger.error(f"复制历史文件失败: {e}")
+                    raise MapsheetFileError(f"复制历史文件失败: {e}")
+        else:
+            # 清理可能存在的旧文件
+            self._cleanup_old_files()
+            self.lastfilepath = file_path
+
+    def _cleanup_old_files(self) -> None:
+        """清理旧文件"""
+        if self.lastDate:
+            old_file = os.path.join(
+                WORKSPACE,
+                self.currentDate.yyyymm_str,
+                self.currentDate.yyyymmdd_str,
+                "Finished points",
+                f"{self.mapsheetFileName}_finished_points_and_tracks_{self.lastDate}.kmz"
+            )
+            if os.path.exists(old_file):
+                try:
+                    os.remove(old_file)
+                    logger.info(f"已移除旧文件: {old_file}")
+                except Exception as e:
+                    logger.warning(f"无法移除旧文件 {old_file}: {e}")
+
+    @classmethod
+    def findlastFinished(cls, instance: 'MapsheetDailyFile') -> None:
+        """向后兼容的方法"""
+        instance._find_last_finished_file()
+
+    def _load_last_file_data(self) -> None:
+        """加载上一次文件数据"""
         if self.lastfilepath:
             self.lastfilename = os.path.basename(self.lastfilepath)
-            file = KMZFile(filepath=self.lastfilepath)
-            self.lastPlacemarks = file.placemarks
-            if file.errorMsg:  # errorMsg现在返回None或错误列表
-                self.__errorMsg[self.lastfilename] = file.errorMsg
+            try:
+                file = KMZFile(filepath=self.lastfilepath)
+                self.lastPlacemarks = file.placemarks
+                if file.errorMsg:  # errorMsg现在返回None或错误列表
+                    self.__errorMsg[self.lastfilename] = file.errorMsg
+            except Exception as e:
+                logger.error(f"加载上一次文件数据失败 {self.lastfilepath}: {e}")
+                raise MapsheetFileError(f"加载上一次文件数据失败: {e}")
 
+    def _calculate_daily_statistics(self) -> None:
+        """计算日增量和总数统计"""
         # 计算增量
         if self.currentPlacemarks and self.lastPlacemarks:
             dailyincrease = self.currentPlacemarks - self.lastPlacemarks
@@ -347,6 +462,8 @@ class MapsheetDailyFile:
         else:
             self.dailyincreasePointNum = 0
             self.dailyincreaseRouteNum = 0
+            self.dailyincreasePoints = {}
+            self.dailyincreaseRoutes = []
 
         # 设置总数
         if self.currentPlacemarks:
@@ -356,78 +473,111 @@ class MapsheetDailyFile:
             self.currentTotalPointNum = 0
             self.currentTotalRouteNum = 0
 
-        # 查找下一个计划文件
-        self.findNextPlan(self)
+    def __mapsheetfiles(self) -> None:
+        """获取图幅文件路径 - 主要协调方法"""
+        try:
+            # 获取当前日期文件
+            self._get_current_date_file()
+            # 查找上一次完成的文件
+            self._find_last_finished_file()
+            # 加载上一次文件数据
+            self._load_last_file_data()
+            # 计算日增量和统计
+            self._calculate_daily_statistics()
+            # 查找下一个计划文件
+            self._find_next_plan_file()
+        except Exception as e:
+            logger.error(f"处理图幅文件时发生错误: {e}")
+            raise
 
     @property
     def errorMsg(self) -> Dict:
         """获取错误消息"""
         return self.__errorMsg
 
-    @classmethod
-    def findNextPlan(cls, instance: 'MapsheetDailyFile') -> None:
+    def _find_next_plan_file(self) -> None:
         """
         查找下一个计划文件
         
-        findNextPlan 通常应是查找第二天的计划文件: 
-                     或周五-周六休息, 周四会查找周六/周日的计划文件, 因此为了冗余日期, TRACEFORWARD_DAYS = 5, 即向前查找5天, 找到最近的一个计划文件
-        
-        Args:
-            instance: MapsheetDailyFile实例
+        通常应是查找第二天的计划文件: 
+        或周五-周六休息, 周四会查找周六/周日的计划文件, 
+        因此为了冗余日期, TRACEFORWARD_DAYS = 5, 即向前查找5天, 找到最近的一个计划文件
         """
-        # 开始查找当前日期之后的计划文件
-        date = instance.currentDate.date_datetime
-        endDate = instance.currentDate.date_datetime + timedelta(days=TRACEFORWARD_DAYS)
+        start_date = self.currentDate.date_datetime
+        end_date = start_date + timedelta(days=TRACEFORWARD_DAYS)
+        search_date = start_date
         
-        while date < endDate:
-            date += timedelta(days=1)
-            search_date_str = date.strftime("%Y%m%d")
+        while search_date < end_date:
+            search_date += timedelta(days=1)
+            searched_files = self._search_plan_files_for_date(search_date)
             
-            # 列出微信聊天记录文件夹中包含指定日期、图幅名称和plan_routes的文件
-            searchedFile_list = list_fullpath_of_files_with_keywords(
-                WECHAT_FOLDER, 
-                [search_date_str, instance.mapsheetFileName, "plan_routes", ".kmz"]
-            )
+            if searched_files:
+                self._handle_plan_file_synchronization(searched_files, search_date)
+                break
+
+    def _search_plan_files_for_date(self, date: datetime) -> list:
+        """搜索指定日期的计划文件"""
+        search_date_str = date.strftime("%Y%m%d")
+        return list_fullpath_of_files_with_keywords(
+            WECHAT_FOLDER, 
+            [search_date_str, self.mapsheetFileName, "plan_routes", ".kmz"]
+        )
+
+    def _handle_plan_file_synchronization(self, searched_files: list, date: datetime) -> None:
+        """处理计划文件同步"""
+        try:
+            self.nextDate = DateType(date_datetime=date)
+            file_path = self._build_historical_file_path(date, "Planned routes", "plan_routes")
             
-            if searchedFile_list:
-                # 找到工作计划
-                instance.nextDate = DateType(date_datetime=date)
-                file_path = os.path.join(
-                    WORKSPACE, 
-                    instance.nextDate.yyyymm_str, 
-                    instance.nextDate.yyyymmdd_str, 
-                    "Planned routes", 
-                    f"{instance.mapsheetFileName}_plan_routes_{instance.nextDate.yyyymmdd_str}.kmz"
-                )
-                
-                # 选择时间最新的文件
-                latestFile = max(searchedFile_list, key=os.path.getctime)
-                
-                if not os.path.exists(file_path):
-                    # 创建目录并复制文件
-                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                    shutil.copy(latestFile, file_path)
-                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
-                    instance.nextfilepath = file_path
-                    break
-                else:
-                    # 检查文件是否需要更新
-                    if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=latestFile).hashMD5:
-                        shutil.copy(latestFile, file_path)
-                        os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
-                        instance.nextfilepath = file_path
-                        break
-                    else:
-                        instance.nextfilepath = file_path
-                        break
-        
-        # 设置nextfilename和planPlacemarks
-        if hasattr(instance, 'nextfilepath') and instance.nextfilepath:
-            instance.nextfilename = os.path.basename(instance.nextfilepath)
-            file = KMZFile(filepath=instance.nextfilepath)
-            instance.planPlacemarks = file.placemarks
-            if file.errorMsg:
-                instance.__errorMsg[instance.nextfilename] = file.errorMsg
+            # 选择时间最新的文件
+            latest_file = max(searched_files, key=os.path.getctime)
+            
+            if not os.path.exists(file_path):
+                # 创建目录并复制文件
+                FileOperationHelper.ensure_directory_exists(file_path)
+                FileOperationHelper.safe_copy_file(latest_file, file_path)
+            elif self._files_are_different(file_path, latest_file):
+                # 检查文件是否需要更新
+                FileOperationHelper.safe_copy_file(latest_file, file_path)
+            
+            self.nextfilepath = file_path
+            self._load_plan_file_data()
+            
+        except Exception as e:
+            logger.error(f"处理计划文件同步失败: {e}")
+            raise MapsheetFileError(f"处理计划文件同步失败: {e}")
+
+    def _files_are_different(self, file1: str, file2: str) -> bool:
+        """检查两个文件是否不同，使用缓存优化性能"""
+        try:
+            hash1 = FileOperationHelper.get_file_hash(file1)
+            hash2 = FileOperationHelper.get_file_hash(file2)
+            
+            if hash1 is None or hash2 is None:
+                return True  # 如果无法获取哈希，假设不同
+            
+            return hash1 != hash2
+        except Exception as e:
+            logger.warning(f"比较文件时出错: {e}")
+            return True  # 如果无法比较，假设不同
+
+    def _load_plan_file_data(self) -> None:
+        """加载计划文件数据"""
+        if hasattr(self, 'nextfilepath') and self.nextfilepath:
+            try:
+                self.nextfilename = os.path.basename(self.nextfilepath)
+                file = KMZFile(filepath=self.nextfilepath)
+                self.planPlacemarks = file.placemarks
+                if file.errorMsg:
+                    self.__errorMsg[self.nextfilename] = file.errorMsg
+            except Exception as e:
+                logger.error(f"加载计划文件数据失败 {self.nextfilepath}: {e}")
+                raise MapsheetFileError(f"加载计划文件数据失败: {e}")
+
+    @classmethod
+    def findNextPlan(cls, instance: 'MapsheetDailyFile') -> None:
+        """向后兼容的方法"""
+        instance._find_next_plan_file()
 
     def __str__(self) -> str:
         """字符串表示"""
@@ -436,3 +586,8 @@ class MapsheetDailyFile:
                 f"当前日期: {self.currentDate}\n"
                 f"当前点数: {self.currentTotalPointNum}\n"
                 f"日增点数: {self.dailyincreasePointNum}")
+
+    def __repr__(self) -> str:
+        """开发者友好的字符串表示"""
+        return (f"MapsheetDailyFile(mapsheetFileName='{self.mapsheetFileName}', "
+                f"date={self.currentDate}, sequence={self.sequence})")
