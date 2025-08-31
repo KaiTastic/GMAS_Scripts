@@ -24,7 +24,10 @@ A comprehensive data collection and processing system for GMAS project that hand
 - Combine multiple KMZ files into unified datasets
 - Generate PDF maps using ArcPy integration
 
-**Documentation:** See [DailyDataCollection/README.md](DailyDataCollection/README.md) for detailed information.
+**Documentation:** 
+- 📖 [Main Documentation](DailyDataCollection/README.md)
+- 📖 [English Documentation](DailyDataCollection/README_en.md)
+- 📖 [中文文档](DailyDataCollection/README_cn.md)
 
 ### Image Cutter
 
@@ -39,13 +42,18 @@ An image segmentation tool designed for processing scanned thin-section images w
 - Quality preservation for JPEG and PNG formats
 - Standalone executable version (no Python installation required)
 
-**Documentation:** See [ImageCutter/README.md](ImageCutter/README.md) for detailed usage instructions.
+**Documentation:** 
+- 📖 [Main Documentation](ImageCutter/README.md)
+- 📖 [English Documentation](ImageCutter/README_en.md)
+- 📖 [中文文档](ImageCutter/README_cn.md)
 
 ### Colour Tune
 
 > [ColourTune/](ColourTune/)
 
 Color adjustment and calibration utilities for geological image processing and analysis.
+
+**Documentation:** *Documentation to be added*
 
 ### Spectral Library
 
@@ -56,3 +64,5 @@ Tools and utilities for spectral data management and mineral identification.
 **Components:**
 - `FilePicker/`: File filtering and organization scripts
 - `SampleRecognition/`: Sample identification and analysis tools
+
+**Documentation:** *Documentation to be added*
