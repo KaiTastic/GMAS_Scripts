@@ -1,86 +1,90 @@
 # GMAS Scripts
 
-### Daily Data Collection for GMAS Project
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Version](https://img.shields.io/badge/Version-1.1-blue)
+![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)
+![GMAS](https://img.shields.io/badge/GMAS-Geological%20Scripts-orange)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+![Rights](https://img.shields.io/badge/Rights-All%20Rights%20Reserved-red)
 
-> .\DailyDataCollection\
+A collection of Python scripts and tools for geological data processing, image analysis, and spectral library management.
 
-This package offers the daily KMZ files of finished points and routes of the day and planned routes for the next day.
+## Projects Overview
 
-* Monitor and collect the KMZ files from the WeChat folder.
-* Parse the KMZ files, extract the daily increased observation points for the daily summary report, and convert the result to Microsoft Excel.
-* Combine the multiple KMZ files into one.
+### Daily Data Collection
 
-日常数据收集与处理主模块，包括KMZ文件监控、解析、统计报表生成等功能。
+> [DailyDataCollection/](DailyDataCollection/)
 
-  -`main.py`：主入口脚本。
+A comprehensive data collection and processing system for GMAS project that handles daily KMZ files, monitoring, parsing, and report generation.
 
-  -`DailyFileGenerator.py`：核心数据处理、KMZ解析、报表生成等主逻辑。
+**Key Features:**
+- Monitor and collect KMZ files from WeChat folders automatically
+- Parse KMZ files and extract daily observation points for summary reports
+- Convert processed data to Microsoft Excel format
+- Combine multiple KMZ files into unified datasets
+- Generate PDF maps using ArcPy integration
 
-  -`monitor.py`：监控微信文件夹，自动收集并处理KMZ文件。
-
-  -`logger.py`：日志记录。
-
-  -`mapExport.py`：调用ArcPy导出地图布局为PDF。
-
-  -`XMLHandler.py`：XML/KML辅助处理。
-
-  -`config.py`：全局配置参数。
-
-  -`resource/`：存放KML/XSD等资源文件。
-
-  -`Design/`：设计文档与开发思路。
-
-  -`tests/`：单元测试。
+**Documentation:** See [DailyDataCollection/README.md](DailyDataCollection/README.md) for detailed information.
 
 ### Image Cutter
 
-> .\ImageCutter\
+> [ImageCutter/](ImageCutter/)
 
-This package offers the separation for the scanned thin-section images with automatic calculation.
+An automated image segmentation tool designed for processing scanned thin-section images with intelligent calculation capabilities.
 
-**Feature**: Applied with thread pool executor
+**Key Features:**
+- Automatic calculation of optimal segmentation parameters
+- Multi-threaded processing with thread pool executor
+- GUI and command-line interfaces available
+- Quality preservation for JPEG and PNG formats
+- Standalone executable version (no Python installation required)
 
-图像切割工具，自动分割扫描图像。
+**Documentation:** See [ImageCutter/README.md](ImageCutter/README.md) for detailed usage instructions.
+
+### Colour Tune
+
+> [ColourTune/](ColourTune/)
+
+Color adjustment and calibration utilities for geological image processing and analysis.
 
 ### Spectral Library
 
-> .\SpectralLibrary\
+> [SpectralLibrary/](SpectralLibrary/)
 
-  光谱库相关工具。
+Tools and utilities for spectral data management and mineral identification.
 
-  -`FilePicker/`：文件筛选与整理脚本。
+**Components:**
+- `FilePicker/`: File filtering and organization scripts
+- `SampleRecognition/`: Sample identification and analysis tools
 
-  -`SampleRecognition/`：样品识别相关脚本。
+## Quick Start
 
-
-## 快速开始
-
-1. 安装依赖  
-   推荐使用Python 3.10，需安装GDAL、openpyxl、lxml、watchdog、tabulate等依赖。
+1. **Install Dependencies**  
+   Python 3.10 is recommended. Install required packages including GDAL, openpyxl, lxml, watchdog, and tabulate.
 
    ```sh
    pip install -r requirements.txt
    ```
 
-2. 配置参数  
-   修改 [DailyDataCollection/config.py](DailyDataCollection/config.py) 以适配本地路径和参数。
+2. **Configure Parameters**  
+   Modify [DailyDataCollection/config.py](DailyDataCollection/config.py) to match your local paths and settings.
 
-3. 运行主程序  
+3. **Run Main Program**  
    ```sh
    python -m DailyDataCollection
    ```
 
-4. 查看输出  
-   - 日报表、统计表在 `WORKSPACE` 指定目录下生成
-   - 日志输出于控制台
+4. **Check Output**  
+   - Daily reports and statistics are generated in the specified `WORKSPACE` directory
+   - Log output is displayed in the console
 
-## 设计与扩展
+## Design and Extension
 
-- KMZ/KML解析与构造详见 [DailyDataCollection/Design/构造KMZ文件类的思路.md](DailyDataCollection/Design/构造KMZ文件类的思路.md)
-- 支持自定义KML Schema，兼容KML 2.2/2.3
-- 可扩展更多地理数据处理、报表格式或自动化流程
+- KMZ/KML parsing and construction details: [DailyDataCollection/Design/](DailyDataCollection/Design/)
+- Support for custom KML Schema, compatible with KML 2.2/2.3
+- Extensible architecture for additional geospatial data processing, report formats, and automation workflows
 
-## 贡献与测试
+## Testing and Contribution
 
-- 测试用例位于 `DailyDataCollection/tests/`
-- 欢迎提交PR与Issue
+- Unit tests are located in `DailyDataCollection/tests/`
+- Pull requests and issues are welcome
