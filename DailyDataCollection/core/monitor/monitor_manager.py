@@ -13,6 +13,12 @@ import config
 from .event_handler import FileEventHandler
 from .display_manager import DisplayManager
 
+# 导入编码修复器
+try:
+    from ..utils.encoding_fixer import safe_print
+except ImportError:
+    safe_print = print
+
 
 class MonitorManager:
     """
@@ -59,7 +65,7 @@ class MonitorManager:
             else:
                 self._monitor_plan_mode(executor, end_time)
         except KeyboardInterrupt:
-            print("\n用户中断监控...")
+            safe_print("\n用户中断监控...")
         finally:
             self._stop_monitoring()
     
@@ -72,7 +78,7 @@ class MonitorManager:
                 len(remaining_files), 
                 self.event_handler.get_planned_file_count()
             )
-            print(f"当前待接收的文件列表: {remaining_files}")
+            safe_print(f"当前待接收的文件列表: {remaining_files}")
         
         # 监控循环
         while not self.event_handler.is_collection_complete():

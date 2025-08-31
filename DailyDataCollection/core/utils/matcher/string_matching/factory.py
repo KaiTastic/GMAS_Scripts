@@ -24,7 +24,6 @@ except ImportError:
     from hybrid_matcher import HybridStringMatcher
     from name_matcher import NameMatcher, ExactNameMatcher, FuzzyNameMatcher, HybridNameMatcher
 
-
 def create_string_matcher(matcher_type: str = "hybrid", 
                          fuzzy_threshold: float = 0.65,
                          case_sensitive: bool = False,
@@ -83,6 +82,7 @@ def create_name_matcher(matcher_type: str = "hybrid",
         return HybridNameMatcher(fuzzy_threshold=fuzzy_threshold, debug=debug)
     else:
         raise ValueError(f"不支持的名称匹配器类型: {matcher_type}. 支持的类型: exact, fuzzy, hybrid")
+
 
 class MatcherFactory:
     """匹配器工厂类
@@ -158,9 +158,9 @@ class MatcherFactory:
             debug: 是否启用调试模式
             
         Returns:
-            NameMatcher: 文件名匹配器
+            适用于文件名匹配的名称匹配器
         """
-        return HybridNameMatcher(fuzzy_threshold, debug)
+        return HybridNameMatcher(fuzzy_threshold=fuzzy_threshold, debug=debug)
     
     @staticmethod
     def get_config_options() -> dict:

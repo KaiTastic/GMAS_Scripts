@@ -9,6 +9,15 @@ import warnings
 import os
 import sys
 
+# 设置UTF-8编码支持
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
+# 兼容层提示信息
+print("兼容层：使用原始完整实现（安全导入）")
+
 # 兼容性警告
 warnings.warn(
     "DailyFileGenerator 已被重构。建议迁移到新的模块化结构。",

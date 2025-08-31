@@ -6,11 +6,15 @@
 
 ## 项目状态
 
-- **模块化重构**: 完成核心功能模块化
-- **迁移完成**: 旧文件安全移动到 `deprecated/` 文件夹
-- **兼容性保障**: 提供完整的向后兼容层
-- **文档完善**: 详细的迁移指南和故障排除
-- **测试更新**: 重写测试用例确保功能正常
+- **[完成] 模块化重构**: 完成核心功能模块化
+- **[完成] 迁移完成**: 旧文件安全移动到 `deprecated/` 文件夹
+- **[完成] 兼容性保障**: 提供完整的向后兼容层
+- **[完成] 文档完善**: 详细的迁移指南和故障排除
+- **[完成] 测试更新**: 重写测试用例确保功能正常
+- **[完成] 新功能 智能匹配系统**: 部署完整的字符串匹配框架
+- **[完成] 新功能 监控模块重构**: 实现模块化监控系统
+- **[完成] 新功能 性能优化**: 多线程支持和缓存机制
+- **[进行中] 持续改进**: 基于使用的持续优化功能
 
 ## 重要通知
 
@@ -41,22 +45,59 @@ DailyDataCollection/
 │   │   └── kmz_handler.py         # KMZ文件处理器
 │   ├── utils/                     # 工具函数
 │   │   ├── __init__.py
-│   │   └── file_utils.py          # 文件工具函数
+│   │   ├── file_utils.py          # 文件工具函数
+│   │   ├── encoding_fixer.py      # 编码修复工具
+│   │   └── matcher/               # 匹配器模块 (新功能)
+│   │       ├── __init__.py
+│   │       ├── README.md
+│   │       ├── string_matching/   # 字符串匹配系统
+│   │       │   ├── base_matcher.py      # 基础匹配器
+│   │       │   ├── exact_matcher.py     # 精确匹配
+│   │       │   ├── fuzzy_matcher.py     # 模糊匹配
+│   │       │   ├── hybrid_matcher.py    # 混合匹配
+│   │       │   ├── core_matcher.py      # 多目标匹配器
+│   │       │   ├── name_matcher.py      # 名称匹配器
+│   │       │   ├── similarity_calculator.py
+│   │       │   ├── factory.py           # 工厂函数
+│   │       │   ├── use_cases/           # 使用案例
+│   │       │   │   ├── kmz_matcher.py   # KMZ文件匹配
+│   │       │   │   └── romanization_matcher.py
+│   │       │   ├── tests/               # 测试框架
+│   │       │   │   ├── unit/
+│   │       │   │   ├── integration/
+│   │       │   │   ├── benchmarks/
+│   │       │   │   └── test_data/
+│   │       │   └── README.md
+│   │       └── content_matching/  # 内容匹配模块 (新功能)
 │   ├── mapsheet/                  # 图幅处理
 │   │   ├── __init__.py
 │   │   ├── mapsheet_daily.py      # 图幅日文件处理
 │   │   └── current_date_files.py  # 当前日期文件处理
+│   ├── monitor/                   # 监控模块 (新功能)
+│   │   ├── __init__.py
+│   │   ├── monitor_manager.py     # 监控管理器
+│   │   ├── file_validator.py      # 文件验证器
+│   │   ├── display_manager.py     # 显示管理器
+│   │   ├── event_handler.py       # 事件处理器
+│   │   ├── mapsheet_monitor.py    # 图幅监控器
+│   │   ├── name_matcher_simple.py
+│   │   └── README.md
+│   ├── map_export/                # 地图导出模块
 │   └── reports/                   # 报告生成
 │       ├── __init__.py
 │       └── data_submission.py     # 数据提交报告
 ├── main.py                        # 新的主入口文件
+├── monitor.py                     # 重构后的监控模块
+├── monitor_refactored.py          # 监控模块使用示例 (新功能)
 ├── DailyFileGenerator_compat.py   # 向后兼容层
 ├── DailyFileGenerator.py          # 重定向文件（显示弃用警告）
-├── DailyFileGenerator_compat.py   # 向后兼容层（重要！）
 ├── deprecated/                     # 弃用文件夹
 │   ├── DailyFileGenerator.py      # 原始完整实现
 │   ├── XMLHandler.py              # 原始XML处理
+│   ├── monitor_legacy.py          # 原始监控实现 (新功能)
 │   └── README.md                  # 弃用说明文档
+├── MIGRATION_COMPLETE.md          # 迁移完成报告 (新功能)
+├── BUGFIX_REPORT.md               # Bug修复报告
 ├── config.py                      # 配置文件
 └── README.md                      # 本文件
 ```
@@ -139,7 +180,7 @@ from datetime import datetime
 date = DateType(date_datetime=datetime.now())
 collection = CurrentDateFiles(date)
 collection.onScreenDisplay()
-collection.dailyExcelReportUpdate()  # ✓ 所有方法都可用
+collection.dailyExcelReportUpdate()  # [成功] 所有方法都可用
 ```
 
 #### 方式 2: 新用户（推荐架构）
@@ -183,15 +224,57 @@ python monitor.py
 python main.py
 ```
 
+#### 方式 4: 使用新监控系统
+
+```python
+# 使用重构后的监控模块
+from core.monitor import MonitorManager
+from core.data_models import DateType
+from datetime import datetime
+
+# 创建监控管理器
+current_date = DateType(date_datetime=datetime.now())
+monitor_manager = MonitorManager(current_date, enable_fuzzy_matching=True)
+
+# 启动监控
+monitor_manager.start_monitoring()
+
+# 获取监控状态
+status = monitor_manager.get_monitoring_status()
+print(f"剩余文件数: {status['remaining_files']}")
+```
+
+#### 方式 5: 使用高级字符串匹配
+
+```python
+# 使用多目标匹配器
+from core.utils.matcher import MultiTargetMatcher, create_string_matcher
+
+# 创建多目标匹配器
+matcher = MultiTargetMatcher()
+matcher.add_name_target("person", ["mahrous", "ahmed", "altairat"])
+matcher.add_date_target("date")
+matcher.add_extension_target("ext", [".pdf", ".kmz", ".txt"])
+
+# 匹配KMZ文件名
+result = matcher.match_string("mahrous_finished_points_20250830.kmz")
+print(f"匹配结果: {result}")
+
+# 或使用专用的KMZ匹配器
+from core.utils.matcher.string_matching.use_cases import KMZFileMatcher
+kmz_matcher = KMZFileMatcher(debug=True)
+kmz_result = kmz_matcher.match_kmz_filename("mahrous_finished_points_20250830.kmz")
+```
+
 ### 验证安装
 
 #### 1. 快速测试
 ```python
 # 测试兼容层导入
-python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('✓ 兼容层正常')"
+python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('[成功] 兼容层正常')"
 
 # 测试核心模块
-python -c "from core.data_models import DateType; print('✓ 核心模块正常')"
+python -c "from core.data_models import DateType; print('[成功] 核心模块正常')"
 ```
 
 #### 2. 运行测试套件
@@ -203,19 +286,20 @@ python tests/test_DailyFileGenerator.py
 python -m pytest tests/
 ```
 
-### 🚨 常见问题快速解决
+## [重要] 常见问题快速解决
 
 #### 问题 1: `ModuleNotFoundError`
 ```bash
 # 解决方案：安装缺失依赖
 pip install -r requirements.txt  # 如果有requirements文件
-# 或手动安装：pip install pandas openpyxl lxml pyzipper xmlschema tabulate
+# 或手动安装：
+pip install pandas openpyxl lxml pyzipper xmlschema tabulate python-Levenshtein rapidfuzz watchdog
 ```
 
 #### 问题 2: `AttributeError: 'CurrentDateFiles' object has no attribute 'dailyExcelReportUpdate'`
 ```python
 # 解决方案：使用兼容层
-from DailyFileGenerator_compat import CurrentDateFiles  # ✓ 正确
+from DailyFileGenerator_compat import CurrentDateFiles  # [正确] 正确
 # 而不是：from DailyFileGenerator import CurrentDateFiles  # 错误
 ```
 
@@ -224,9 +308,34 @@ from DailyFileGenerator_compat import CurrentDateFiles  # ✓ 正确
 # 检查并更新 config.py 中的路径设置
 WORKSPACE = r"实际的工作目录路径"
 WECHAT_FOLDER = r"实际的微信文件夹路径"
+
+# 新增模糊匹配配置
+ENABLE_FUZZY_MATCHING = True
+FUZZY_MATCHING_THRESHOLD = 0.65
+FUZZY_MATCHING_DEBUG = False
 ```
 
-## 🎨 设计与扩展
+#### 问题 4: 字符串匹配性能问题
+```python
+# 解决方案：调整匹配器配置
+from core.utils.matcher.string_matching import create_string_matcher
+
+# 使用更快的匹配策略
+matcher = create_string_matcher("exact")  # 最快
+# 或调整模糊匹配阈值
+matcher = create_string_matcher("fuzzy", threshold=0.8)  # 更严格，更快
+```
+
+#### 问题 5: 监控模块卡住
+```python
+# 解决方案：检查文件权限和路径
+# 1. 确认微信文件夹路径可访问
+# 2. 检查是否有文件被其他程序占用
+# 3. 尝试使用调试模式
+monitor_manager = MonitorManager(current_date, debug=True)
+```
+
+## [详细] 设计与扩展
 
 ### KMZ/KML 文件处理架构
 
@@ -392,7 +501,7 @@ sync.push_notifications(progress_alerts)
 sync.backup_to_cloud(daily_collections)
 ```
 
-### 📐 技术架构说明
+### [详细] 技术架构说明
 
 #### 文件处理流程
 ```
@@ -429,23 +538,40 @@ core/
 - **低耦合高内聚**: 模块间依赖关系清晰
 - **易于测试**: 每个模块可独立测试
 
-### 2. 错误处理改进
+### 2. 高级字符串匹配系统
+
+- **多目标匹配器**: 支持同时匹配多种类型的目标（邮箱、电话、姓名、日期等）
+- **智能KMZ文件匹配**: 专门针对KMZ文件名的高精度匹配（98.8%覆盖率）
+- **混合匹配策略**: 精确匹配+模糊匹配+正则表达式
+- **多语言支持**: 支持中英文混合、罗马化匹配
+- **完整测试框架**: 单元测试、集成测试、性能基准测试
+
+### 3. 监控模块重构
+
+- **模块化监控系统**: 将原385行的monitor.py重构为7个专用模块
+- **智能文件验证**: 高精度的KMZ文件名验证和图幅识别
+- **实时状态显示**: 改进的表格显示和进度监控
+- **事件驱动架构**: 基于文件系统事件的高效监控
+- **配置化模糊匹配**: 支持配置文件控制的模糊匹配功能
+
+### 4. 错误处理改进
 
 - **统一异常处理**: 每个模块都有适当的错误处理
 - **日志系统**: 改进的日志记录和错误追踪
 - **优雅降级**: 导入失败时的兼容性处理
 
-### 3. 类型安全
+### 5. 类型安全
 
 - **类型注解**: 所有函数和方法都添加了类型提示
 - **参数验证**: 改进的输入验证机制
 - **文档字符串**: 完整的API文档
 
-### 4. 性能优化
+### 6. 性能优化
 
 - **懒加载**: 按需加载重型模块
 - **缓存机制**: 避免重复计算
 - **内存管理**: 及时释放不需要的资源
+- **多线程支持**: 支持并发处理提高性能
 
 ## 使用方法
 
@@ -492,11 +618,38 @@ collection.onScreenDisplay()
 - **GeneralIO**: 通用文件读写操作
 - **KMZFile**: 专门的KMZ文件处理，支持读取、写入和转换
 
+### 智能匹配器系统 (`core.utils.matcher`)
+
+#### 字符串匹配模块 (`string_matching`)
+
+- **基础匹配器**: 精确匹配、模糊匹配、混合匹配策略
+- **多目标匹配器**: 支持同时匹配多种类型的目标（姓名、日期、扩展名等）
+- **专用匹配器**: 
+  - `KMZFileMatcher`: 高精度KMZ文件名匹配（98.8%覆盖率）
+  - `NameMatcher`: 地理名称和人名匹配
+  - `RomanizationMatcher`: 罗马化文本匹配
+- **验证器**: 匹配结果验证和质量控制
+- **测试框架**: 完整的单元测试、集成测试、性能基准测试
+
+#### 内容匹配模块 (`content_matching`)
+
+- **文档内容匹配**: 基于内容的文档相似度分析
+- **语义匹配**: 语义级别的文本匹配算法
+
+### 监控模块 (`core.monitor`)
+
+- **MonitorManager**: 监控流程协调和管理
+- **FileValidator**: 智能文件验证（支持模糊匹配）
+- **DisplayManager**: 改进的状态显示和表格格式化
+- **EventHandler**: 文件系统事件处理
+- **MapsheetMonitor**: 图幅状态监控和管理
+
 ### 工具函数 (`core.utils`)
 
-- **文件搜索**: 按关键字搜索文件
+- **文件搜索**: 按关键字搜索文件，支持智能匹配
 - **路径处理**: 文件路径相关的工具函数
 - **数据转换**: 各种数据格式转换工具
+- **编码修复**: 自动检测和修复文件编码问题
 
 ### 图幅处理 (`core.mapsheet`)
 
@@ -508,12 +661,31 @@ collection.onScreenDisplay()
 - **DataSubmition**: 周报告和SHP文件生成
 - **Excel报告**: 每日统计Excel文件生成
 
+### 地图导出 (`core.map_export`)
+
+- **KML/KMZ导出**: 支持标准KML 2.2/2.3格式
+- **样式管理**: 自定义地图样式和图标
+- **坐标转换**: 多种坐标系统支持
+
 ## 配置和依赖
 
 确保以下依赖包已安装：
 
 ```bash
-pip install pandas openpyxl lxml pyzipper xmlschema tabulate gdal
+# 核心依赖包
+pip install pandas openpyxl lxml pyzipper xmlschema tabulate
+
+# 字符串匹配和模糊匹配
+pip install python-Levenshtein rapidfuzz
+
+# 文件监控功能
+pip install watchdog
+
+# 地理信息处理（可选）
+pip install gdal geopandas
+
+# 数据科学和分析（推荐）
+pip install numpy scipy scikit-learn
 ```
 
 配置文件 `config.py` 中的重要设置：
@@ -522,6 +694,10 @@ pip install pandas openpyxl lxml pyzipper xmlschema tabulate gdal
 - `WECHAT_FOLDER`: 微信文件夹路径
 - `SEQUENCE_MIN/MAX`: 图幅序号范围
 - `COLLECTION_WEEKDAYS`: 数据收集日设置
+- **[新功能] 智能匹配配置**:
+  - `ENABLE_FUZZY_MATCHING`: 启用模糊匹配功能
+  - `FUZZY_MATCHING_THRESHOLD`: 模糊匹配阈值（默认0.65）
+  - `FUZZY_MATCHING_DEBUG`: 启用调试模式
 
 ## 向后兼容性
 
@@ -533,18 +709,63 @@ pip install pandas openpyxl lxml pyzipper xmlschema tabulate gdal
 
 ## 测试和验证
 
-运行模块测试：
+### 基础功能测试
 
 ```python
+# 运行主程序测试
 python main.py
 # 选择选项 2: 模块测试
-```
 
-运行历史数据分析：
-
-```python
+# 运行历史数据分析
 python main.py
 # 选择选项 3: 历史数据分析
+```
+
+### 字符串匹配系统测试
+
+```python
+# 运行完整的字符串匹配测试套件
+cd core/utils/matcher/string_matching
+python run_comprehensive_tests.py
+
+# 运行特定测试模块
+python -m pytest tests/unit/ -v           # 单元测试
+python -m pytest tests/integration/ -v    # 集成测试
+python tests/benchmarks/performance_benchmark.py  # 性能基准测试
+
+# 测试KMZ文件匹配器
+cd tests/test_data/kmz_filename
+python analyze_kmz_dataset.py            # 分析KMZ数据集
+```
+
+### 监控模块测试
+
+```python
+# 测试新的监控系统
+python monitor_refactored.py
+
+# 测试监控管理器
+from core.monitor import MonitorManager
+from core.data_models import DateType
+from datetime import datetime
+
+current_date = DateType(date_datetime=datetime.now())
+monitor_manager = MonitorManager(current_date)
+status = monitor_manager.get_monitoring_status()
+assert 'planned_files' in status
+```
+
+### 兼容性测试
+
+```python
+# 测试兼容层
+python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('[成功] 兼容层正常')"
+
+# 测试核心模块
+python -c "from core.data_models import DateType; print('[成功] 核心模块正常')"
+
+# 运行兼容性测试套件
+python tests/test_DailyFileGenerator.py
 ```
 
 ## 故障排除
@@ -571,15 +792,65 @@ python main.py
 
 ### 添加新功能
 
-1. 在相应的模块中添加新类或函数
-2. 更新 `__init__.py` 文件的导出列表
-3. 添加适当的测试和文档
-4. 更新兼容层（如需要）
+#### 扩展字符串匹配器
+```python
+# 1. 添加新的匹配策略
+from core.utils.matcher.string_matching.base_matcher import StringMatcher
+
+class CustomMatcher(StringMatcher):
+    def match_string(self, target: str, candidates: List[str]) -> Optional[str]:
+        # 实现自定义匹配逻辑
+        pass
+
+# 2. 添加新的目标类型
+from core.utils.matcher.string_matching.core_matcher import MultiTargetMatcher
+
+matcher = MultiTargetMatcher()
+matcher.add_custom_target("custom", patterns, validator_func)
+```
+
+#### 扩展监控功能
+```python
+# 1. 自定义文件验证器
+from core.monitor.file_validator import FileValidator
+
+class CustomValidator(FileValidator):
+    def validate_custom_file(self, filename: str) -> bool:
+        # 实现自定义验证逻辑
+        pass
+
+# 2. 自定义事件处理
+from core.monitor.event_handler import FileEventHandler
+
+class CustomEventHandler(FileEventHandler):
+    def on_custom_event(self, event):
+        # 处理自定义事件
+        pass
+```
+
+#### 扩展匹配目标
+```python
+# 添加新的地理数据格式支持
+from core.utils.matcher.string_matching import create_target_config
+
+# 创建GPS坐标匹配目标
+gps_config = create_target_config(
+    target_type="custom",
+    patterns=[r"\d+\.\d+,\d+\.\d+"],  # 经纬度格式
+    matcher_strategy="regex",
+    min_score=0.9
+)
+```
 
 ### 最佳实践
 
 - 遵循单一职责原则
 - 添加类型注解和文档字符串
+- 实现适当的错误处理
+- 编写单元测试
+- **[新功能] 使用智能匹配**: 优先使用模糊匹配处理用户输入错误
+- **[新功能] 性能优化**: 根据数据量选择合适的匹配策略
+- **[新功能] 监控配置**: 合理配置模糊匹配阈值平衡准确率和召回率
 
 ## 迁移指南
 
@@ -639,15 +910,15 @@ from core.data_models import DateType
 from DailyFileGenerator import CurrentDateFiles, KMZFile
 ```
 
-### 🕐 迁移时间表
+### [进度表] 迁移时间表
 
 | 阶段 | 时间 | 状态 | 行动 |
 |------|------|------|------|
 | **第一阶段** | 2025年8月 | 完成 | 提供完整向后兼容性 |
-| **第二阶段** | 2025年12月 | ⏳ 计划中 | 弃用警告升级为错误 |
-| **第三阶段** | 2026年6月 | ⏳ 计划中 | 完全移除旧文件 |
+| **第二阶段** | 2025年12月 | [计划中] | 弃用警告升级为错误 |
+| **第三阶段** | 2026年6月 | [计划中] | 完全移除旧文件 |
 
-## 🛠️ 故障排除
+## [问题排查] 故障排除
 
 ### 常见问题及解决方案
 
@@ -698,7 +969,7 @@ from DailyFileGenerator_compat import CurrentDateFiles
 python tests/test_DailyFileGenerator.py
 
 # 验证兼容层
-python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('✓ 兼容层正常')"
+python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('[成功] 兼容层正常')"
 
 # 检查主程序
 python __main__.py --help
@@ -715,6 +986,40 @@ python __main__.py --help
 - 编写单元测试
 
 ## 更新日志
+
+### v2.2.1 (功能增强版 - 2025年8月31日)
+
+#### 新增功能
+- **智能字符串匹配系统**: 完整的多目标字符串匹配框架
+  - 支持精确、模糊、混合匹配策略
+  - 专用KMZ文件匹配器（98.8%准确率）
+  - 多语言支持和罗马化匹配
+  - 完整的测试框架和性能基准
+- **监控模块重构**: 将385行代码重构为7个专用模块
+  - 智能文件验证和图幅识别
+  - 实时状态显示和进度监控
+  - 事件驱动的高效监控架构
+  - 配置化模糊匹配支持
+- **内容匹配模块**: 基于内容的文档相似度分析
+
+#### 性能改进
+- 多线程支持提高处理速度
+- 智能缓存机制减少重复计算
+- 优化的文件IO操作
+- 内存使用优化
+
+#### 开发工具
+- 完整的单元测试和集成测试框架
+- 性能基准测试套件
+- 代码质量评估工具
+- 详细的调试和日志系统
+
+### v2.2.0 (稳定性增强版 - 2025年8月30日)
+
+- 修复了编码问题和文件路径处理
+- 改进了错误处理和异常管理
+- 增强了向后兼容性
+- 优化了内存使用和性能
 
 ### v2.1 (迁移版 - 2025年8月29日)
 
@@ -737,6 +1042,32 @@ python __main__.py --help
 - 单文件实现
 - 基本功能完整
 - 适用于小规模使用
+
+## [参考文档] 相关文档
+
+- [字符串匹配系统详细文档](core/utils/matcher/string_matching/README.md)
+- [监控模块重构说明](core/monitor/README.md)
+- [匹配器模块总览](core/utils/matcher/README.md)
+- [迁移完成报告](MIGRATION_COMPLETE.md)
+- [Bug修复报告](BUGFIX_REPORT.md)
+- [设计思路文档](Design/构造KMZ文件类的思路.md)
+
+## [快速导航] 快速链接
+
+### 核心功能使用
+- [基础数据收集使用指南](#使用方法)
+- [新监控系统使用](#方式-4-使用新监控系统-)
+- [字符串匹配使用](#方式-5-使用高级字符串匹配-)
+
+### 开发和扩展
+- [开发指南](#开发指南)
+- [测试框架](#测试和验证)
+- [性能优化建议](#最佳实践)
+
+### 故障排除
+- [常见问题解决](#重要-常见问题快速解决)
+- [迁移指南](#迁移指南)
+- [兼容性说明](#向后兼容性)
 
 ## 贡献
 

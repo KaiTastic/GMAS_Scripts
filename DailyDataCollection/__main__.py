@@ -7,17 +7,29 @@ from config import *
 from DailyFileGenerator_compat import *
 from tabulate import tabulate
 
-# 增强输出编码支持，确保中文字符正确显示
-sys.stdout.reconfigure(encoding='utf-8')
+# 导入编码修复器
+from core.utils.encoding_fixer import setup_encoding, safe_print
 
-# 配置日志
+# 设置UTF-8编码环境
+setup_encoding()
+
+# 增强输出编码支持，确保中文字符正确显示
+import io
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
+# 设置环境变量确保一致的UTF-8编码
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# 配置日志 - 确保所有处理器都使用UTF-8编码
+file_handler = logging.FileHandler('gmas_collection.log', encoding='utf-8')
+console_handler = logging.StreamHandler()
+console_handler.setStream(sys.stdout)  # 使用已重新配置的stdout
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('gmas_collection.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    handlers=[file_handler, console_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -247,7 +259,7 @@ def start_new_monitoring(date_datetype, endtime, executor):
     """
     try:
         logger.info("使用重构后的监控模块启动监控...")
-        print("使用新版模块化监控系统")
+        safe_print("使用新版模块化监控系统")
         
         # 从配置文件导入模糊匹配设置
         from config import ENABLE_FUZZY_MATCHING, FUZZY_MATCHING_THRESHOLD, FUZZY_MATCHING_DEBUG
@@ -261,11 +273,11 @@ def start_new_monitoring(date_datetype, endtime, executor):
         
         # 显示模糊匹配配置
         if ENABLE_FUZZY_MATCHING:
-            print(f"模糊匹配已启用 (阈值: {FUZZY_MATCHING_THRESHOLD})")
+            safe_print(f"模糊匹配已启用 (阈值: {FUZZY_MATCHING_THRESHOLD})")
             if FUZZY_MATCHING_DEBUG:
-                print("模糊匹配调试模式已启用")
+                safe_print("模糊匹配调试模式已启用")
         else:
-            print("使用精确匹配模式")
+            safe_print("使用精确匹配模式")
         
         # 定义完成后的处理函数
         def post_processing():

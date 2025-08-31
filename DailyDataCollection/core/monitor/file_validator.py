@@ -11,6 +11,12 @@ from typing import List, Optional
 from ..data_models.date_types import DateType
 from ..utils.matcher.string_matching import NameMatcher, HybridNameMatcher, ExactNameMatcher, FuzzyNameMatcher
 
+# 导入编码修复器
+try:
+    from ..utils.encoding_fixer import safe_print
+except ImportError:
+    safe_print = print
+
 
 class FileValidator(ABC):
     """文件验证器基类"""
@@ -75,20 +81,20 @@ class KMZFileValidator(FileValidator):
         """验证文件名中的日期信息"""
         date_match = re.search(r'\d{8}', filename)
         if not date_match:
-            print(f"文件名日期格式错误(不正确/不足8位): {filename}")
+            safe_print(f"文件名日期格式错误(不正确/不足8位): {filename}")
             return False
         
         try:
             file_date = datetime.strptime(date_match.group(), "%Y%m%d")
         except ValueError:
-            print(f"文件名中的日期不合法: {filename}")
+            safe_print(f"文件名中的日期不合法: {filename}")
             return False
         
         # 文件日期应该大于等于当前日期
         if file_date.date() >= self.current_date.date_datetime.date():
             return True
         else:
-            print(f"无法从文件名匹配到有效日期（日期格式错误/日期不为当天/日期不为下一天): {filename}")
+            safe_print(f"无法从文件名匹配到有效日期（日期格式错误/日期不为当天/日期不为下一天): {filename}")
             return False
     
     def _validate_mapsheet_name(self, filename: str) -> bool:
@@ -98,11 +104,11 @@ class KMZFileValidator(FileValidator):
         
         if matched_mapsheet:
             if self.debug:
-                print(f"图幅匹配成功: {filename} -> {matched_mapsheet}")
+                safe_print(f"图幅匹配成功: {filename} -> {matched_mapsheet}")
             return True
         else:
             if self.debug:
-                print(f"文件名中没有包含有效的图幅名称: {filename}")
+                safe_print(f"文件名中没有包含有效的图幅名称: {filename}")
             return False
     
     def validate_finished_file(self, filename: str, use_fuzzy: bool = None) -> bool:
@@ -155,7 +161,7 @@ class KMZFileValidator(FileValidator):
         matched_mapsheet = self.name_matcher.match_mapsheet_name(filename, self.valid_mapsheet_names)
         
         if self.debug and matched_mapsheet:
-            print(f"提取图幅名称: {filename} -> {matched_mapsheet}")
+            safe_print(f"提取图幅名称: {filename} -> {matched_mapsheet}")
         
         return matched_mapsheet
     
@@ -188,7 +194,7 @@ class KMZFileValidator(FileValidator):
         
         if matched_pattern:
             if self.debug:
-                print(f"完成点文件模式匹配成功: {filename} -> {matched_pattern}")
+                safe_print(f"完成点文件模式匹配成功: {filename} -> {matched_pattern}")
             return self._validate_finished_date(filename)
         
         return False
@@ -213,7 +219,7 @@ class KMZFileValidator(FileValidator):
         
         if matched_pattern:
             if self.debug:
-                print(f"计划路线文件模式匹配成功: {filename} -> {matched_pattern}")
+                safe_print(f"计划路线文件模式匹配成功: {filename} -> {matched_pattern}")
             return self._validate_plan_date(filename)
         
         return False
@@ -224,7 +230,7 @@ class KMZFileValidator(FileValidator):
         if date_match:
             file_date = datetime.strptime(date_match.group(), "%Y%m%d")
             if file_date.date() != self.current_date.date_datetime.date():
-                print(f"无法从完成点文件名中匹配出有效日期（格式错误/日期不为当天): {filename}")
+                safe_print(f"无法从完成点文件名中匹配出有效日期（格式错误/日期不为当天): {filename}")
                 return False
         return True
     
@@ -234,7 +240,7 @@ class KMZFileValidator(FileValidator):
         if date_match:
             file_date = datetime.strptime(date_match.group(), "%Y%m%d")
             if file_date.date() <= self.current_date.date_datetime.date():
-                print(f"无法从计划路线文件名中匹配出有效日期（格式错误/日期不为下一天): {filename}")
+                safe_print(f"无法从计划路线文件名中匹配出有效日期（格式错误/日期不为下一天): {filename}")
                 return False
         return True
     

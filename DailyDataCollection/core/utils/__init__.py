@@ -5,7 +5,13 @@
 - 文件搜索工具
 - 路径处理工具
 - 数据转换工具
+- 匹配器模块 (matcher)
 """
+
+try:
+    from .matcher import *
+except ImportError:
+    pass
 
 try:
     from .file_utils import (

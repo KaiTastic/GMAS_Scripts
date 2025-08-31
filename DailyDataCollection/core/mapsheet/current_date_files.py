@@ -92,7 +92,19 @@ class CurrentDateFiles:
     def mapsInfo(cls) -> Dict[int, Dict[str, Any]]:
         """从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称"""
         try:
-            df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0)
+            # 使用UTF-8编码读取Excel文件，避免中文乱码
+            df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, 
+                             engine='openpyxl')  # 使用openpyxl引擎以更好支持UTF-8
+            
+            # 确保DataFrame中的字符串列使用UTF-8编码
+            for col in df.select_dtypes(include=['object']).columns:
+                try:
+                    df[col] = df[col].astype(str).apply(
+                        lambda x: x.encode('utf-8').decode('utf-8') if isinstance(x, str) else x
+                    )
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    # 如果编码转换失败，保持原值
+                    pass
             
             # 获取数据帧: 筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
             filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
