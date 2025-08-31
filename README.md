@@ -30,7 +30,7 @@ A comprehensive data collection and processing system for GMAS project that hand
 
 > [ImageCutter/](ImageCutter/)
 
-An automated image segmentation tool designed for processing scanned thin-section images with intelligent calculation capabilities.
+An image segmentation tool designed for processing scanned thin-section images with automatic calculation capabilities.
 
 **Key Features:**
 - Automatic calculation of optimal segmentation parameters
@@ -56,35 +56,3 @@ Tools and utilities for spectral data management and mineral identification.
 **Components:**
 - `FilePicker/`: File filtering and organization scripts
 - `SampleRecognition/`: Sample identification and analysis tools
-
-## Quick Start
-
-1. **Install Dependencies**  
-   Python 3.10 is recommended. Install required packages including GDAL, openpyxl, lxml, watchdog, and tabulate.
-
-   ```sh
-   pip install -r requirements.txt
-   ```
-
-2. **Configure Parameters**  
-   Modify [DailyDataCollection/config.py](DailyDataCollection/config.py) to match your local paths and settings.
-
-3. **Run Main Program**  
-   ```sh
-   python -m DailyDataCollection
-   ```
-
-4. **Check Output**  
-   - Daily reports and statistics are generated in the specified `WORKSPACE` directory
-   - Log output is displayed in the console
-
-## Design and Extension
-
-- KMZ/KML parsing and construction details: [DailyDataCollection/Design/](DailyDataCollection/Design/)
-- Support for custom KML Schema, compatible with KML 2.2/2.3
-- Extensible architecture for additional geospatial data processing, report formats, and automation workflows
-
-## Testing and Contribution
-
-- Unit tests are located in `DailyDataCollection/tests/`
-- Pull requests and issues are welcome
