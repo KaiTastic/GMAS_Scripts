@@ -14,14 +14,19 @@ from openpyxl.styles import Font, Border, Side, Alignment
 from tabulate import tabulate
 
 from ..data_models.observation_data import ObservationData
+from ..data_models.date_types import DateType
 from ..file_handlers.kmz_handler import KMZFile
 from .mapsheet_daily import MapsheetDailyFile
 
 # 导入配置
 try:
-    from config import (
-        WORKSPACE, SHEET_NAMES_FILE, SEQUENCE_MIN, SEQUENCE_MAX
-    )
+    from config.config_manager import ConfigManager
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
+    WORKSPACE = config['system']['workspace']
+    SHEET_NAMES_FILE = config_manager.get_resolved_path('sheet_names_file')
+    SEQUENCE_MIN = config['mapsheet']['sequence_min']
+    SEQUENCE_MAX = config['mapsheet']['sequence_max']
 except ImportError:
     WORKSPACE = ""
     SHEET_NAMES_FILE = ""
@@ -45,7 +50,9 @@ class CurrentDateFiles:
     def __new__(cls, currentdate: 'DateType', *args, **kwargs):
         """单例模式，确保图幅信息只初始化一次"""
         if not hasattr(cls, 'instance'):
-            cls.mapsInfo()
+            # 使用新的图幅管理器
+            from .mapsheet_manager import mapsheet_manager
+            cls.maps_info = mapsheet_manager.maps_info
         cls.instance = super(CurrentDateFiles, cls).__new__(cls)
         return cls.instance
 
@@ -90,72 +97,26 @@ class CurrentDateFiles:
 
     @classmethod
     def mapsInfo(cls) -> Dict[int, Dict[str, Any]]:
-        """从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称"""
-        try:
-            # 使用UTF-8编码读取Excel文件，避免中文乱码
-            df = pd.read_excel(SHEET_NAMES_FILE, sheet_name="Sheet1", header=0, 
-                             engine='openpyxl')  # 使用openpyxl引擎以更好支持UTF-8
-            
-            # 确保DataFrame中的字符串列使用UTF-8编码
-            for col in df.select_dtypes(include=['object']).columns:
-                try:
-                    df[col] = df[col].astype(str).apply(
-                        lambda x: x.encode('utf-8').decode('utf-8') if isinstance(x, str) else x
-                    )
-                except (UnicodeDecodeError, UnicodeEncodeError):
-                    # 如果编码转换失败，保持原值
-                    pass
-            
-            # 获取数据帧: 筛选出 'Sequence' 列值在 SEQUENCE_MIN 和 SEQUENCE_MAX 之间的行
-            filtered_df = df[(df['Sequence'] >= SEQUENCE_MIN) & (df['Sequence'] <= SEQUENCE_MAX)]
-            
-            # 验证数据完整性
-            if len(filtered_df) != SEQUENCE_MAX - SEQUENCE_MIN + 1 or filtered_df['Sequence'].duplicated().any():
-                print("图幅信息有误, 请检查图幅信息表(Sequence值错误: 重复值/缺少定义)\n程序退出")
-                exit()
-            
-            # 判断是否有重复值
-            if filtered_df['Sequence'].duplicated().any():
-                print("图幅信息表中存在重复的图幅序号, 请检查图幅信息表\n程序退出")
-                exit()
-            
-            # 按照 'Sequence' 列值从小到大排序
-            sorted_df = filtered_df.sort_values(by='Sequence')
-            
-            # 构建以 'Sequence' 为键的字典
-            cls.maps_info = {
-                row['Sequence']: {
-                    'Sheet ID': row['Alternative sheet ID'],
-                    'Group': row['Group'],
-                    'File Name': row['File Name'],
-                    'Arabic Name': row['Arabic'],
-                    'Roman Name': row['Roman Name'],
-                    'Latin Name': row['Latin Name'],
-                    'Team Number': row['Team Number'],
-                    'Leaders': row['Leaders'],
-                }
-                for _, row in sorted_df.iterrows()
-            }
-            
-            # 检查是否获取了所有的图幅信息
-            if len(cls.maps_info) != SEQUENCE_MAX - SEQUENCE_MIN + 1:
-                print("图幅信息有误, 请检查图幅信息表\n程序退出")
-                exit()
-                
-        except Exception as e:
-            logger.error(f"读取图幅信息失败: {e}")
-            cls.maps_info = {}
-            
-        return cls.maps_info
+        """
+        从100K图幅名称信息表中获取图幅的罗马名称和拉丁名称
+        
+        注意：此方法已弃用，请使用 mapsheet_manager.maps_info 替代
+        """
+        import warnings
+        warnings.warn(
+            "CurrentDateFiles.mapsInfo() 已弃用，请使用 mapsheet_manager.maps_info",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        from .mapsheet_manager import mapsheet_manager
+        return mapsheet_manager.maps_info
 
     def __datacollect(self) -> 'CurrentDateFiles':
-        """收集当天的所有文件"""
-        # 每次实例化时, 获取当天的所有文件
-        self.currentDateFiles = []
-        for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX + 1):
-            mapsheetFileName = self.__class__.maps_info[sequence]['File Name']
-            mapsheet = MapsheetDailyFile(mapsheetFileName, self.currentDate)
-            self.currentDateFiles.append(mapsheet)
+        """收集当天的所有文件 - 使用统一的图幅管理器"""
+        from .mapsheet_manager import mapsheet_manager
+        # 使用图幅管理器创建图幅对象集合
+        self.currentDateFiles = mapsheet_manager.create_mapsheet_collection(MapsheetDailyFile, self.currentDate)
         return self
 
     @property

@@ -1,0 +1,94 @@
+# GMAS 数据收集系统配置文件
+# V4.0 YAML模块化配置
+
+# 系统基础配置
+system:
+  workspace: "D:\\RouteDesign"
+  current_path: null  # 自动设置为脚本所在目录
+  
+# 平台相关配置
+platform:
+  wechat_folders:
+    windows: "D:\\Users\\lenovo\\Documents\\xwechat_files\\bringsmile_b74d\\msg\\file"
+    macos: ""
+  
+# 监控配置
+monitoring:
+  # 文件夹刷新检查间隔（秒）
+  time_interval_seconds: 10
+  # 监视状态刷新间隔（分钟）
+  status_interval_minutes: 30
+  # 监控结束时间（小时:分钟:秒）
+  end_time:
+    hour: 20
+    minute: 30
+    second: 0
+  # 启用模糊匹配
+  enable_fuzzy_matching: true
+  # 模糊匹配阈值
+  fuzzy_threshold: 0.65
+
+# 图幅序号配置
+mapsheet:
+  # 图幅序号范围（Group 3.2）
+  sequence_min: 41
+  sequence_max: 51
+
+# 数据收集配置
+data_collection:
+  # 文件回溯查找起始日期
+  traceback_date: "20250310"
+  # 数据提交的工作日（周一=0, 周日=6）
+  weekdays: [5]  # 周日
+  # 回溯查找天数
+  traceback_days: 60
+  # 向前查找天数
+  traceforward_days: 7
+  # 每周数据收集日（0=周一, 6=周日）
+  collection_weekdays: [5]  # 周六
+
+# 模糊匹配配置
+fuzzy_matching:
+  # 是否启用模糊匹配
+  enabled: true
+  # 相似度阈值（0.0-1.0）
+  threshold: 0.65
+  # 调试模式
+  debug: false
+
+# 资源文件配置
+resources:
+  # 查询表格文件
+  sheet_names_lut: "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
+  # 图标文件
+  icon_file: "Layer0_Symbol_Square.png"
+  # 制图工程文件夹
+  map_project_folder: "Finished observation points of Group3"
+
+# 文件路径配置（相对于项目根目录）
+file_paths:
+  sheet_names_file: "resource/private/{sheet_names_lut}"
+  icon_file: "resource/render_src/{icon_file}"
+  kml_schema_22: "resource/kml_xsd/220/ogckml22.xsd"
+  kml_schema_23: "resource/kml_xsd/230/ogckml23.xsd"
+
+# 日志配置
+logging:
+  # 默认日志配置
+  default:
+    name: "gmas_logger"
+    log_file: "gmas_collection.log"
+    level: "INFO"
+    max_bytes: 5242880  # 5MB
+    backup_count: 2
+  
+  # 邮件通知配置（可选）
+  email:
+    enabled: false
+    mailhost: "smtp.example.com"
+    port: 587
+    fromaddr: "your_email@example.com"
+    toaddrs: ["recipient@example.com"]
+    subject: "GMAS Application Error"
+    username: "your_email@example.com"
+    password: "your_password"

@@ -14,11 +14,11 @@ from typing import Dict, List, Optional, Any
 from osgeo import ogr, osr
 
 # 导入配置
-try:
-    from config import WORKSPACE, MAP_PROJECT_FOLDER
-except ImportError:
-    WORKSPACE = ""
-    MAP_PROJECT_FOLDER = ""
+from config.config_manager import ConfigManager
+
+config_manager = ConfigManager()
+WORKSPACE = config_manager.get('system.workspace')
+MAP_PROJECT_FOLDER = config_manager.get('paths.map_project_folder', '')
 
 # 创建 logger 实例
 logger = logging.getLogger('Data Submission')

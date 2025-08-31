@@ -1,12 +1,12 @@
 # GMAS Daily Data Collection System - GMAS每日数据收集系统
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.2.1-blue)
+![Version](https://img.shields.io/badge/Version-2.3.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Modular](https://img.shields.io/badge/Architecture-Modular-orange)
-![Compatibility](https://img.shields.io/badge/Backward-Compatible-green)
 ![Matching](https://img.shields.io/badge/Smart%20Matching-98.8%25-yellow)
+![YAML Config](https://img.shields.io/badge/YAML-Configuration-orange)
 ![Rights](https://img.shields.io/badge/Rights-All%20Rights%20Reserved-red)
 
 [English](./README_en.md) | [中文](./README_cn.md)
@@ -29,24 +29,23 @@ pip install python-Levenshtein rapidfuzz watchdog gdal
 
 ### Basic Usage | 基本使用
 
-#### Existing Users (Minimal Changes) | 现有用户（最小修改）
+#### Recommended Usage | 推荐使用方式
 
 ```python
-# Change from | 从以下代码
-# from DailyFileGenerator import CurrentDateFiles, KMZFile
-
-# To | 改为
-from DailyFileGenerator_compat import CurrentDateFiles, KMZFile, DateType
+# Use modern core modules | 使用现代核心模块
+from core.mapsheet import CurrentDateFiles
+from core.file_handlers import KMZFile
+from core.data_models import DateType
 from datetime import datetime
 
-# Code remains unchanged | 其他代码保持不变
+# Create and use objects | 创建和使用对象
 date = DateType(date_datetime=datetime.now())
 collection = CurrentDateFiles(date)
 collection.onScreenDisplay()
 collection.dailyExcelReportUpdate()
 ```
 
-#### New Users (Recommended) | 新用户（推荐）
+#### Alternative Usage | 其他使用方式
 
 ```python
 from core.mapsheet import CurrentDateFiles
@@ -61,12 +60,12 @@ collection.onScreenDisplay()
 
 ## Key Features | 主要功能
 
-### V2.2.1 Features | V2.2.1版本功能
+### V2.3.0 Features | V2.3.0版本功能
 
-- **Modular Architecture | 模块化架构**: Refactored from 1,790-line monolith to specialized modules | 从1,790行单体文件重构为专门模块
+- **Modular Architecture | 模块化架构**: Refactored from monolith to specialized modules | 从单体文件重构为专门模块
 - **Smart String Matching | 智能字符串匹配**: 98.8% accuracy KMZ filename matching | KMZ文件名匹配准确率达98.8%
 - **Intelligent Monitoring | 智能监控**: Real-time file system monitoring with fuzzy matching | 实时文件系统监控，支持模糊匹配
-- **Backward Compatibility | 向后兼容**: Complete compatibility layer for existing code | 为现有代码提供完整兼容层
+- **YAML Configuration | YAML配置**: Modern configuration management system | 现代配置管理系统
 - **Multi-language Support | 多语言支持**: Chinese-English mixed content processing | 中英文混合内容处理
 - **Performance Optimization | 性能优化**: Multi-threading and caching mechanisms | 多线程和缓存机制
 
@@ -118,10 +117,13 @@ monitor_manager.start_monitoring()
 
 ## Project Status | 项目状态
 
+- **✅ YAML Configuration**: Modern YAML-based configuration system | 现代YAML配置系统
+- **✅ Unified MapsheetManager**: Consistent mapsheet handling across modules | 跨模块一致的图幅处理
+- **✅ Project Structure Cleanup**: Redundant files removed, optimized organization | 项目结构清理，优化组织
 - **✅ Modular Refactoring**: Core functionality split into specialized modules | 核心功能拆分为专门模块
-- **✅ Migration Complete**: Backward compatibility ensured | 迁移完成，确保向后兼容
+- **✅ Modern Architecture**: Clean, maintainable codebase design | 现代架构，清洁可维护的代码设计
 - **✅ Smart Matching**: Advanced string matching system deployed | 高级字符串匹配系统部署
-- **✅ Monitor Refactoring**: 385-line monitor.py split into 7 modules | 385行monitor.py拆分为7个模块
+- **✅ Monitor Refactoring**: Monitoring system split into specialized modules | 监控系统拆分为专门模块
 - **🔄 Continuous Improvement**: Ongoing optimization based on usage | 基于使用情况的持续优化
 
 ## Quick Problem Resolution | 常见问题快速解决
@@ -135,8 +137,8 @@ pip install pandas openpyxl lxml pyzipper xmlschema tabulate python-Levenshtein 
 #### AttributeError: 'CurrentDateFiles' object has no attribute 'dailyExcelReportUpdate'
 
 ```python
-# Use compatibility layer | 使用兼容层
-from DailyFileGenerator_compat import CurrentDateFiles  # ✅ Correct | 正确
+# Use core modules | 使用核心模块
+from core.mapsheet import CurrentDateFiles  # ✅ Correct | 正确
 # Not: from DailyFileGenerator import CurrentDateFiles  # ❌ Wrong | 错误
 ```
 
@@ -154,14 +156,13 @@ For detailed documentation, please refer to:
 
 - **English Documentation | 英文文档**: [README_en.md](./README_en.md)
 - **Chinese Documentation | 中文文档**: [README_cn.md](./README_cn.md)
-- **Migration Guide | 迁移指南**: [MIGRATION_COMPLETE.md](./MIGRATION_COMPLETE.md)
 - **Bug Fix Report | Bug修复报告**: [BUGFIX_REPORT.md](./BUGFIX_REPORT.md)
 
 ## Testing | 测试
 
 ```bash
 # Quick test | 快速测试
-python -c "from DailyFileGenerator_compat import CurrentDateFiles; print('[Success] System working')"
+python -c "from core.mapsheet import CurrentDateFiles; print('[Success] System working')"
 
 # Run test suite | 运行测试套件
 python tests/test_DailyFileGenerator.py
@@ -172,6 +173,7 @@ cd core/utils/matcher/string_matching && python run_comprehensive_tests.py
 
 ## Version History | 版本历史
 
+- **v2.3.0** (August 31, 2025): YAML configuration system, unified MapsheetManager, project cleanup | YAML配置系统，统一图幅管理器，项目清理
 - **v2.2.1** (August 31, 2025): Smart matching system, monitor refactoring | 智能匹配系统，监控模块重构
 - **v2.2.0** (August 30, 2025): Stability enhancements | 稳定性增强
 - **v2.1** (August 29, 2025): Migration complete with backward compatibility | 迁移完成，向后兼容

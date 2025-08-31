@@ -131,6 +131,10 @@ class FileEventHandler(FileSystemEventHandler):
         """检查收集是否完成"""
         return self.mapsheet_collection.is_collection_complete()
     
+    def is_all_collected(self):
+        """检查是否所有文件都已收集（is_collection_complete的别名）"""
+        return self.is_collection_complete()
+    
     def get_planned_file_count(self):
         """获取计划文件总数"""
         return self.mapsheet_collection.planned_route_file_num

@@ -20,13 +20,12 @@ from ..data_models.observation_data import ObservationData
 from .base_io import GeneralIO
 
 # 导入配置
-try:
-    from config import KML_SCHEMA_22, KML_SCHEMA_23, ICON_1
-except ImportError:
-    # 如果无法导入配置，使用默认值
-    KML_SCHEMA_22 = ""
-    KML_SCHEMA_23 = ""
-    ICON_1 = ""
+from config.config_manager import ConfigManager
+
+config_manager = ConfigManager()
+KML_SCHEMA_22 = config_manager.get('resources.kml_schema_22', '')
+KML_SCHEMA_23 = config_manager.get('resources.kml_schema_23', '')
+ICON_1 = config_manager.get('resources.icon_1', '')
 
 # 创建 logger 实例
 logger = logging.getLogger('KMZ Handler')

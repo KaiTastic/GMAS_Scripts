@@ -1,91 +1,67 @@
-import argparse
-import os
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+GMAS 数据收集系统 - 统一模块化入口 V4.0
+
+完全模块化的主入口文件，支持多种运行模式和命令行参数
+采用现代化的核心模块架构，移除所有向后兼容层
+"""
+
 import sys
+import os
 import logging
-from datetime import datetime
-from config import *
-from DailyFileGenerator_compat import *
-from tabulate import tabulate
+import argparse
+from datetime import datetime, timedelta
+from pathlib import Path
 
-# 导入编码修复器
-from core.utils.encoding_fixer import setup_encoding, safe_print
-
-# 设置UTF-8编码环境
-setup_encoding()
+# 添加项目根目录到Python路径
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 # 增强输出编码支持，确保中文字符正确显示
-import io
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
-
-# 设置环境变量确保一致的UTF-8编码
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
-# 配置日志 - 确保所有处理器都使用UTF-8编码
-file_handler = logging.FileHandler('gmas_collection.log', encoding='utf-8')
-console_handler = logging.StreamHandler()
-console_handler.setStream(sys.stdout)  # 使用已重新配置的stdout
-
+# 配置日志
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[file_handler, console_handler]
+    handlers=[
+        logging.FileHandler('gmas_collection.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
+
 logger = logging.getLogger(__name__)
 
-# 尝试导入重构后的监控模块，如果失败则使用传统版本
-try:
-    from core.monitor import MonitorManager
-    MONITOR_VERSION = "NEW"
-    logger.info("成功导入重构后的监控模块")
-except ImportError as e:
-    logger.warning(f"无法导入重构后的监控模块: {e}")
-    try:
-        from deprecated.monitor_legacy import DataHandler
-        MONITOR_VERSION = "LEGACY_DEPRECATED"
-        logger.info("使用deprecated目录中的传统监控模块")
-    except ImportError:
-        try:
-            from monitor import DataHandler
-            MONITOR_VERSION = "LEGACY_CURRENT"
-            logger.info("使用当前目录中的传统监控模块")
-        except ImportError as e2:
-            logger.error(f"无法导入任何监控模块: {e2}")
-            MONITOR_VERSION = "NONE"
+# 导入新的配置系统和模块
+from config import ConfigManager
+from tabulate import tabulate
+
+# 初始化配置管理器
+config_manager = ConfigManager()
+config = config_manager.get_config()
+
+# 导入重构后的核心模块 - 完全模块化，无向后兼容
+from core.mapsheet import CurrentDateFiles
+from core.data_models import DateIterator, DateType
+from core.file_handlers import KMZFile
+from core.reports import DataSubmition
+from core.monitor import MonitorManager
+from core.utils import list_fullpath_of_files_with_keywords, find_files_with_max_number
+
+logger.info("所有核心模块导入成功 - 完全模块化结构")
 
 
-# from contextlib import contextmanager
+# ============================================================================
+# 辅助函数和验证器
+# ============================================================================
 
-# @contextmanager
-# def redirect_stdout_to_file(file_path):
-#     """
-#     重定向标准输出到文件
-#     :param file_path: 输出文件路径
-#     """
-#     if file_path.lower() == 'default':
-#         file_path = os.path.join(os.getcwd(), "exectue_log.txt")
-
-#     if not os.path.exists(os.path.dirname(file_path)):
-#         os.makedirs(os.path.dirname(file_path))
-
-#     original_stdout = sys.stdout
-#     original_stderr = sys.stderr
-#     try:
-#         with open(file_path, 'w') as f:
-#             sys.stdout = f  # 重定向标准输出到文件
-#             sys.stderr = f  # 重定向标准错误输出到文件
-#             yield
-#     finally:
-#         sys.stdout = original_stdout
-#         sys.stderr = original_stderr
-
-
-
-def validate_date(date_str) -> DateType:
+def validate_date(date_str):
     """
     验证日期字符串的长度和格式
     :param date_str: 输入的日期字符串
-    :param date_format: 日期格式，默认为 'YYYYMMDD'
     :return: 转换后的日期对象
     :raises ValueError: 如果日期格式不正确或长度不符合
     """
@@ -132,167 +108,186 @@ def validate_time(time_str, time_format="%H%M%S"):
         raise ValueError(f"时间不合法或格式不正确, 请确保格式为'{time_format}', 输入值: {time_str}")
 
 
+# ============================================================================
+# 命令行参数解析
+# ============================================================================
+
 def parse_args():
-    """
-    解析命令行参数
-    无参数输入时, 默认--date为当天, 有参数时, 为指定参数
-    """
-    parser = argparse.ArgumentParser(description="处理日期字符串; 是否以监控模式持续监控微信文件夹; 是否停止监控的时间")
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description="GMAS 数据收集系统",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  python __main__.py --date 20250830
+  python __main__.py --date=20250830
+  python __main__.py --monitor --endtime 183000
+  python __main__.py --monitor --endtime=183000
+  python __main__.py --mode test
+  python __main__.py --mode=test
+        """
+    )
+    
     parser.add_argument(
         "--date",
-        nargs='?',
         default=datetime.now().strftime("%Y%m%d"),
-        type=str,
-        help="收集数据的日期, 默认为当天, 8位长度日期字符串, 格式为\'YYYYMMDD\'"
+        help="收集数据的日期，格式为YYYYMMDD (默认: 今天)"
     )
+    
     parser.add_argument(
         "--monitor",
-        nargs='?',
-        default=False,
-        type=validate_bool,
-        help="是否持续监控微信文件夹: 默认为False, 输入\'True(True/1/yes/y)'或\'False(False/0/no/n)'"
+        action='store_true',
+        help="启动文件监控模式"
     )
+    
     parser.add_argument(
         "--endtime",
-        nargs='?',
-        default=None,
-        type=str,
-        help="停止监控的时间, 长度为6位, 格式为\'HHMMSS\'"
+        help="监控停止时间，格式为HHMMSS"
     )
-    # parser.add_argument(
-    #     "--log",
-    #     nargs='?',
-    #     default=None,
-    #     type=str,
-    #     help="日志文件路径, 默认为当前目录下的log.txt"
-    # )
-
-    args = parser.parse_args()
-    date_str = args.date
-    monitor_bool = args.monitor
-    endtime_str = args.endtime
-    # log_file_path = args.log
-
-    # 验证日期字符串的长度和格式
-    try:
-        date_datetype = validate_date(date_str)
-    except ValueError as e:
-        raise ValueError(f"日期验证失败: {e}")
     
-    # 验证停止监控时间格式
-    if endtime_str:
-        try:
-            endtime = validate_time(endtime_str)
-        except ValueError as e:
-            raise ValueError(f"停止监控时间验证失败: {e}")
-    else:
-        endtime = None
-
-    # if log_file_path is not None:
-    #         redirect_stdout_to_file(log_file_path)
-
-    return date_datetype, monitor_bool, endtime
+    parser.add_argument(
+        "--mode",
+        choices=['test', 'analyze', 'testdate'],
+        help="特殊运行模式: test(模块测试), analyze(历史分析), testdate(指定日期测试)"
+    )
+    
+    return parser.parse_args()
 
 
+# ============================================================================
+# 核心功能类
+# ============================================================================
 
-class DataCollectNow():
-
-    def __init__(self, colletionDate: DateType):
+class DataCollector:
+    """数据收集器 - 简化版的数据收集逻辑"""
+    
+    def __init__(self, collection_date):
         """
         初始化数据采集类
-        :param colletionDate: DateType 对象, 包含日期信息
+        :param collection_date: DateType 对象, 包含日期信息
         """
-        self.colletionDate = colletionDate
+        self.collection_date = collection_date
 
     def __call__(self):
-        collection = CurrentDateFiles(self.colletionDate)
-        # 在屏幕上显示文件结果和错误信息
-        collection.onScreenDisplay()
-        print("\n")
-        print(f"文件中存在的错误信息: ")
-        for _ in collection.errorMsg:
-            if _ != None:
-                print(_)
-        print('\n')
+        """执行数据收集"""
+        try:
+            collection = CurrentDateFiles(self.collection_date)
+            
+            # 显示统计信息
+            print("\n" + "="*50)
+            print("GMAS 每日数据收集报告")
+            print("="*50)
+            collection.onScreenDisplay()
+            
+            # 显示错误信息
+            if collection.errorMsg:
+                print(f"\n文件中存在的错误信息:")
+                for error in collection.errorMsg:
+                    if error:
+                        print(f"  - {error}")
+                print()
+            
+            # 生成报告
+            logger.info("生成每日报告...")
+            
+            # 生成KMZ报告
+            if collection.dailyKMZReport():
+                logger.info("KMZ报告生成成功")
+            else:
+                logger.error("KMZ报告生成失败")
+            
+            # 生成Excel报告
+            if collection.dailyExcelReport():
+                logger.info("Excel报告生成成功")
+            else:
+                logger.error("Excel报告生成失败")
+            
+            # 检查是否需要生成周报告
+            if self.collection_date.date_datetime.weekday() in config['data_collection']['weekdays']:
+                print(f'\n今天是{self.collection_date.date_datetime.strftime("%A")}, 需要生成周报\n')
+                logger.info("今天是数据提交日，生成周报告...")
+                submitter = DataSubmition(self.collection_date, collection.allPoints)
+                if submitter.weeklyPointToShp():
+                    logger.info("周报告生成成功")
+                else:
+                    logger.error("周报告生成失败")
+            
+            logger.info("数据收集完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"数据收集过程中发生错误: {e}")
+            return False
 
-        # 将当天的点要素和线要素写入到 KMZ 文件
-        collection.dailyKMZReport()
-        # 生成每日报表的Excel文件
-        collection.dailyExcelReport()
-        # 将当天的点写入到Excel文件
-        collection.dailyExcelReportUpdate()
 
-        # 如果当天是设定的日期, 则将 KMZ 文件转换为 SHP 文件, 并将 SHP 文件拷贝至制图工程文件夹
-        for weekday in COLLECTION_WEEKDAYS:
-            if self.colletionDate.date_datetime.weekday() == weekday:
-                print('\n'*2, f"今天是{self.colletionDate.date_datetime.strftime('%A')}, 需要生成周报", '\n'*2)
-                certainReport = DataSubmition(self.colletionDate, collection.allPoints)
-                certainReport.weeklyPointToShp()
+# ============================================================================
+# 主要功能函数
+# ============================================================================
 
-
-def start_monitoring_with_compatibility(date_datetype, endtime):
-    """
-    启动监控服务，支持新旧版本的自动兼容
-    
-    Args:
-        date_datetype: DateType对象，包含日期信息
-        endtime: 停止监控的时间
-    
-    Returns:
-        bool: 是否成功启动监控
-    """
-    executor = DataCollectNow(date_datetype)
-    
-    if MONITOR_VERSION == "NEW":
-        return start_new_monitoring(date_datetype, endtime, executor)
-    elif MONITOR_VERSION in ["LEGACY_DEPRECATED", "LEGACY_CURRENT"]:
-        return start_legacy_monitoring(date_datetype, endtime, executor)
-    else:
-        logger.error("没有可用的监控模块")
-        print("错误: 无法启动监控服务，没有可用的监控模块")
-        return False
-
-
-def start_new_monitoring(date_datetype, endtime, executor):
-    """
-    使用新的模块化监控系统
-    """
+def collect_data(date_str: str = None):
+    """正常数据收集模式"""
     try:
-        logger.info("使用重构后的监控模块启动监控...")
-        safe_print("使用新版模块化监控系统")
+        if date_str:
+            current_date = validate_date(date_str)
+        else:
+            current_date = DateType(date_datetime=datetime.now())
+            
+        logger.info(f"开始数据收集 - 日期: {current_date.yyyymmdd_str}")
         
-        # 从配置文件导入模糊匹配设置
-        from config import ENABLE_FUZZY_MATCHING, FUZZY_MATCHING_THRESHOLD, FUZZY_MATCHING_DEBUG
+        collector = DataCollector(current_date)
+        success = collector()
         
-        # 创建监控管理器（使用配置文件中的模糊匹配设置）
+        return 0 if success else 1
+        
+    except Exception as e:
+        logger.error(f"数据收集失败: {e}")
+        return 1
+
+
+def start_monitoring(date_str: str = None, endtime_str: str = None):
+    """启动文件监控服务"""
+    try:
+        if date_str:
+            current_date = validate_date(date_str)
+        else:
+            current_date = DateType(date_datetime=datetime.now())
+            
+        logger.info(f"启动文件监控服务 - 监控日期: {current_date.yyyymmdd_str}")
+        
+        # 处理结束时间
+        if endtime_str:
+            endtime = validate_time(endtime_str)
+            end_datetime = datetime.combine(current_date.date_datetime.date(), endtime)
+        else:
+            end_datetime = config_manager.get_monitor_endtime()
+        
+        # 创建监控管理器
         monitor_manager = MonitorManager(
-            current_date=date_datetype,
-            enable_fuzzy_matching=ENABLE_FUZZY_MATCHING,
-            fuzzy_threshold=FUZZY_MATCHING_THRESHOLD
+            current_date=current_date,
+            enable_fuzzy_matching=config['monitoring']['enable_fuzzy_matching'],
+            fuzzy_threshold=config['monitoring']['fuzzy_threshold']
         )
         
         # 显示模糊匹配配置
-        if ENABLE_FUZZY_MATCHING:
-            safe_print(f"模糊匹配已启用 (阈值: {FUZZY_MATCHING_THRESHOLD})")
-            if FUZZY_MATCHING_DEBUG:
-                safe_print("模糊匹配调试模式已启用")
+        print("启动监控系统...")
+        if config['monitoring']['enable_fuzzy_matching']:
+            print(f"模糊匹配已启用 (阈值: {config['monitoring']['fuzzy_threshold']})")
         else:
-            safe_print("使用精确匹配模式")
+            print("使用精确匹配模式")
+        
+        print(f"监控日期: {current_date.yyyymmdd_str}")
+        print(f"预计结束时间: {end_datetime.strftime('%H:%M:%S')}")
+        print("按 Ctrl+C 可以手动停止监控\n")
         
         # 定义完成后的处理函数
         def post_processing():
             logger.info("文件监控完成，开始执行数据收集...")
             try:
-                executor()
+                collector = DataCollector(current_date)
+                collector()
                 logger.info("数据收集任务完成")
             except Exception as e:
                 logger.error(f"数据收集任务执行出错: {e}")
-        
-        # 构建结束时间
-        if endtime:
-            end_datetime = datetime.combine(date_datetype.date_datetime.date(), endtime)
-        else:
-            end_datetime = MONITOR_ENDTIME
         
         # 启动监控
         monitor_manager.start_monitoring(
@@ -300,85 +295,216 @@ def start_new_monitoring(date_datetype, endtime, executor):
             end_time=end_datetime
         )
         
-        logger.info("新版监控服务已结束")
+        logger.info("文件监控服务已结束")
         return True
         
     except Exception as e:
-        logger.error(f"新版监控启动失败: {e}")
-        logger.info("尝试回退到传统监控模块...")
-        return start_legacy_monitoring(date_datetype, endtime, executor)
-
-
-def start_legacy_monitoring(date_datetype, endtime, executor):
-    """
-    使用传统的监控系统
-    """
-    try:
-        logger.info("使用传统监控模块启动监控...")
-        print("使用传统监控系统")
-        
-        # 构建结束时间
-        if endtime:
-            end_datetime = datetime.combine(date_datetype.date_datetime.date(), endtime)
-        else:
-            end_datetime = MONITOR_ENDTIME
-        
-        # 创建传统事件处理器
-        event_handler = DataHandler(currentDate=date_datetype)
-        
-        # 启动传统监控
-        event_handler.obsserverService(
-            event_handler=event_handler, 
-            executor=executor, 
-            endtime=end_datetime
-        )
-        
-        logger.info("传统监控服务已结束")
-        return True
-        
-    except Exception as e:
-        logger.error(f"传统监控启动失败: {e}")
-        print(f"错误: 监控服务启动失败 - {e}")
+        logger.error(f"监控服务启动失败: {e}")
         return False
 
 
-def main():
+def test_modules():
+    """测试重构后的模块"""
+    try:
+        logger.info("开始模块测试...")
+        
+        # 测试工具函数
+        logger.info("✓ 工具函数模块导入成功")
+        
+        # 测试数据模型
+        from core.data_models import ObservationData, FileAttributes, DateIterator
+        logger.info("✓ 数据模型模块导入成功")
+        
+        # 测试文件处理器
+        from core.file_handlers import FileIO, GeneralIO, KMZFile
+        logger.info("✓ 文件处理模块导入成功")
+        
+        # 测试图幅处理
+        from core.mapsheet import MapsheetDailyFile, CurrentDateFiles
+        logger.info("✓ 图幅处理模块导入成功")
+        
+        # 测试报告生成
+        from core.reports import DataSubmition
+        logger.info("✓ 报告生成模块导入成功")
+        
+        # 测试监控模块
+        from core.monitor import MonitorManager
+        logger.info("✓ 监控模块导入成功")
+        
+        print("✅ 所有模块测试通过")
+        logger.info("所有模块测试通过")
+        return True
+        
+    except ImportError as e:
+        print(f"❌ 模块测试失败: {e}")
+        logger.error(f"模块测试失败: {e}")
+        return False
 
-    date_datetype, monitor_bool, endtime = parse_args()
-    print("\n")
-    print(15*"-", "设定日期: ", date_datetype.yyyymmdd_str, f"当前系统时间: {datetime.now().strftime('%H:%M:%S')}", 15*"-", 1*'\n')
 
-    # 显示监控模块版本信息
-    version_info = {
-        "NEW": "重构版模块化监控系统",
-        "LEGACY_DEPRECATED": "传统监控系统 (deprecated目录)",
-        "LEGACY_CURRENT": "传统监控系统 (当前目录)",
-        "NONE": "无可用监控模块"
-    }
-    print(f"监控模块状态: {version_info.get(MONITOR_VERSION, '未知')}")
+def historical_analysis():
+    """历史数据分析"""
+    try:
+        logger.info("开始历史数据分析...")
+        print("\n历史数据分析 - 最近7天统计")
+        print("=" * 50)
+        
+        # 回溯分析最近一周的数据
+        date = DateType(date_datetime=datetime.now())
+        total_increase = 0
+        
+        for i in range(7):  # 分析最近7天
+            if date.date_datetime <= datetime.strptime(config['data_collection']['traceback_date'], "%Y%m%d"):
+                break
+                
+            try:
+                collection = CurrentDateFiles(date)
+                daily_increase = collection.totalDaiyIncreasePointNum
+                total_increase += daily_increase
+                
+                print(f"{date.yyyymmdd_str}: 新增 {daily_increase} 个点")
+                
+            except Exception as e:
+                print(f"{date.yyyymmdd_str}: 分析失败 - {e}")
+                
+            date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
+        
+        print(f"\n最近7天总计新增: {total_increase} 个点")
+        logger.info("历史数据分析完成")
+        return True
+        
+    except Exception as e:
+        logger.error(f"历史数据分析失败: {e}")
+        return False
 
-    if monitor_bool:
-        # 监控模式
-        # 增加一个默认终止时间
-        if endtime is None:
-            endtime = MONITOR_ENDTIME.time()
+
+def test_specific_date(test_date_str: str = None):
+    """测试指定日期的数据收集功能"""
+    try:
+        # 如果没有指定日期，使用默认测试日期
+        if not test_date_str:
+            test_date_str = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
             
-        print(f"以监控模式运行中...\n监控状态刷新间隔为:  {MONITOR_STATUS_INTERVAL_MINUTE}分钟\n监控停止时间为:  {endtime.strftime('%H:%M:%S') if hasattr(endtime, 'strftime') else endtime}\n")
+        logger.info(f"开始测试指定日期数据收集: {test_date_str}")
+        
+        # 创建指定日期的DateType对象
+        test_date = validate_date(test_date_str)
+        logger.info(f"测试日期: {test_date.yyyymmdd_str} ({test_date.date_datetime.strftime('%Y-%m-%d %A')})")
+        
+        # 收集指定日期的数据
+        collection = CurrentDateFiles(test_date)
+        
+        # 显示统计信息
+        print(f"\n指定日期数据收集测试结果 - {test_date_str}")
+        print("=" * 50)
+        collection.onScreenDisplay()
+        
+        # 测试报告生成
+        logger.info("测试KMZ报告生成...")
+        if collection.dailyKMZReport():
+            logger.info("✓ KMZ报告生成成功")
+            print("✅ KMZ报告生成成功")
+        else:
+            logger.warning("✗ KMZ报告生成失败")
+            print("❌ KMZ报告生成失败")
+            
+        logger.info("测试Excel报告生成...")
+        if collection.dailyExcelReport():
+            logger.info("✓ Excel报告生成成功")
+            print("✅ Excel报告生成成功")
+        else:
+            logger.warning("✗ Excel报告生成失败")
+            print("❌ Excel报告生成失败")
+        
+        # 检查是否是数据提交日
+        if test_date.date_datetime.weekday() in config['data_collection']['weekdays']:
+            logger.info("测试日期是数据提交日，测试周报告生成...")
+            submitter = DataSubmition(test_date, collection.allPoints)
+            if submitter.weeklyPointToShp():
+                logger.info("✓ 周报告生成成功")
+                print("✅ 周报告生成成功")
+            else:
+                logger.warning("✗ 周报告生成失败")
+                print("❌ 周报告生成失败")
+        
+        # 显示详细统计
+        print(f"\n详细统计信息:")
+        print(f"总文件数: {len(collection.currentDateFiles)}")
+        print(f"当日新增点数: {collection.totalDaiyIncreasePointNum}")
+        print(f"当日新增线路数: {collection.totalDaiyIncreaseRouteNum}")
+        print(f"截止当日总点数: {collection.totalPointNum}")
+        print(f"截止当日总线路数: {collection.totalRoutesNum}")
+        print(f"当日计划数: {collection.totalDailyPlanNum}")
+        
+        # 检查错误信息
+        errors = collection.errorMsg
+        if errors:
+            logger.warning("发现以下错误:")
+            print("\n发现错误:")
+            for error in errors:
+                if error:
+                    logger.warning(f"  - {error}")
+                    print(f"  - {error}")
+        else:
+            logger.info("✓ 没有发现错误")
+            print("✅ 没有发现错误")
+        
+        logger.info(f"指定日期({test_date_str})数据收集测试完成")
+        return True
+        
+    except Exception as e:
+        logger.error(f"指定日期数据收集测试失败: {e}")
+        print(f"❌ 测试失败: {e}")
+        return False
 
-        # 启动兼容性监控
-        success = start_monitoring_with_compatibility(date_datetype, endtime)
-        if not success:
-            print("监控启动失败，转为非监控模式运行...")
-            logger.warning("监控启动失败，执行单次数据收集")
-            executor = DataCollectNow(date_datetype)
-            executor()
-    else:
-        # 非监控模式
-        print("以非监控模式运行中...")
-        executor = DataCollectNow(date_datetype)
-        executor()
+
+# ============================================================================
+# 主入口函数
+# ============================================================================
+
+def main():
+    """主入口函数"""
+    try:
+        args = parse_args()
+        
+        # 显示系统信息
+        print(f"\n设定日期: {args.date}")
+        print(f"当前系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # 特殊模式处理
+        if args.mode == 'test':
+            print("运行模式: 模块测试")
+            success = test_modules()
+            return 0 if success else 1
+            
+        elif args.mode == 'analyze':
+            print("运行模式: 历史数据分析")
+            success = historical_analysis()
+            return 0 if success else 1
+            
+        elif args.mode == 'testdate':
+            print(f"运行模式: 指定日期测试 ({args.date})")
+            success = test_specific_date(args.date)
+            return 0 if success else 1
+        
+        # 监控模式
+        elif args.monitor:
+            print("运行模式: 文件监控")
+            if args.endtime:
+                print(f"监控停止时间: {args.endtime}")
+            success = start_monitoring(args.date, args.endtime)
+            return 0 if success else 1
+        
+        # 默认数据收集模式
+        else:
+            print("运行模式: 数据收集")
+            return collect_data(args.date)
+            
+    except Exception as e:
+        logger.error(f"程序执行失败: {e}")
+        print(f"❌ 程序执行失败: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-
-    main()
+    exit_code = main()
+    sys.exit(exit_code)

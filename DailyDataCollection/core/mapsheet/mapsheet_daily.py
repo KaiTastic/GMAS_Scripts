@@ -18,8 +18,15 @@ from ..utils.file_utils import list_fullpath_of_files_with_keywords
 
 # 导入配置
 try:
-    from config import WORKSPACE, WECHAT_FOLDER, TRACEBACK_DATE, TRACEFORWARD_DAYS
-    from config import DateType
+    from config.config_manager import ConfigManager
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
+    WORKSPACE = config['system']['workspace']
+    platform_config = config_manager.get_platform_config()
+    WECHAT_FOLDER = platform_config.get('wechat_folder', '')
+    TRACEBACK_DATE = config['data_collection']['traceback_date']
+    TRACEFORWARD_DAYS = config['data_collection']['traceforward_days']
+    from ..data_models.date_types import DateType
 except ImportError:
     WORKSPACE = ""
     WECHAT_FOLDER = ""
@@ -48,12 +55,9 @@ class MapsheetDailyFile:
     def __new__(cls, *args, **kwargs):
         """单例模式，确保图幅信息只初始化一次"""
         if not hasattr(cls, 'instance'):
-            # 延迟导入以避免循环依赖
-            from .current_date_files import CurrentDateFiles
-            if CurrentDateFiles.maps_info:
-                cls.maps_info = CurrentDateFiles.maps_info
-            else:
-                cls.maps_info = CurrentDateFiles.mapsInfo()
+            # 使用新的图幅管理器
+            from .mapsheet_manager import mapsheet_manager
+            cls.maps_info = mapsheet_manager.maps_info
         cls.instance = super(MapsheetDailyFile, cls).__new__(cls)
         return cls.instance
 
@@ -179,16 +183,14 @@ class MapsheetDailyFile:
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 if KMZFile(filepath=file_path).hashMD5 != KMZFile(filepath=fetched_file).hashMD5:
                     # 将获取的文件拷贝至工作文件夹, 并进行了重命名
-                    shutil.copy(fetched_file, file_path)
-                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                    cls._safe_copy_file(fetched_file, file_path)
                     instance.currentfilepath = file_path
                 else:
                     instance.currentfilepath = file_path
-                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                    cls._set_file_permissions(file_path)
             else:
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                shutil.copy(fetched_file, file_path)
-                os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                cls._safe_copy_file(fetched_file, file_path)
                 instance.currentfilepath = file_path
                 
         if instance.currentfilepath:
@@ -200,6 +202,58 @@ class MapsheetDailyFile:
         return cls
 
     @classmethod
+    def _safe_copy_file(cls, source_file: str, dest_file: str, max_retries: int = 3):
+        """安全地复制文件，包含重试机制和权限处理"""
+        import time
+        
+        for attempt in range(max_retries):
+            try:
+                # 检查目标文件是否被占用，如果是则尝试删除
+                if os.path.exists(dest_file):
+                    try:
+                        os.chmod(dest_file, stat.S_IWRITE | stat.S_IREAD)
+                        os.remove(dest_file)
+                    except PermissionError:
+                        logger.warning(f"无法删除已存在的文件 {dest_file}，尝试重命名")
+                        backup_name = f"{dest_file}.backup_{int(time.time())}"
+                        try:
+                            os.rename(dest_file, backup_name)
+                        except PermissionError:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"第 {attempt + 1} 次复制失败，等待1秒后重试...")
+                                time.sleep(1)
+                                continue
+                            else:
+                                raise
+                
+                # 执行文件复制
+                shutil.copy(source_file, dest_file)
+                cls._set_file_permissions(dest_file)
+                logger.info(f"成功复制文件: {source_file} -> {dest_file}")
+                return
+                
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"第 {attempt + 1} 次复制失败 ({e})，等待1秒后重试...")
+                    time.sleep(1)
+                else:
+                    logger.error(f"文件复制失败，已重试 {max_retries} 次: {e}")
+                    raise
+            except Exception as e:
+                logger.error(f"文件复制时发生未预期的错误: {e}")
+                raise
+    
+    @classmethod
+    def _set_file_permissions(cls, file_path: str):
+        """设置文件权限"""
+        try:
+            os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+        except PermissionError as e:
+            logger.warning(f"无法设置文件权限 {file_path}: {e}")
+        except Exception as e:
+            logger.warning(f"设置文件权限时发生错误 {file_path}: {e}")
+
+    @classmethod
     def findlastFinished(cls, instance: 'MapsheetDailyFile') -> None:
         """
         查找上一次完成的文件
@@ -208,12 +262,13 @@ class MapsheetDailyFile:
             instance: MapsheetDailyFile实例
         """
         lastDate_datetime1 = instance.currentDate.date_datetime
+        traceback_date = datetime.strptime(TRACEBACK_DATE, "%Y%m%d").date()
         
-        while lastDate_datetime1 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+        while lastDate_datetime1.date() > traceback_date:
             # Step 1: 在工作文件夹（当前日期）中直接查找
             lastDate_datetime2 = instance.currentDate.date_datetime
             
-            while lastDate_datetime2 > datetime.strptime(TRACEBACK_DATE, "%Y%m%d"):
+            while lastDate_datetime2.date() > traceback_date:
                 lastDate_datetime2 -= timedelta(days=1)
                 search_date_str = lastDate_datetime2.strftime("%Y%m%d")
                 file_path = os.path.join(
