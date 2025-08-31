@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GMAS 数据收集系统 - 统一模块化入口 V4.0
+GMAS 数据收集系统 - 统一模块化入口 V2.0
 
 完全模块化的主入口文件，支持多种运行模式和命令行参数
 采用现代化的核心模块架构，移除所有向后兼容层
@@ -11,7 +11,7 @@ import sys
 import os
 import logging
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 # 添加项目根目录到Python路径
@@ -37,21 +37,16 @@ logger = logging.getLogger(__name__)
 
 # 导入新的配置系统和模块
 from config import ConfigManager
-from tabulate import tabulate
 
 # 初始化配置管理器
 config_manager = ConfigManager()
 config = config_manager.get_config()
 
-# 导入重构后的核心模块 - 完全模块化，无向后兼容
+# 导入核心模块
 from core.mapsheet import CurrentDateFiles
-from core.data_models import DateIterator, DateType
-from core.file_handlers import KMZFile
+from core.data_models import DateType
 from core.reports import DataSubmition
 from core.monitor import MonitorManager
-from core.utils import list_fullpath_of_files_with_keywords, find_files_with_max_number
-
-logger.info("所有核心模块导入成功 - 完全模块化结构")
 
 
 # ============================================================================
@@ -72,23 +67,6 @@ def validate_date(date_str):
         return DateType(date_datetime=date_datetime)
     except ValueError:
         raise ValueError(f"日期不合法或格式不正确, 请确保格式为'YYYYMMDD', 输入值: {date_str}")
-
-
-def validate_bool(value):
-    """
-    将字符串转换为布尔值
-    :param value: 输入的字符串
-    :return: 布尔值
-    :raises ArgumentTypeError: 如果输入值不是合法的布尔值
-    """
-    if isinstance(value, bool):
-        return value
-    if value.lower() in {'true', '1', 'yes', 'y'}:
-        return True
-    elif value.lower() in {'false', '0', 'no', 'n'}:
-        return False
-    else:
-        raise argparse.ArgumentTypeError(f"无效的布尔值: {value}")
 
 
 def validate_time(time_str, time_format="%H%M%S"):
@@ -118,21 +96,19 @@ def parse_args():
         description="GMAS 数据收集系统",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-  python __main__.py --date 20250830
-  python __main__.py --date=20250830
-  python __main__.py --monitor --endtime 183000
-  python __main__.py --monitor --endtime=183000
-  python __main__.py --mode test
-  python __main__.py --mode=test
+        示例:
+        python __main__.py --date 20250830
+        python __main__.py --date=20250830
+        python __main__.py --monitor --endtime 183000
+        python __main__.py --monitor --endtime=183000
         """
-    )
-    
+        )
+
     parser.add_argument(
         "--date",
         default=datetime.now().strftime("%Y%m%d"),
         help="收集数据的日期，格式为YYYYMMDD (默认: 今天)"
-    )
+        )
     
     parser.add_argument(
         "--monitor",
@@ -143,12 +119,6 @@ def parse_args():
     parser.add_argument(
         "--endtime",
         help="监控停止时间，格式为HHMMSS"
-    )
-    
-    parser.add_argument(
-        "--mode",
-        choices=['test', 'analyze', 'testdate'],
-        help="特殊运行模式: test(模块测试), analyze(历史分析), testdate(指定日期测试)"
     )
     
     return parser.parse_args()
@@ -180,10 +150,31 @@ class DataCollector:
             collection.onScreenDisplay()
             
             # 显示错误信息
-            if collection.errorMsg:
+            errors_found = False
+            error_by_team = {}
+            
+            # 直接遍历图幅对象来获取错误信息
+            for mapsheet in collection.currentDateFiles:
+                if hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg:
+                    errors_found = True
+                    # 获取团队信息
+                    team_number = getattr(mapsheet, 'teamNumber', '未知团队')
+                    team_leader = getattr(mapsheet, 'teamleader', '未知负责人')
+                    roman_name = getattr(mapsheet, 'romanName', '未知图幅')
+                    
+                    team_key = f"{team_number} {team_leader}"
+                    
+                    if team_key not in error_by_team:
+                        error_by_team[team_key] = []
+                    
+                    error_by_team[team_key].append(f"{roman_name}: {mapsheet.errorMsg}")
+            
+            if errors_found:
                 print(f"\n文件中存在的错误信息:")
-                for error in collection.errorMsg:
-                    if error:
+                # 按团队显示错误信息
+                for team_info, errors in error_by_team.items():
+                    print(f"\n{team_info}:")
+                    for error in errors:
                         print(f"  - {error}")
                 print()
             
@@ -239,8 +230,13 @@ def collect_data(date_str: str = None):
         
         return 0 if success else 1
         
+    except ValueError as ve:
+        logger.error(f"日期验证失败: {ve}")
+        print(f"日期验证失败: {ve}")
+        return 1
     except Exception as e:
         logger.error(f"数据收集失败: {e}")
+        print(f"数据收集失败: {e}")
         return 1
 
 
@@ -256,8 +252,13 @@ def start_monitoring(date_str: str = None, endtime_str: str = None):
         
         # 处理结束时间
         if endtime_str:
-            endtime = validate_time(endtime_str)
-            end_datetime = datetime.combine(current_date.date_datetime.date(), endtime)
+            try:
+                endtime = validate_time(endtime_str)
+                end_datetime = datetime.combine(current_date.date_datetime.date(), endtime)
+            except ValueError as ve:
+                logger.error(f"时间格式错误: {ve}")
+                print(f"时间格式错误: {ve}")
+                return False
         else:
             end_datetime = config_manager.get_monitor_endtime()
         
@@ -298,162 +299,13 @@ def start_monitoring(date_str: str = None, endtime_str: str = None):
         logger.info("文件监控服务已结束")
         return True
         
+    except ValueError as ve:
+        logger.error(f"日期验证失败: {ve}")
+        print(f"日期验证失败: {ve}")
+        return False
     except Exception as e:
         logger.error(f"监控服务启动失败: {e}")
-        return False
-
-
-def test_modules():
-    """测试重构后的模块"""
-    try:
-        logger.info("开始模块测试...")
-        
-        # 测试工具函数
-        logger.info("✓ 工具函数模块导入成功")
-        
-        # 测试数据模型
-        from core.data_models import ObservationData, FileAttributes, DateIterator
-        logger.info("✓ 数据模型模块导入成功")
-        
-        # 测试文件处理器
-        from core.file_handlers import FileIO, GeneralIO, KMZFile
-        logger.info("✓ 文件处理模块导入成功")
-        
-        # 测试图幅处理
-        from core.mapsheet import MapsheetDailyFile, CurrentDateFiles
-        logger.info("✓ 图幅处理模块导入成功")
-        
-        # 测试报告生成
-        from core.reports import DataSubmition
-        logger.info("✓ 报告生成模块导入成功")
-        
-        # 测试监控模块
-        from core.monitor import MonitorManager
-        logger.info("✓ 监控模块导入成功")
-        
-        print("✅ 所有模块测试通过")
-        logger.info("所有模块测试通过")
-        return True
-        
-    except ImportError as e:
-        print(f"❌ 模块测试失败: {e}")
-        logger.error(f"模块测试失败: {e}")
-        return False
-
-
-def historical_analysis():
-    """历史数据分析"""
-    try:
-        logger.info("开始历史数据分析...")
-        print("\n历史数据分析 - 最近7天统计")
-        print("=" * 50)
-        
-        # 回溯分析最近一周的数据
-        date = DateType(date_datetime=datetime.now())
-        total_increase = 0
-        
-        for i in range(7):  # 分析最近7天
-            if date.date_datetime <= datetime.strptime(config['data_collection']['traceback_date'], "%Y%m%d"):
-                break
-                
-            try:
-                collection = CurrentDateFiles(date)
-                daily_increase = collection.totalDaiyIncreasePointNum
-                total_increase += daily_increase
-                
-                print(f"{date.yyyymmdd_str}: 新增 {daily_increase} 个点")
-                
-            except Exception as e:
-                print(f"{date.yyyymmdd_str}: 分析失败 - {e}")
-                
-            date = DateType(date_datetime=date.date_datetime - timedelta(days=1))
-        
-        print(f"\n最近7天总计新增: {total_increase} 个点")
-        logger.info("历史数据分析完成")
-        return True
-        
-    except Exception as e:
-        logger.error(f"历史数据分析失败: {e}")
-        return False
-
-
-def test_specific_date(test_date_str: str = None):
-    """测试指定日期的数据收集功能"""
-    try:
-        # 如果没有指定日期，使用默认测试日期
-        if not test_date_str:
-            test_date_str = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-            
-        logger.info(f"开始测试指定日期数据收集: {test_date_str}")
-        
-        # 创建指定日期的DateType对象
-        test_date = validate_date(test_date_str)
-        logger.info(f"测试日期: {test_date.yyyymmdd_str} ({test_date.date_datetime.strftime('%Y-%m-%d %A')})")
-        
-        # 收集指定日期的数据
-        collection = CurrentDateFiles(test_date)
-        
-        # 显示统计信息
-        print(f"\n指定日期数据收集测试结果 - {test_date_str}")
-        print("=" * 50)
-        collection.onScreenDisplay()
-        
-        # 测试报告生成
-        logger.info("测试KMZ报告生成...")
-        if collection.dailyKMZReport():
-            logger.info("✓ KMZ报告生成成功")
-            print("✅ KMZ报告生成成功")
-        else:
-            logger.warning("✗ KMZ报告生成失败")
-            print("❌ KMZ报告生成失败")
-            
-        logger.info("测试Excel报告生成...")
-        if collection.dailyExcelReport():
-            logger.info("✓ Excel报告生成成功")
-            print("✅ Excel报告生成成功")
-        else:
-            logger.warning("✗ Excel报告生成失败")
-            print("❌ Excel报告生成失败")
-        
-        # 检查是否是数据提交日
-        if test_date.date_datetime.weekday() in config['data_collection']['weekdays']:
-            logger.info("测试日期是数据提交日，测试周报告生成...")
-            submitter = DataSubmition(test_date, collection.allPoints)
-            if submitter.weeklyPointToShp():
-                logger.info("✓ 周报告生成成功")
-                print("✅ 周报告生成成功")
-            else:
-                logger.warning("✗ 周报告生成失败")
-                print("❌ 周报告生成失败")
-        
-        # 显示详细统计
-        print(f"\n详细统计信息:")
-        print(f"总文件数: {len(collection.currentDateFiles)}")
-        print(f"当日新增点数: {collection.totalDaiyIncreasePointNum}")
-        print(f"当日新增线路数: {collection.totalDaiyIncreaseRouteNum}")
-        print(f"截止当日总点数: {collection.totalPointNum}")
-        print(f"截止当日总线路数: {collection.totalRoutesNum}")
-        print(f"当日计划数: {collection.totalDailyPlanNum}")
-        
-        # 检查错误信息
-        errors = collection.errorMsg
-        if errors:
-            logger.warning("发现以下错误:")
-            print("\n发现错误:")
-            for error in errors:
-                if error:
-                    logger.warning(f"  - {error}")
-                    print(f"  - {error}")
-        else:
-            logger.info("✓ 没有发现错误")
-            print("✅ 没有发现错误")
-        
-        logger.info(f"指定日期({test_date_str})数据收集测试完成")
-        return True
-        
-    except Exception as e:
-        logger.error(f"指定日期数据收集测试失败: {e}")
-        print(f"❌ 测试失败: {e}")
+        print(f"监控服务启动失败: {e}")
         return False
 
 
@@ -470,24 +322,8 @@ def main():
         print(f"\n设定日期: {args.date}")
         print(f"当前系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # 特殊模式处理
-        if args.mode == 'test':
-            print("运行模式: 模块测试")
-            success = test_modules()
-            return 0 if success else 1
-            
-        elif args.mode == 'analyze':
-            print("运行模式: 历史数据分析")
-            success = historical_analysis()
-            return 0 if success else 1
-            
-        elif args.mode == 'testdate':
-            print(f"运行模式: 指定日期测试 ({args.date})")
-            success = test_specific_date(args.date)
-            return 0 if success else 1
-        
         # 监控模式
-        elif args.monitor:
+        if args.monitor:
             print("运行模式: 文件监控")
             if args.endtime:
                 print(f"监控停止时间: {args.endtime}")
@@ -499,9 +335,13 @@ def main():
             print("运行模式: 数据收集")
             return collect_data(args.date)
             
+    except KeyboardInterrupt:
+        logger.info("用户中断程序执行")
+        print("\n程序被用户中断")
+        return 1
     except Exception as e:
         logger.error(f"程序执行失败: {e}")
-        print(f"❌ 程序执行失败: {e}")
+        print(f"程序执行失败: {e}")
         return 1
 
 

@@ -116,6 +116,18 @@ class KMZFile(FileAttributes, GeneralIO):
             filepath = self.filepath
         
         try:
+            # 首先尝试检查文件是否是有效的ZIP文件
+            try:
+                with zipfile.ZipFile(filepath, 'r') as test_zip:
+                    test_zip.testzip()
+            except zipfile.BadZipFile:
+                error = f"文件不是有效的ZIP/KMZ格式: {os.path.basename(filepath)}"
+                logger.error(error)
+                self.__errorMsg.append(error)
+                return False
+            except Exception as zip_check_error:
+                logger.warning(f"ZIP文件检查失败，尝试使用加密ZIP处理: {zip_check_error}")
+            
             with pyzipper.AESZipFile(filepath, 'r') as kmz:
                 # 查找 KML 文件
                 kml_files = [f for f in kmz.namelist() if f.endswith('.kml')]
@@ -139,7 +151,9 @@ class KMZFile(FileAttributes, GeneralIO):
                         # 删除KML内容, 释放内存
                         del self._kml_content
                 else:
-                    logger.error("在KMZ文件中没有找到 KML文件")
+                    error = f"在KMZ文件中没有找到KML文件: {os.path.basename(filepath)}"
+                    logger.error(error)
+                    self.__errorMsg.append(error)
                     return False
 
         except Exception as e:

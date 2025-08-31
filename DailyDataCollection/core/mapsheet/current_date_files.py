@@ -403,6 +403,9 @@ class CurrentDateFiles:
 
     def _setup_excel_data(self, sheet, maxTableRows: int):
         """设置Excel数据和公式"""
+        # 填充实际数据到Excel表格
+        self._fill_excel_data(sheet, maxTableRows)
+        
         # 设置合计行的公式
         sheet.cell(row=maxTableRows-1, column=2).value = f"=SUM(B4:B{maxTableRows-2})"
         sheet.cell(row=maxTableRows-1, column=3).value = f"=SUM(C4:C{maxTableRows-2})"
@@ -413,6 +416,51 @@ class CurrentDateFiles:
         sheet.merge_cells('C2:D2')
         sheet.merge_cells('A2:A3')
         sheet.merge_cells('B2:B3')
+
+    def _fill_excel_data(self, sheet, maxTableRows: int):
+        """填充实际数据到Excel表格"""
+        try:
+            # 获取数据字典
+            daily_increased = self.dailyIncreasedPoints
+            daily_finished = self.dailyFinishedPoints
+            daily_plans = self.DailyPlans
+            
+            # 按序号排序的图幅列表
+            sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
+            
+            # 从第4行开始填充数据 (前3行是表头)
+            current_row = 4
+            
+            for mapsheet in sorted_mapsheets:
+                roman_name = mapsheet.romanName
+                
+                # 第1列：图幅名称
+                sheet.cell(row=current_row, column=1, value=roman_name)
+                
+                # 第2列：当日新增点数 (如果为0显示空值)
+                increased_points = daily_increased.get(roman_name, 0)
+                sheet.cell(row=current_row, column=2, 
+                          value=increased_points if increased_points > 0 else None)
+                
+                # 第3列：当日新增线路/结构点等 (暂时留空，可以后续扩展)
+                sheet.cell(row=current_row, column=3, value=None)
+                
+                # 第4列：累计完成点数 (如果为0显示空值)
+                finished_points = daily_finished.get(roman_name, 0)
+                sheet.cell(row=current_row, column=4, 
+                          value=finished_points if finished_points > 0 else None)
+                
+                current_row += 1
+                
+                # 防止超出表格范围
+                if current_row >= maxTableRows - 1:
+                    break
+                    
+            logger.info(f"成功填充 {current_row-4} 行数据到Excel表格")
+            
+        except Exception as e:
+            logger.error(f"填充Excel数据失败: {e}")
+            raise
 
     def onScreenDisplay(self):
         """在屏幕上显示统计信息"""
