@@ -1,7 +1,7 @@
 # GMAS Daily Data Collection System - GMAS每日数据收集系统
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.3.1-blue)
+![Version](https://img.shields.io/badge/Version-2.4.0-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Modular](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -60,17 +60,19 @@ collection.onScreenDisplay()
 
 ## Key Features | 主要功能
 
-### V2.3.1 Features | V2.3.1版本功能
+### V2.4.0 Features | V2.4.0版本功能
 
+- **System Enhancement | 系统功能增强**: Improved stability and reliability | 提升稳定性和可靠性
+- **Performance Optimization | 性能优化**: Enhanced algorithms and processing efficiency | 增强算法和处理效率
+- **User Experience | 用户体验**: Better interaction and feedback mechanisms | 更好的交互和反馈机制
 - **Centralized Version Management | 版本信息集中管理**: Unified version control across all modules | 跨模块统一版本控制
-- **Code Cleanup and Optimization | 代码清理优化**: Emoji removal and professional formatting | 移除emoji，专业格式化
+- **Code Cleanup and Optimization | 代码清理优化**: Professional formatting and compatibility | 专业格式化和兼容性提升
 - **Enhanced Configuration | 增强配置系统**: Seamless version-config integration | 版本配置无缝集成
 - **Modular Architecture | 模块化架构**: Refactored from monolith to specialized modules | 从单体文件重构为专门模块
 - **Smart String Matching | 智能字符串匹配**: 98.8% accuracy KMZ filename matching | KMZ文件名匹配准确率达98.8%
 - **Intelligent Monitoring | 智能监控**: Real-time file system monitoring with fuzzy matching | 实时文件系统监控，支持模糊匹配
 - **YAML Configuration | YAML配置**: Modern configuration management system | 现代配置管理系统
 - **Multi-language Support | 多语言支持**: Chinese-English mixed content processing | 中英文混合内容处理
-- **Performance Optimization | 性能优化**: Multi-threading and caching mechanisms | 多线程和缓存机制
 
 ### Core Modules | 核心模块
 
@@ -178,6 +180,7 @@ cd core/utils/matcher/string_matching && python run_comprehensive_tests.py
 
 ## Version History | 版本历史
 
+- **v2.4.0** (September 1, 2025): System enhancement and performance optimization | 系统功能增强与性能优化
 - **v2.3.1** (September 1, 2025): Centralized version management, code cleanup and optimization | 版本信息集中管理，代码清理优化
 - **v2.3.0** (August 31, 2025): YAML configuration system, unified MapsheetManager, project cleanup | YAML配置系统，统一图幅管理器，项目清理
 - **v2.2.1** (August 31, 2025): Smart matching system, monitor refactoring | 智能匹配系统，监控模块重构

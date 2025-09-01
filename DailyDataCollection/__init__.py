@@ -4,7 +4,7 @@
 @File    :   Daily Data Collection for GMAS Project
 @Time    :   2024/12/25 06:27:28
 @Author  :   Kai Cao 
-@Version :   2.3.1
+@Version :   2.4.0
 @Contact :   caokai_cgs@163.com
 @License :   (C)Copyright 2023-, All rights reserved.
 @Prerequisites:   Python 3.10
@@ -14,8 +14,8 @@ Copyright Statement:   Full Copyright
 
 # 版本信息统一管理
 VERSION_MAJOR = 2
-VERSION_MINOR = 3
-VERSION_BUILD = 1
+VERSION_MINOR = 4
+VERSION_BUILD = 0
 VERSION_INFO = (VERSION_MAJOR, VERSION_MINOR, VERSION_BUILD)
 VERSION_STRING = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_BUILD}"
 

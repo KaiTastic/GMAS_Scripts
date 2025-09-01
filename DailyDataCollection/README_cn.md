@@ -1,7 +1,7 @@
-# GMAS 每日数据收集系统 V2.3.1 - 版本信息统一管理与代码优化
+# GMAS 每日数据收集系统 V2.4.0 - 系统功能增强与性能优化
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![版本](https://img.shields.io/badge/版本-2.3.1-blue)
+![版本](https://img.shields.io/badge/版本-2.4.0-blue)
 ![平台](https://img.shields.io/badge/平台-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![状态](https://img.shields.io/badge/状态-活跃开发-brightgreen)
 ![架构](https://img.shields.io/badge/架构-模块化-orange)
@@ -13,7 +13,7 @@
 
 ## 概述
 
-本项目经历了从简单单文件工具到现代化模块系统的完整演进。起始于2024年11月的v1.0版本单文件实现 (`DailyFileGenerator.py`, 1,790行, 93KB)，经过v2.0的完整模块化重构、v2.1的迁移整合、v2.2系列的功能增强、v2.3.0的配置现代化，到2025年9月1日的v2.3.1版本信息统一管理版本，项目已发展成为一个具备YAML配置系统、智能匹配框架、实时监控能力、统一组件管理和版本控制的专业级地理数据收集处理系统。
+本项目经历了从简单单文件工具到现代化模块系统的完整演进。起始于2024年11月的v1.0版本单文件实现 (`DailyFileGenerator.py`, 1,790行, 93KB)，经过v2.0的完整模块化重构、v2.1的迁移整合、v2.2系列的功能增强、v2.3.0的配置现代化、v2.3.1的版本管理，到2025年9月1日的v2.4.0系统功能增强版本，项目已发展成为一个具备YAML配置系统、智能匹配框架、实时监控能力、统一组件管理和版本控制的专业级地理数据收集处理系统。
 
 **核心演进亮点**：
 - **v1.0→v2.0**: 从单体文件到模块化架构的根本性重构
@@ -21,11 +21,14 @@
 - **v2.1→v2.2**: 引入智能匹配系统(98.8%准确率)和监控模块重构
 - **v2.2→v2.3.0**: 配置系统现代化，消除不一致性，统一组件管理
 - **v2.3.0→v2.3.1**: 版本信息统一管理，代码清理和优化
+- **v2.3.1→v2.4.0**: 系统功能增强与性能优化
 
-当前v2.3.1版本在之前将原本大型单文件拆分为多个专门模块、引入现代化YAML配置管理的基础上，进一步实现了版本信息的集中管理，移除了分散在各处的版本号和emoji字符，提高了代码的一致性和可维护性。
+当前v2.4.0版本在之前版本基础上，进一步增强了系统功能和性能，提供更好的用户体验和更高的处理效率。
 
 ## 项目状态
 
+- **[完成] 系统功能增强**: 提升系统稳定性和处理能力
+- **[完成] 性能优化**: 优化核心算法和数据处理流程
 - **[完成] 版本信息统一管理**: 集中管理所有版本信息，消除分散和不一致
 - **[完成] 代码清理优化**: 移除emoji字符，提高代码专业性和兼容性
 - **[完成] YAML配置系统**: 现代YAML配置系统取代传统config.py
@@ -108,7 +111,6 @@ DailyDataCollection/
 │   │   ├── __init__.py
 │   │   ├── monitor_manager.py     # 监控管理器
 │   │   ├── file_validator.py      # 文件验证器
-│   │   ├── display_manager.py     # 显示管理器
 │   │   ├── event_handler.py       # 事件处理器
 │   │   ├── mapsheet_monitor.py    # 图幅监控器
 │   │   ├── name_matcher_simple.py
@@ -117,6 +119,12 @@ DailyDataCollection/
 │   └── reports/                   # 报告生成
 │       ├── __init__.py
 │       └── data_submission.py     # 数据提交报告
+├── display/                       # 显示模块 (v2.4.0新增)
+│   ├── __init__.py                # 显示模块入口
+│   ├── monitor_display.py         # 监控显示
+│   ├── collection_display.py      # 收集统计显示
+│   ├── report_display.py          # 报告显示
+│   └── message_display.py         # 消息显示
 ├── __main__.py                    # 统一主入口文件
 ├── logger.py                      # 日志管理
 ├── MAPSHEET_MANAGER_GUIDE.md      # 图幅管理器指南
@@ -162,7 +170,7 @@ cd GMAS_Scripts/DailyDataCollection
 # config/settings.yaml - 中央配置文件
 system:
   name: "GMAS每日数据收集系统"
-  version: "2.3.1"
+  version: "2.4.0"
   
 platform:
   workspace_path: "D:/RouteDesign"
@@ -303,9 +311,9 @@ from core.mapsheet.mapsheet_manager import MapsheetManager
 config = ConfigManager()
 
 # 访问配置项
-workspace = config.get_config('platform.workspace_path')
-sequence_min = config.get_config('mapsheet.sequence_min')
-enable_fuzzy = config.get_config('monitoring.enable_fuzzy_matching')
+workspace = config.get('system.workspace')
+sequence_min = config.get('mapsheet.sequence_min')
+enable_fuzzy = config.get('monitoring.enable_fuzzy_matching')
 
 # 使用统一的图幅管理器
 mapsheet_manager = MapsheetManager()
@@ -889,6 +897,28 @@ python __main__.py --help
 - 编写单元测试
 
 ## 更新日志
+
+### v2.4.0 (系统功能增强与性能优化版 - 2025年9月1日)
+
+#### 主要功能
+- **系统功能增强**: 提升系统稳定性和可靠性
+  - 增强错误处理机制和异常恢复能力
+  - 优化系统资源管理和内存使用
+  - 改进系统日志记录和调试信息
+- **性能优化**: 提高处理效率和响应速度
+  - 优化核心算法和数据处理流程
+  - 改进文件I/O操作性能
+  - 提升大文件处理能力
+- **用户体验改进**: 提供更好的交互体验
+  - 优化用户界面响应速度
+  - 改进进度提示和状态显示
+  - 增强操作反馈机制
+
+#### 技术改进
+- 实现更高效的数据处理算法
+- 优化内存使用和垃圾回收机制
+- 改进并发处理和多线程安全
+- 增强系统监控和性能分析能力
 
 ### v2.3.1 (版本信息统一管理版 - 2025年9月1日)
 

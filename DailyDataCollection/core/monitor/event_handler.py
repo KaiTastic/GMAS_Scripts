@@ -8,7 +8,7 @@ from ..data_models.date_types import DateType
 from .file_validator import KMZFileValidator
 # 临时注释，避免循环导入
 from .mapsheet_monitor import MonitorMapSheetCollection
-from .display_manager import DisplayManager
+from display import MessageDisplay, MonitorDisplay
 
 
 class FileEventHandler(FileSystemEventHandler):
@@ -45,7 +45,7 @@ class FileEventHandler(FileSystemEventHandler):
         if not filename_lower.endswith('.kmz'):
             return
         
-        DisplayManager.display_file_detected(filename)
+        MessageDisplay.show_file_detected(filename)
         
         # 基础验证
         if not self.file_validator.validate(filename_lower):
@@ -59,7 +59,7 @@ class FileEventHandler(FileSystemEventHandler):
               (self.enable_fuzzy_matching and self._is_plan_file_fuzzy(filename_lower))):
             self._handle_plan_file(filename_lower)
         else:
-            DisplayManager.display_validation_error(filename_lower, 'invalid_name')
+            MessageDisplay.show_validation_error(filename_lower, 'invalid_name')
     
     def _handle_finished_file(self, filename: str):
         """处理完成点文件（支持模糊匹配）"""
@@ -70,7 +70,7 @@ class FileEventHandler(FileSystemEventHandler):
         # 查找匹配的图幅（支持模糊匹配）
         mapsheet_name = self.file_validator.extract_mapsheet_name(filename)
         if not mapsheet_name:
-            DisplayManager.display_validation_error(filename, 'no_valid_finished')
+            MessageDisplay.show_validation_error(filename, 'no_valid_finished')
             return
         
         # 构建预期的文件名模式
@@ -85,7 +85,7 @@ class FileEventHandler(FileSystemEventHandler):
                 self.mapsheet_collection.remove_from_collection(mapsheet_name)
                 self._display_remaining_files()
         else:
-            DisplayManager.display_validation_error(filename, 'no_valid_finished')
+            MessageDisplay.show_validation_error(filename, 'no_valid_finished')
     
     def _handle_plan_file(self, filename: str):
         """处理计划路线文件（支持模糊匹配）"""
@@ -96,7 +96,7 @@ class FileEventHandler(FileSystemEventHandler):
         # 查找匹配的图幅（支持模糊匹配）
         mapsheet_name = self.file_validator.extract_mapsheet_name(filename)
         if not mapsheet_name:
-            DisplayManager.display_validation_error(filename, 'no_valid_plan')
+            MessageDisplay.show_validation_error(filename, 'no_valid_plan')
             return
         
         # 提取文件日期
@@ -115,13 +115,13 @@ class FileEventHandler(FileSystemEventHandler):
             if mapsheet:
                 mapsheet.update_plan()
         else:
-            DisplayManager.display_validation_error(filename, 'no_valid_plan')
+            MessageDisplay.show_validation_error(filename, 'no_valid_plan')
     
     def _display_remaining_files(self):
         """显示剩余文件信息"""
         remaining_count = self.mapsheet_collection.get_remaining_count()
         total_planned = self.mapsheet_collection.planned_route_file_num
-        DisplayManager.display_remaining_files(remaining_count, total_planned)
+        MonitorDisplay.show_remaining_files(remaining_count, total_planned)
     
     def get_remaining_files(self):
         """获取剩余待收集的文件列表"""

@@ -12,54 +12,21 @@ import warnings
 from typing import Dict, List, Optional, Any, Tuple
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
-from tabulate import tabulate
 
 from ..data_models.observation_data import ObservationData
 from ..data_models.date_types import DateType
 from ..file_handlers.kmz_handler import KMZFile
 from .mapsheet_daily import MapsheetDailyFile
 
+# 使用系统配置模块
+from config.config_manager import ConfigManager
 
-class ConfigurationManager:
-    """配置管理器 - 单例模式"""
-    _instance = None
-    _lock = threading.Lock()
-    
-    def __new__(cls):
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self):
-        if self._initialized:
-            return
-        
-        try:
-            from config.config_manager import ConfigManager
-            config_manager = ConfigManager()
-            config = config_manager.get_config()
-            self.WORKSPACE = config['system']['workspace']
-            self.SHEET_NAMES_FILE = config_manager.get_resolved_path('sheet_names_file')
-            self.SEQUENCE_MIN = config['mapsheet']['sequence_min']
-            self.SEQUENCE_MAX = config['mapsheet']['sequence_max']
-        except ImportError:
-            self.WORKSPACE = ""
-            self.SHEET_NAMES_FILE = ""
-            self.SEQUENCE_MIN = 41
-            self.SEQUENCE_MAX = 51
-        
-        self._initialized = True
-
-
-# 全局配置实例
-_config = ConfigurationManager()
-WORKSPACE = _config.WORKSPACE
-SHEET_NAMES_FILE = _config.SHEET_NAMES_FILE
-SEQUENCE_MIN = _config.SEQUENCE_MIN
-SEQUENCE_MAX = _config.SEQUENCE_MAX
+# 获取配置实例
+config_manager = ConfigManager()
+WORKSPACE = config_manager.get('system.workspace')
+SHEET_NAMES_FILE = config_manager.get_resolved_path('sheet_names_file')
+SEQUENCE_MIN = config_manager.get('mapsheet.sequence_min')
+SEQUENCE_MAX = config_manager.get('mapsheet.sequence_max')
 
 # 创建 logger 实例
 logger = logging.getLogger('Current Date Files')
@@ -655,126 +622,11 @@ class CurrentDateFiles:
             return None
 
     def onScreenDisplay(self) -> None:
-        """在屏幕上显示统计信息"""
-        try:
-            # 获取基础数据
-            team_data, person_data = self._get_team_and_person_data()
-            map_data = self._get_map_display_data()
-            
-            # 构建表格数据
-            table_data = self._build_table_data(team_data, person_data, map_data)
-            
-            # 添加总计行
-            table_data.append([
-                "TOTAL", "", "", 
-                self.totalDaiyIncreasePointNum, 
-                self.totalDailyPlanNum, 
-                self.totalPointNum
-            ])
-            
-            # 检查并报告异常情况
-            self._check_and_report_anomalies()
-            
-            # 显示表格
-            headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
-            print(tabulate(table_data, headers, tablefmt="grid"))
-            
-        except Exception as e:
-            logger.error(f"显示统计信息失败: {e}")
-
-    def _check_and_report_anomalies(self) -> None:
-        """检查并报告异常情况"""
-        zero_finished_maps = []
-        for mapsheet in self.sorted_mapsheets:
-            finished_count = self.dailyFinishedPoints.get(mapsheet.romanName, 0)
-            if finished_count == 0:
-                # 检查这个图幅是否真的应该有数据
-                has_current = mapsheet.currentPlacemarks is not None
-                has_last = mapsheet.lastPlacemarks is not None
-                has_error = hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg
-                
-                zero_finished_maps.append({
-                    'name': mapsheet.romanName,
-                    'has_current': has_current,
-                    'has_last': has_last,
-                    'has_error': has_error,
-                    'current_total': getattr(mapsheet, 'currentTotalPointNum', None)
-                })
+        """在屏幕上显示统计信息 - 使用统一显示管理器"""
+        from display import CollectionDisplay
         
-        if zero_finished_maps:
-            print(f"\n检测到 {len(zero_finished_maps)} 个图幅的FINISHED值为0:")
-            for item in zero_finished_maps:
-                status_info = []
-                if item['has_current']:
-                    status_info.append("有当前数据")
-                if item['has_last']:
-                    status_info.append("有历史数据")
-                if item['has_error']:
-                    status_info.append("有错误")
-                
-                status_str = ", ".join(status_info) if status_info else "截至目前无数据"
-                print(f"   - {item['name']}: 图幅总完成数据={item['current_total']}, 状态=({status_str})")
-            print()  # 空行分隔
-
-    def _get_team_and_person_data(self) -> Tuple[List[str], List[str]]:
-        """获取团队和负责人数据"""
-        team_list = []
-        person_list = []
-        
-        # 遍历排序后的图幅列表，确保与地图显示数据的顺序一致
-        for mapsheet in self.sorted_mapsheets:
-            map_info = self.__class__.maps_info.get(mapsheet.sequence, {})
-            team_list.append(map_info.get('Team Number', ''))
-            person_list.append(map_info.get('Leaders', ''))
-        
-        return team_list, person_list
-
-    def _get_map_display_data(self) -> Tuple[List[str], List[Any], List[Any], List[str]]:
-        """获取地图显示数据"""
-        map_name_list = []
-        daily_collection_list = []
-        daily_finished_list = []
-        daily_plan_list = []
-        
-        empty_placeholder = ''  # 空值占位符
-        
-        # 遍历所有排序后的图幅，确保所有图幅都显示
-        for mapsheet in self.sorted_mapsheets:
-            map_name = mapsheet.romanName
-            map_name_list.append(map_name)
-            
-            # 当天完成点数，如果为0则显示空字符串
-            increased_count = self.dailyIncreasedPoints.get(map_name, 0)
-            daily_collection_list.append(
-                increased_count if increased_count > 0 else empty_placeholder
-            )
-            
-            # 截止当天完成的总点数 - 现在总是显示，即使为0也显示数字
-            finished_count = self.dailyFinishedPoints.get(map_name, 0)
-            daily_finished_list.append(finished_count)  # 移除条件判断，总是显示
-            
-            # 计划状态
-            daily_plan_list.append(self.DailyPlans.get(map_name, ''))
-        
-        return map_name_list, daily_collection_list, daily_finished_list, daily_plan_list
-
-    def _build_table_data(self, team_data: List[str], person_data: List[str], 
-                         map_data: Tuple[List[str], List[Any], List[Any], List[str]]) -> List[List[Any]]:
-        """构建表格数据"""
-        map_name_list, daily_collection_list, daily_finished_list, daily_plan_list = map_data
-        
-        table_data = []
-        for i in range(len(map_name_list)):
-            table_data.append([
-                team_data[i],
-                map_name_list[i], 
-                person_data[i], 
-                daily_collection_list[i], 
-                daily_plan_list[i], 
-                daily_finished_list[i]
-            ])
-        
-        return table_data
+        # 委托给CollectionDisplay处理
+        CollectionDisplay.show_statistics(self)
 
     def __str__(self) -> str:
         """字符串表示"""

@@ -17,6 +17,10 @@ from ..data_models.observation_data import ObservationData
 from ..file_handlers.kmz_handler import KMZFile
 from ..utils.file_utils import list_fullpath_of_files_with_keywords
 
+# 使用系统配置模块
+from config.config_manager import ConfigManager
+from ..data_models.date_types import DateType
+
 
 class MapsheetConfigError(Exception):
     """图幅配置错误"""
@@ -27,60 +31,17 @@ class MapsheetFileError(Exception):
     """图幅文件错误"""
     pass
 
-# 导入配置
-def _load_config():
-    """
-    加载配置，使用更清晰的错误处理
-    
-    Returns:
-        dict: 包含配置信息的字典
-        
-    Raises:
-        MapsheetConfigError: 当配置加载失败时
-    """
-    try:
-        from config.config_manager import ConfigManager
-        from ..data_models.date_types import DateType
-        
-        config_manager = ConfigManager()
-        config = config_manager.get_config()
-        platform_config = config_manager.get_platform_config()
-        
-        # 验证必要的配置项
-        workspace = config.get('system', {}).get('workspace', '')
-        if not workspace:
-            logger.warning("工作空间配置为空，使用默认值")
-        
-        return {
-            'workspace': workspace,
-            'wechat_folder': platform_config.get('wechat_folder', ''),
-            'traceback_date': config['data_collection']['traceback_date'],
-            'traceforward_days': config['data_collection']['traceforward_days'],
-            'date_type': DateType
-        }
-    except ImportError as e:
-        logger.warning(f"无法导入配置: {e}，使用默认配置")
-        try:
-            from ..data_models.date_types import DateType
-            date_type = DateType
-        except ImportError:
-            date_type = None
-            
-        return {
-            'workspace': "",
-            'wechat_folder': "",
-            'traceback_date': "20240101",
-            'traceforward_days': 5,
-            'date_type': date_type
-        }
 
-# 加载配置
-_config = _load_config()
-WORKSPACE = _config['workspace']
-WECHAT_FOLDER = _config['wechat_folder']
-TRACEBACK_DATE = _config['traceback_date']
-TRACEFORWARD_DAYS = _config['traceforward_days']
-DateType = _config['date_type']
+# 获取配置实例
+config_manager = ConfigManager()
+config = config_manager.get_config()
+platform_config = config_manager.get_platform_config()
+
+# 配置常量
+WORKSPACE = config_manager.get('system.workspace')
+WECHAT_FOLDER = platform_config.get('wechat_folder', '')
+TRACEBACK_DATE = config_manager.get('data_collection.traceback_date')
+TRACEFORWARD_DAYS = config_manager.get('data_collection.traceforward_days')
 
 # 常量
 DEFAULT_MAX_RETRIES = 3

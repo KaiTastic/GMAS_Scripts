@@ -4,15 +4,12 @@
 
 import os
 from typing import List, Optional
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from ..mapsheet.mapsheet_daily import MapsheetDailyFile
 from ..mapsheet.mapsheet_manager import mapsheet_manager
 from ..data_models.date_types import DateType
 from config.config_manager import ConfigManager
-from .display_manager import DisplayManager
+from display import MonitorDisplay
 
 
 class MonitorMapSheet(MapsheetDailyFile):
@@ -54,7 +51,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         # 标记为已完成收集
         self.finished = True
         
-        DisplayManager.display_mapsheet_update(
+        MonitorDisplay.show_mapsheet_update(
             self, 'finished', self.matchedFinishedFileCountNum
         )
     
@@ -63,7 +60,7 @@ class MonitorMapSheet(MapsheetDailyFile):
         self.matchedPlanFileCountNum += 1
         self.findNextPlan(self)
         
-        DisplayManager.display_mapsheet_update(
+        MonitorDisplay.show_mapsheet_update(
             self, 'plan', self.matchedPlanFileCountNum
         )
     

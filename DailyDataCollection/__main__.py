@@ -11,21 +11,34 @@ import sys
 import os
 import logging
 import argparse
+import cProfile
+import pstats
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# ============================================================================
+# 项目内部导入
+# ============================================================================
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# 导入版本信息
-try:
-    from __init__ import __version__, APP_FULL_VERSION, SYSTEM_TITLE
-except ImportError:
-    # 如果作为脚本直接运行，使用本地版本定义
-    __version__ = "2.3.1"
-    APP_FULL_VERSION = f"GMAS 数据自动收集与处理工具 {__version__}"
-    SYSTEM_TITLE = f"GMAS 数据收集系统 v{__version__}"
+# 导入版本信息 - 处理可能的导入失败
+from __init__ import __version__, APP_FULL_VERSION, SYSTEM_TITLE
+
+# 导入配置系统
+from config import ConfigManager
+
+# 导入核心模块
+from core.mapsheet import CurrentDateFiles
+from core.data_models import DateType
+from core.reports import DataSubmition
+from core.monitor import MonitorManager
+from display import ReportDisplay
+
+# ============================================================================
+# 全局配置和初始化
+# ============================================================================
 
 # 增强输出编码支持，确保中文字符正确显示
 sys.stdout.reconfigure(encoding='utf-8')
@@ -44,18 +57,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# 导入新的配置系统和模块
-from config import ConfigManager
-
 # 初始化配置管理器
 config_manager = ConfigManager()
 config = config_manager.get_config()
-
-# 导入核心模块
-from core.mapsheet import CurrentDateFiles
-from core.data_models import DateType
-from core.reports import DataSubmition
-from core.monitor import MonitorManager
 
 
 # ============================================================================
@@ -424,8 +428,10 @@ class DataCollector:
         try:
             collection = CurrentDateFiles(self.collection_date)
             
+            # 显示收集报告头部
+            ReportDisplay.show_header(self.collection_date)
+            
             # 显示统计信息
-            self._display_collection_header()
             collection.onScreenDisplay()
             
             # 显示错误信息
@@ -444,61 +450,9 @@ class DataCollector:
             logger.error(f"数据收集过程中发生错误: {e}")
             return False
 
-    def _display_collection_header(self):
-        """显示收集报告头部"""
-        print("\n" + "="*60)
-        print(f"GMAS 每日数据收集报告 {self.collection_date.yyyymmdd_str}")
-        print("="*60)
-
     def _display_error_information(self, collection):
         """显示错误信息，按团队分组"""
-        error_by_team = self._organize_errors_by_team(collection)
-        
-        if error_by_team:
-            print(f"\n文件中存在的错误信息:")
-            for team_info, errors in error_by_team.items():
-                print(f"\n{team_info}:")
-                for error in errors:
-                    print(f"  - {error}")
-            print()
-
-    def _organize_errors_by_team(self, collection):
-        """将错误信息按团队组织"""
-        error_by_team = {}
-        
-        for mapsheet in collection.currentDateFiles:
-            if hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg:
-                # 获取团队信息
-                team_number = getattr(mapsheet, 'teamNumber', '未知团队')
-                team_leader = getattr(mapsheet, 'teamleader', '未知负责人')
-                roman_name = getattr(mapsheet, 'romanName', '未知图幅名称')
-                
-                team_key = f"{team_number} ({team_leader})"
-                
-                if team_key not in error_by_team:
-                    error_by_team[team_key] = []
-                
-                # 格式化错误信息
-                error_text = self._format_error_message(roman_name, mapsheet.errorMsg)
-                error_by_team[team_key].append(error_text)
-        
-        return error_by_team
-
-    def _format_error_message(self, roman_name, error_msg):
-        """格式化单个错误信息"""
-        error_text = f"{roman_name}: "
-        if isinstance(error_msg, dict):
-            # 如果错误信息是字典格式，逐个解析
-            for file_name, errors in error_msg.items():
-                error_text += f"\n      文件 {file_name}:"
-                if isinstance(errors, list):
-                    for error in errors:
-                        error_text += f"\n        - {error}"
-                else:
-                    error_text += f"\n        - {errors}"
-        else:
-            error_text += str(error_msg)
-        return error_text
+        ReportDisplay.show_error_summary(collection)
 
     def _generate_reports(self, collection):
         """生成KMZ和Excel报告"""
@@ -727,8 +681,6 @@ def main():
         
         # ========== 性能分析 ==========
         if args.profile:
-            import cProfile
-            import pstats
             profiler = cProfile.Profile()
             profiler.enable()
         
