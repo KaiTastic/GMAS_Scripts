@@ -5,12 +5,10 @@
 """
 
 import os
-import json
 import logging
 import functools
 import threading
 from typing import Dict, List, Optional, Any, Tuple
-import pandas as pd
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from tabulate import tabulate
@@ -65,12 +63,13 @@ SEQUENCE_MAX = _config.SEQUENCE_MAX
 # 创建 logger 实例
 logger = logging.getLogger('Current Date Files')
 if not logger.handlers:  # 避免重复添加处理器
-    logger.setLevel(logging.ERROR)
+    logger.setLevel(logging.INFO)  # 改为INFO级别以看到详细日志
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-
+    # 添加这一行防止向上传播
+    logger.propagate = False
 
 class CurrentDateFiles:
     """当前日期文件容器类，用于存储指定日期的所有图幅的集合"""
@@ -531,56 +530,129 @@ class CurrentDateFiles:
             logger.error(f"填充Excel数据失败: {e}")
             raise
 
-    def debug_mapsheet_points(self, mapsheet_name: str = None) -> None:
-        """调试图幅点数信息"""
-        print(f"\n{'='*60}")
-        print(f"调试图幅点数信息 - {self.currentDate}")
-        print(f"{'='*60}")
+    def write_completed_data_to_statistics_excel(self, target_excel_path: str) -> bool:
+        """
+        将当日新增的数据列写入指定的统计Excel文件
         
-        for mapsheet in self.sorted_mapsheets:
-            if mapsheet_name and mapsheet.romanName != mapsheet_name:
-                continue
-                
-            print(f"\n图幅: {mapsheet.romanName} (序号: {mapsheet.sequence})")
-            print(f"  currentTotalPointNum: {mapsheet.currentTotalPointNum}")
-            print(f"  dailyincreasePointNum: {mapsheet.dailyincreasePointNum}")
+        Args:
+            target_excel_path: 目标Excel文件路径，例如 "D:\\RouteDesign\\Daily_statistics_details_for_Group_3.2.xlsx"
             
-            # 当前文件信息
-            if hasattr(mapsheet, 'currentPlacemarks') and mapsheet.currentPlacemarks:
-                print(f"  currentPlacemarks.pointsCount: {mapsheet.currentPlacemarks.pointsCount}")
-                print(f"  当前文件路径: {getattr(mapsheet, 'currentfilepath', 'N/A')}")
-            else:
-                print(f"  currentPlacemarks: None")
-                print(f"  当前文件路径: {getattr(mapsheet, 'currentfilepath', 'N/A')}")
-                
-            # 历史文件信息
-            if hasattr(mapsheet, 'lastPlacemarks') and mapsheet.lastPlacemarks:
-                print(f"  lastPlacemarks.pointsCount: {mapsheet.lastPlacemarks.pointsCount}")
-                print(f"  历史文件路径: {getattr(mapsheet, 'lastfilepath', 'N/A')}")
-            else:
-                print(f"  lastPlacemarks: None")
-                print(f"  历史文件路径: {getattr(mapsheet, 'lastfilepath', 'N/A')}")
-                
-            # 文件存在性检查
-            current_file_exists = False
-            last_file_exists = False
-            if hasattr(mapsheet, 'currentfilepath') and mapsheet.currentfilepath:
-                current_file_exists = os.path.exists(mapsheet.currentfilepath)
-                print(f"  当前文件存在: {current_file_exists}")
-            if hasattr(mapsheet, 'lastfilepath') and mapsheet.lastfilepath:
-                last_file_exists = os.path.exists(mapsheet.lastfilepath)
-                print(f"  历史文件存在: {last_file_exists}")
-                
-            # 错误信息
-            if hasattr(mapsheet, 'errorMsg') and mapsheet.errorMsg:
-                print(f"  错误信息: {mapsheet.errorMsg}")
-                
-            # 在dailyFinishedPoints中的最终值
-            final_value = self.dailyFinishedPoints.get(mapsheet.romanName, '未找到')
-            print(f"  ➡️  最终FINISHED值: {final_value}")
+        Returns:
+            bool: 写入成功返回True，失败返回False
+        """
+        try:
+            # 检查目标文件是否存在
+            if not os.path.exists(target_excel_path):
+                logger.error(f"目标Excel文件不存在: {target_excel_path}")
+                return False
             
-            if mapsheet_name:  # 如果指定了特定图幅，只显示这一个
-                break
+            # 加载现有工作簿
+            wb = load_workbook(target_excel_path)
+            
+            # 使用"总表"工作表
+            if "总表" in wb.sheetnames:
+                ws = wb["总表"]
+            else:
+                ws = wb.active
+                logger.warning("未找到'总表'工作表，使用默认工作表")
+            
+            # 获取当前日期的新增数据（而不是累计完成数据）
+            daily_increased = self.dailyIncreasedPoints
+            
+            # 查找日期所在的列
+            target_col = self._find_date_row_in_excel(ws)
+            if target_col is None:
+                logger.error(f"在Excel中未找到日期 {self.currentDate} 对应的列")
+                return False
+            
+            self._fill_increased_data_to_col(ws, target_col)
+            
+            # 写入新增数据到相应的行
+            # self._write_increased_data_to_col(ws, target_col, daily_increased)
+            
+            # 保存文件
+            wb.save(target_excel_path)
+            logger.info(f"成功将当日新增数据写入Excel文件: {target_excel_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"写入当日新增数据到Excel文件失败: {e}")
+            return False
+
+    def _fill_increased_data_to_col(self, ws, target_col):
+        """
+        Purpose: Fill in the increased data for the specified column
+        """
+        """填充实际数据到Excel表格"""
+        try:
+            # 获取数据字典
+            daily_increased = self.dailyIncreasedPoints
+            
+            # 按序号排序的图幅列表
+            sorted_mapsheets = sorted(self.currentDateFiles, key=lambda mapsheet: mapsheet.sequence)
+            
+            # 从第3行开始填充数据 (前2行是表头)
+            current_row = 3
+
+            for mapsheet in sorted_mapsheets:
+                roman_name = mapsheet.romanName
+            
+                # 当日新增点数 (如果为0显示空值)
+                increased_points = daily_increased.get(roman_name, 0)
+                ws.cell(row=current_row, column=target_col, 
+                          value=increased_points if increased_points > 0 else None)
+                
+                current_row += 1
+                    
+            logger.info(f"成功填充 {current_row-3} 行数据到Daily statics Excel表格")
+        
+        except Exception as e:
+            logger.error(f"写入当日新增数据到Daily statics Excel表格失败: {e}")
+            return False
+    
+    def _find_date_row_in_excel(self, worksheet) -> Optional[int]:
+        """
+        在Excel工作表中查找当前日期对应的行
+        
+        Args:
+            worksheet: openpyxl工作表对象
+            
+        Returns:
+            int or None: 找到的行号，未找到返回None
+        """
+        try:
+            # 在第一行查找日期列
+            target_date = self.currentDate.date_datetime  # datetime对象
+            
+            # 检查第一行的日期列（从第9列开始，基于Excel结构分析）
+            for col in range(9, min(worksheet.max_column + 1, 110)):  # 扩展搜索范围
+                cell_value = worksheet.cell(row=1, column=col).value
+                if cell_value:
+                    # 如果是datetime对象，直接比较日期
+                    if hasattr(cell_value, 'date'):
+                        if cell_value.date() == target_date.date():
+                            logger.info(f"在Excel第1行第{col}列找到匹配日期: {cell_value}")
+                            return col  # 返回列号而不是行号
+                    # 如果是字符串，尝试解析
+                    elif isinstance(cell_value, str):
+                        cell_str = cell_value.strip()
+                        # 可能的日期格式
+                        possible_date_formats = [
+                            self.currentDate.yyyymmdd_str,  # "20250831"
+                            f"{self.currentDate.yyyy_str}-{self.currentDate.mm_str}-{self.currentDate.dd_str}",  # "2025-08-31"
+                            f"{self.currentDate.yyyy_str}/{self.currentDate.mm_str}/{self.currentDate.dd_str}",  # "2025/08/31"
+                        ]
+                        
+                        if any(date_format in cell_str for date_format in possible_date_formats):
+                            logger.info(f"在Excel第1行第{col}列找到日期字符串: {cell_str}")
+                            return col  # 返回列号
+            
+            logger.warning(f"在Excel第1行中未找到日期 {target_date.date()} 对应的列")
+            return None
+            
+        except Exception as e:
+            logger.error(f"查找日期列失败: {e}")
+            return None
 
     def onScreenDisplay(self) -> None:
         """在屏幕上显示统计信息"""

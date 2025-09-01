@@ -226,8 +226,9 @@ class DataCollector:
         
         kmz_success = self._generate_kmz_report(collection)
         excel_success = self._generate_excel_report(collection)
-        
-        return kmz_success and excel_success
+        statistics_success = self._generate_statistics_report(collection)
+
+        return kmz_success and excel_success and statistics_success
 
     def _generate_kmz_report(self, collection):
         """生成KMZ报告"""
@@ -253,6 +254,19 @@ class DataCollector:
                 return False
         except Exception as e:
             logger.error(f"Excel报告生成异常: {e}")
+            return False
+
+    def _generate_statistics_report(self, collection):
+        """生成统计报告"""
+        try:
+            if collection.write_completed_data_to_statistics_excel('D:\\RouteDesign\\Daily_statistics_details_for_Group_3.2.xlsx'):
+                logger.info("统计报告生成成功")
+                return True
+            else:
+                logger.error("统计报告生成失败")
+                return False
+        except Exception as e:
+            logger.error(f"统计报告生成异常: {e}")
             return False
 
     def _generate_weekly_report_if_needed(self, collection):
