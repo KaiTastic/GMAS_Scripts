@@ -68,9 +68,23 @@ class ConfigManager:
             'mapsheet', 'fuzzy_matching', 'resources', 'file_paths', 'logging'
         ]
         
+        # 可选配置节
+        optional_sections = ['reports']
+        
         for section in required_sections:
             if section not in self._config:
                 raise ConfigError(f"配置文件缺少必需的节: {section}")
+        
+        # 记录可选配置节的存在情况
+        for section in optional_sections:
+            if section not in self._config:
+                logger = self._get_logger()
+                logger.debug(f"可选配置节 '{section}' 未找到，将使用默认设置")
+    
+    def _get_logger(self):
+        """获取logger实例"""
+        import logging
+        return logging.getLogger(__name__)
     
     def _setup_paths(self):
         """设置和验证文件路径"""
@@ -133,6 +147,161 @@ class ConfigManager:
     def get_resolved_path(self, path_key: str) -> str:
         """获取解析后的文件路径"""
         return self._config['resolved_paths'].get(path_key, '')
+    
+    def resolve_path_template(self, path_template: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        解析路径模板中的变量
+        
+        支持的模板变量：
+        - {workspace} / {{workspace}} - 工作空间路径
+        - {date}, {year}, {month}, {day} - 日期相关变量
+        - 任何在context中提供的自定义变量
+        
+        :param path_template: 包含模板变量的路径字符串
+        :param context: 额外的模板变量上下文（如日期对象、自定义配置等）
+        :return: 解析后的完整路径
+        """
+        try:
+            if not path_template:
+                return path_template
+            
+            resolved_path = path_template
+            
+            # 1. 基础路径变量替换
+            workspace = (
+                self._config.get('paths', {}).get('workspace') or 
+                self._config.get('system', {}).get('workspace', 'D:\\RouteDesign')
+            )
+            
+            # 替换工作空间变量（支持单双花括号）
+            resolved_path = resolved_path.replace('{{workspace}}', workspace)
+            resolved_path = resolved_path.replace('{workspace}', workspace)
+            
+            # 2. 处理上下文变量
+            if context:
+                # 处理日期相关变量
+                if 'date_obj' in context:
+                    date_obj = context['date_obj']
+                    if hasattr(date_obj, 'date_datetime') and date_obj.date_datetime:
+                        date_vars = {
+                            'date': date_obj.date_datetime.strftime('%Y%m%d'),
+                            'year': date_obj.date_datetime.strftime('%Y'),
+                            'month': date_obj.date_datetime.strftime('%m'),
+                            'day': date_obj.date_datetime.strftime('%d'),
+                            'yyyymm': date_obj.date_datetime.strftime('%Y%m'),
+                        }
+                        
+                        for var, value in date_vars.items():
+                            resolved_path = resolved_path.replace(f'{{{{{var}}}}}', value)
+                            resolved_path = resolved_path.replace(f'{{{var}}}', value)
+                
+                # 处理统计配置变量
+                if 'stats_config' in context:
+                    stats_config = context['stats_config']
+                    if isinstance(stats_config, dict):
+                        for key, value in stats_config.items():
+                            if isinstance(value, str):
+                                resolved_path = resolved_path.replace(f'{{{{{key}}}}}', value)
+                                resolved_path = resolved_path.replace(f'{{{key}}}', value)
+                
+                # 处理其他自定义变量
+                for key, value in context.items():
+                    if key not in ['date_obj', 'stats_config'] and isinstance(value, str):
+                        resolved_path = resolved_path.replace(f'{{{{{key}}}}}', value)
+                        resolved_path = resolved_path.replace(f'{{{key}}}', value)
+            
+            # 3. 日志记录（调试级别）
+            if resolved_path != path_template:
+                logging.getLogger(__name__).debug(
+                    f"路径模板解析: '{path_template}' -> '{resolved_path}'"
+                )
+            
+            return resolved_path
+            
+        except Exception as e:
+            logging.getLogger(__name__).error(f"路径模板解析失败: {e}")
+            return path_template  # 返回原始模板作为后备
+    
+    def get_statistics_file_path(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        获取统计报告文件路径，支持模板解析和回退机制
+        
+        :param context: 上下文信息，包含日期对象、自定义路径等
+        :return: 解析后的统计文件完整路径
+        """
+        try:
+            # 1. 优先使用自定义路径（命令行参数）
+            if context and 'custom_path' in context and context['custom_path']:
+                custom_path = context['custom_path']
+                # 自定义路径也支持模板解析
+                resolved_custom_path = self.resolve_path_template(custom_path, context)
+                logging.getLogger(__name__).info(f"使用自定义统计报告路径: {resolved_custom_path}")
+                return resolved_custom_path
+            
+            # 2. 使用配置文件中的路径
+            if 'reports' in self._config and 'statistics' in self._config['reports']:
+                stats_config = self._config['reports']['statistics']
+                
+                if 'daily_details_file' in stats_config:
+                    file_path_template = stats_config['daily_details_file']
+                    
+                    # 构建解析上下文
+                    resolve_context = context.copy() if context else {}
+                    resolve_context['stats_config'] = stats_config
+                    
+                    # 解析路径模板
+                    resolved_path = self.resolve_path_template(file_path_template, resolve_context)
+                    
+                    # 验证路径是否可用
+                    import os
+                    directory = os.path.dirname(resolved_path)
+                    if os.path.exists(directory) or self._ensure_directory_exists(directory):
+                        return resolved_path
+                    
+                    # 如果主路径不可用，尝试备用目录
+                    if 'backup_directory' in stats_config:
+                        backup_dir_template = stats_config['backup_directory']
+                        backup_dir = self.resolve_path_template(backup_dir_template, resolve_context)
+                        
+                        if self._ensure_directory_exists(backup_dir):
+                            filename = os.path.basename(resolved_path)
+                            backup_path = os.path.join(backup_dir, filename)
+                            logging.getLogger(__name__).warning(
+                                f"主路径不可用，使用备用路径: {backup_path}"
+                            )
+                            return backup_path
+            
+            # 3. 回退到硬编码路径（向后兼容）
+            fallback_path = 'D:\\RouteDesign\\Daily_statistics_details_for_Group_3.2.xlsx'
+            logging.getLogger(__name__).warning(
+                f"配置文件中未找到统计报告路径配置，使用默认路径: {fallback_path}"
+            )
+            return fallback_path
+            
+        except Exception as e:
+            # 异常情况下的回退路径
+            fallback_path = 'D:\\RouteDesign\\Daily_statistics_details_for_Group_3.2.xlsx'
+            logging.getLogger(__name__).error(
+                f"获取统计报告路径时发生错误: {e}，使用默认路径: {fallback_path}"
+            )
+            return fallback_path
+    
+    def _ensure_directory_exists(self, directory_path: str) -> bool:
+        """
+        确保目录存在，如果不存在则尝试创建
+        
+        :param directory_path: 目录路径
+        :return: 目录是否存在或创建成功
+        """
+        try:
+            import os
+            if not os.path.exists(directory_path):
+                os.makedirs(directory_path, exist_ok=True)
+                logging.getLogger(__name__).info(f"创建目录: {directory_path}")
+            return True
+        except Exception as e:
+            logging.getLogger(__name__).error(f"无法创建目录 {directory_path}: {e}")
+            return False
     
     def validate_files(self) -> bool:
         """验证必需文件是否存在"""

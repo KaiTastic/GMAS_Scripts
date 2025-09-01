@@ -1,7 +1,7 @@
 # GMAS Daily Data Collection System - GMAS每日数据收集系统
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.3.0-blue)
+![Version](https://img.shields.io/badge/Version-2.3.1-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Modular](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -60,8 +60,11 @@ collection.onScreenDisplay()
 
 ## Key Features | 主要功能
 
-### V2.3.0 Features | V2.3.0版本功能
+### V2.3.1 Features | V2.3.1版本功能
 
+- **Centralized Version Management | 版本信息集中管理**: Unified version control across all modules | 跨模块统一版本控制
+- **Code Cleanup and Optimization | 代码清理优化**: Emoji removal and professional formatting | 移除emoji，专业格式化
+- **Enhanced Configuration | 增强配置系统**: Seamless version-config integration | 版本配置无缝集成
 - **Modular Architecture | 模块化架构**: Refactored from monolith to specialized modules | 从单体文件重构为专门模块
 - **Smart String Matching | 智能字符串匹配**: 98.8% accuracy KMZ filename matching | KMZ文件名匹配准确率达98.8%
 - **Intelligent Monitoring | 智能监控**: Real-time file system monitoring with fuzzy matching | 实时文件系统监控，支持模糊匹配
@@ -117,14 +120,16 @@ monitor_manager.start_monitoring()
 
 ## Project Status | 项目状态
 
-- **✅ YAML Configuration**: Modern YAML-based configuration system | 现代YAML配置系统
-- **✅ Unified MapsheetManager**: Consistent mapsheet handling across modules | 跨模块一致的图幅处理
-- **✅ Project Structure Cleanup**: Redundant files removed, optimized organization | 项目结构清理，优化组织
-- **✅ Modular Refactoring**: Core functionality split into specialized modules | 核心功能拆分为专门模块
-- **✅ Modern Architecture**: Clean, maintainable codebase design | 现代架构，清洁可维护的代码设计
-- **✅ Smart Matching**: Advanced string matching system deployed | 高级字符串匹配系统部署
-- **✅ Monitor Refactoring**: Monitoring system split into specialized modules | 监控系统拆分为专门模块
-- **🔄 Continuous Improvement**: Ongoing optimization based on usage | 基于使用情况的持续优化
+- **[完成] ✅ Centralized Version Management | 版本信息集中管理**: Single source of truth for all versions | 所有版本信息的唯一来源
+- **[完成] ✅ Code Quality Improvements | 代码质量改进**: Professional formatting and cross-platform compatibility | 专业格式化和跨平台兼容性
+- **[完成] ✅ YAML Configuration**: Modern YAML-based configuration system | 现代YAML配置系统
+- **[完成] ✅ Unified MapsheetManager**: Consistent mapsheet handling across modules | 跨模块一致的图幅处理
+- **[完成] ✅ Project Structure Cleanup**: Redundant files removed, optimized organization | 项目结构清理，优化组织
+- **[完成] ✅ Modular Refactoring**: Core functionality split into specialized modules | 核心功能拆分为专门模块
+- **[完成] ✅ Modern Architecture**: Clean, maintainable codebase design | 现代架构，清洁可维护的代码设计
+- **[完成] ✅ Smart Matching**: Advanced string matching system deployed | 高级字符串匹配系统部署
+- **[完成] ✅ Monitor Refactoring**: Monitoring system split into specialized modules | 监控系统拆分为专门模块
+- **[进行中] 🔄 Continuous Improvement**: Ongoing optimization based on usage | 基于使用情况的持续优化
 
 ## Quick Problem Resolution | 常见问题快速解决
 
@@ -173,6 +178,7 @@ cd core/utils/matcher/string_matching && python run_comprehensive_tests.py
 
 ## Version History | 版本历史
 
+- **v2.3.1** (September 1, 2025): Centralized version management, code cleanup and optimization | 版本信息集中管理，代码清理优化
 - **v2.3.0** (August 31, 2025): YAML configuration system, unified MapsheetManager, project cleanup | YAML配置系统，统一图幅管理器，项目清理
 - **v2.2.1** (August 31, 2025): Smart matching system, monitor refactoring | 智能匹配系统，监控模块重构
 - **v2.2.0** (August 30, 2025): Stability enhancements | 稳定性增强

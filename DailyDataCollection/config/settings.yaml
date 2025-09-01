@@ -37,15 +37,39 @@ mapsheet:
 # 数据收集配置
 data_collection:
   # 文件回溯查找起始日期
-  traceback_date: "20250310"
+  traceback_date: "20250710"
   # 数据提交的工作日（周一=0, 周日=6）
-  weekdays: [5]  # 周日
+  weekdays: [5]  # 周六
   # 回溯查找天数
   traceback_days: 60
   # 向前查找天数
   traceforward_days: 7
   # 每周数据收集日（0=周一, 6=周日）
   collection_weekdays: [5]  # 周六
+
+# 报告输出配置
+reports:
+  # 统计报告配置
+  statistics:
+    # 每日统计详情文件路径
+    daily_details_file_name: "Daily_statistics_details_for_Group_3.2.xlsx"
+    daily_details_file: "{workspace}\\{daily_details_file_name}"
+    # 备用输出目录（如果主路径不可用）
+    backup_directory: "{workspace}\\backup"
+
+  # KMZ报告配置
+  kmz:
+    # 输出目录模板（支持日期变量）
+    output_directory: "{workspace}\\{year}{month}\\{date}"
+    # 文件名模板
+    filename_template: "GMAS_Points_and_tracks_until_{date}.kmz"
+  
+  # Excel报告配置
+  excel:
+    # 输出目录模板
+    output_directory: "{workspace}\\{year}{month}\\{date}"
+    # 文件名模板
+    filename_template: "{date}_Daily_Statistics.xlsx"
 
 # 模糊匹配配置
 fuzzy_matching:

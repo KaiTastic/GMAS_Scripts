@@ -1,7 +1,7 @@
-# GMAS Daily Data Collection System V2.3.0 - YAML Configuration and Unified Management
+# GMAS Daily Data Collection System V2.3.1 - Version Management and Code Optimization
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.3.0-blue)
+![Version](https://img.shields.io/badge/Version-2.3.1-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -13,18 +13,21 @@
 
 ## Overview
 
-This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, to the v2.3.0 configuration modernization release on August 31, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, and unified component management.
+This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, v2.3.0's configuration modernization, to the v2.3.1 version management and code optimization release on September 1, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, unified component management, and centralized version control.
 
 **Core Evolution Highlights**:
 - **v1.0→v2.0**: Fundamental refactoring from monolithic file to modular architecture
 - **v2.0→v2.1**: Improved migration mechanisms and backward compatibility guarantees
 - **v2.1→v2.2**: Introduction of intelligent matching system (98.8% accuracy) and monitoring module refactoring
-- **v2.2→v2.3**: Configuration system modernization, elimination of inconsistencies, unified component management
+- **v2.2→v2.3.0**: Configuration system modernization, elimination of inconsistencies, unified component management
+- **v2.3.0→v2.3.1**: Centralized version management, code cleanup and optimization
 
-The current v2.3.0 version builds upon the previous work of splitting the original large single file into multiple specialized modules, further introducing modern YAML configuration management, eliminating configuration inconsistencies, and achieving consistent initialization across collection and monitoring modules through a unified MapsheetManager, significantly improving project maintainability and consistency.
+The current v2.3.1 version builds upon the previous work of splitting the original large single file into multiple specialized modules and introducing modern YAML configuration management, further implementing centralized version information management, removing scattered version numbers and emoji characters, and improving code consistency and maintainability.
 
 ## Project Status
 
+- **[Completed] Centralized Version Management**: Unified management of all version information, eliminating scattered and inconsistent versioning
+- **[Completed] Code Cleanup and Optimization**: Removal of emoji characters, improved code professionalism and compatibility
 - **[Completed] YAML Configuration System**: Modern YAML-based configuration replacing legacy config.py
 - **[Completed] Unified MapsheetManager**: Consistent mapsheet initialization across collection and monitoring modules
 - **[Completed] Configuration Optimization**: Eliminated duplicate sequence configurations and inconsistencies
@@ -154,7 +157,7 @@ cd GMAS_Scripts/DailyDataCollection
 # config/settings.yaml - Central configuration file
 system:
   name: "GMAS Daily Data Collection System"
-  version: "2.3.0"
+  version: "2.3.1"
   
 platform:
   workspace_path: "D:/RouteDesign"
@@ -834,7 +837,7 @@ gps_config = create_target_config(
 #### `AttributeError: 'CurrentDateFiles' object has no attribute 'dailyExcelReportUpdate'`
 **Solution**: Use core modules directly
 ```python
-from core.mapsheet import CurrentDateFiles  # ✅ Correct
+from core.mapsheet import CurrentDateFiles  # [Correct]
 ```
 
 #### Slow Import Performance
@@ -877,6 +880,33 @@ If problems persist:
 2. Contact maintainer: caokai_cgs@163.com
 
 ## Changelog
+
+### v2.3.1 (Version Management and Code Optimization - September 1, 2025)
+
+#### Major Features
+- **Centralized Version Management**: Unified management of all version-related information
+  - Centralized definition of all version information in `__init__.py`
+  - Automatic synchronization of version numbers to all usage locations
+  - Standardized version string formats and naming conventions
+- **Code Cleanup and Optimization**: Improved code quality and compatibility
+  - Removal of all emoji characters for cross-platform compatibility
+  - Unified error message formatting using standard ASCII characters
+  - Enhanced code professionalism and readability
+- **Configuration System Enhancement**: Further optimization of configuration management
+  - Seamless integration of version information with configuration system
+  - Enhanced configuration validation and error handling
+
+#### Technical Improvements
+- Implementation of single source of truth for version information
+- Multiple version string formats for different use cases
+- Enhanced code maintainability and consistency
+- Improved cross-platform and encoding compatibility
+
+#### Implementation Details
+- Version management following semantic versioning principles
+- Clean, professional code style
+- Emoji-free pure text output
+- Compliance with enterprise development standards
 
 ### v2.3.0 (Configuration Modernization - August 31, 2025)
 
