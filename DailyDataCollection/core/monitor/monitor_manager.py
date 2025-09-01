@@ -53,6 +53,16 @@ class MonitorManager:
         """
         wechat_path = os.path.join(config['paths']['wechat_folder'], self.current_date.yyyy_mm_str)
         
+        # 检查并创建监控目录：可能当天是当月第一天，微信尚未自动创建此文件夹
+        if not os.path.exists(wechat_path):
+            print(f"监控目录不存在，正在创建: {wechat_path}")
+            try:
+                os.makedirs(wechat_path, exist_ok=True)
+                print(f"成功创建监控目录: {wechat_path}")
+            except Exception as e:
+                print(f"创建监控目录失败: {e}")
+                return
+        
         # 显示初始的待收集文件列表
         self._display_initial_status()
         
@@ -150,9 +160,8 @@ class MonitorManager:
         remaining_count = len(remaining_files)
         
         print(f"总图幅数量: {total_mapsheets}")
-        print(f"计划收集文件数: {planned_files}")
-        print(f"待收集文件数: {remaining_count}")
-        
+        print(f"待收集文件数/计划收集文件数:{remaining_count}/{planned_files}")
+
         if remaining_count > 0:
             print(f"\n待收集的文件列表:")
             for i, filename in enumerate(remaining_files, 1):

@@ -234,23 +234,23 @@ class DataCollector:
         """生成KMZ报告"""
         try:
             if collection.dailyKMZReport():
-                logger.info("KMZ报告生成成功")
+                logger.info("每日KMZ文件生成成功")
                 return True
             else:
-                logger.error("KMZ报告生成失败")
+                logger.error("每日KMZ文件生成失败")
                 return False
         except Exception as e:
-            logger.error(f"KMZ报告生成异常: {e}")
+            logger.error(f"每日KMZ文件生成异常: {e}")
             return False
 
     def _generate_excel_report(self, collection):
         """生成Excel报告"""
         try:
             if collection.dailyExcelReport():
-                logger.info("Excel报告生成成功")
+                logger.info("每日Excel报告生成成功")
                 return True
             else:
-                logger.error("Excel报告生成失败")
+                logger.error("每日Excel报告生成失败")
                 return False
         except Exception as e:
             logger.error(f"Excel报告生成异常: {e}")

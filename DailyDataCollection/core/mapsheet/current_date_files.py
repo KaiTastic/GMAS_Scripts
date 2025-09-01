@@ -8,6 +8,7 @@ import os
 import logging
 import functools
 import threading
+import warnings
 from typing import Dict, List, Optional, Any, Tuple
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
@@ -130,7 +131,6 @@ class CurrentDateFiles:
         
         注意：此方法已弃用，请使用 mapsheet_manager.maps_info 替代
         """
-        import warnings
         warnings.warn(
             "CurrentDateFiles.mapsInfo() 已弃用，请使用 mapsheet_manager.maps_info",
             DeprecationWarning,
