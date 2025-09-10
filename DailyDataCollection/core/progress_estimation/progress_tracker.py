@@ -20,19 +20,21 @@ logger = logging.getLogger(__name__)
 class ProgressTracker:
     """进度跟踪器主类，整合所有进度估算功能"""
 
-    def __init__(self, workspace_path: str = None, output_dir: str = None):
+    def __init__(self, workspace_path: str = None, output_dir: str = None, use_real_data: bool = True):
         """
         初始化进度跟踪器
         
         Args:
             workspace_path: 工作空间路径
             output_dir: 输出目录路径
+            use_real_data: 是否使用真实数据（默认True）
         """
         self.workspace_path = workspace_path or os.getcwd()
         self.output_dir = output_dir or os.path.join(self.workspace_path, 'progress_reports')
+        self.use_real_data = use_real_data
         
         # 初始化各个组件
-        self.data_analyzer = DataAnalyzer(self.workspace_path)
+        self.data_analyzer = DataAnalyzer(self.workspace_path, use_real_data=use_real_data)
         self.finish_estimator = None  # 将在数据加载后初始化
         self.charts_generator = ProgressCharts(self.data_analyzer, self.output_dir)
         
@@ -44,26 +46,44 @@ class ProgressTracker:
             'target_date': None
         }
         
-        logger.info(f"进度跟踪器已初始化，输出目录: {self.output_dir}")
+        logger.info(f"进度跟踪器已初始化，输出目录: {self.output_dir}，数据源: {'真实数据' if use_real_data else '模拟数据'}")
     
     def initialize_project(self, 
-                          target_points: int,
-                          current_points: int = 0,
+                          target_points: int = None,
+                          current_points: int = None,
                           start_date: DateType = None,
-                          target_date: DateType = None) -> bool:
+                          target_date: DateType = None,
+                          auto_detect: bool = True) -> bool:
         """
         初始化项目配置
         
         Args:
-            target_points: 目标总点数
-            current_points: 当前已完成点数
+            target_points: 目标总点数，如果为None且auto_detect=True，将尝试自动获取
+            current_points: 当前已完成点数，如果为None且auto_detect=True，将尝试自动获取
             start_date: 项目开始日期
             target_date: 目标完成日期
+            auto_detect: 是否自动检测项目参数
             
         Returns:
             bool: 是否成功初始化
         """
         try:
+            # 自动检测项目参数
+            if auto_detect and self.use_real_data:
+                if target_points is None:
+                    target_points = self.data_analyzer.get_project_target_estimate()
+                    if target_points:
+                        logger.info(f"自动检测到项目目标: {target_points} 点")
+                
+                if current_points is None:
+                    current_points = self.data_analyzer.get_current_cumulative_progress()
+                    if current_points:
+                        logger.info(f"自动检测到当前进度: {current_points} 点")
+            
+            # 使用默认值如果无法自动检测
+            target_points = target_points or 0
+            current_points = current_points or 0
+            
             self.project_config.update({
                 'target_points': target_points,
                 'current_points': current_points,
@@ -426,3 +446,88 @@ class ProgressTracker:
         except Exception as e:
             logger.error(f"计算每日目标失败: {e}")
             return {'error': str(e)}
+    
+    def switch_data_source(self, use_real_data: bool) -> bool:
+        """
+        切换数据源
+        
+        Args:
+            use_real_data: True使用真实数据，False使用模拟数据
+            
+        Returns:
+            bool: 是否成功切换
+        """
+        try:
+            if use_real_data:
+                success = self.data_analyzer.switch_to_real_data()
+            else:
+                success = self.data_analyzer.switch_to_simulated_data()
+            
+            if success:
+                self.use_real_data = use_real_data
+                # 重新初始化完成日期估算器
+                if not self.data_analyzer.historical_data.empty:
+                    self.finish_estimator = FinishDateEstimator(self.data_analyzer)
+                
+                logger.info(f"数据源切换成功: {'真实数据' if use_real_data else '模拟数据'}")
+                return True
+            else:
+                logger.error("数据源切换失败")
+                return False
+                
+        except Exception as e:
+            logger.error(f"切换数据源时发生错误: {e}")
+            return False
+    
+    def get_data_source_info(self) -> Dict[str, Any]:
+        """获取当前数据源信息"""
+        info = {
+            'data_source_type': 'real_data' if self.use_real_data else 'simulated_data',
+            'has_historical_data': not self.data_analyzer.historical_data.empty,
+            'data_range': None,
+            'data_quality': None
+        }
+        
+        if not self.data_analyzer.historical_data.empty:
+            info['data_range'] = {
+                'start_date': self.data_analyzer.historical_data['date'].min().strftime('%Y-%m-%d'),
+                'end_date': self.data_analyzer.historical_data['date'].max().strftime('%Y-%m-%d'),
+                'total_records': len(self.data_analyzer.historical_data)
+            }
+        
+        # 如果使用真实数据，获取数据质量信息
+        if self.use_real_data and hasattr(self.data_analyzer, 'data_connector') and self.data_analyzer.data_connector:
+            try:
+                if not self.data_analyzer.historical_data.empty:
+                    start_date = DateType(self.data_analyzer.historical_data['date'].min())
+                    end_date = DateType(self.data_analyzer.historical_data['date'].max())
+                    info['data_quality'] = self.data_analyzer.data_connector.validate_data_availability(start_date, end_date)
+            except Exception as e:
+                logger.warning(f"获取数据质量信息失败: {e}")
+        
+        return info
+    
+    def refresh_current_progress(self) -> bool:
+        """
+        刷新当前进度（仅适用于真实数据源）
+        
+        Returns:
+            bool: 是否成功刷新
+        """
+        if not self.use_real_data:
+            logger.warning("模拟数据源无法刷新当前进度")
+            return False
+        
+        try:
+            current_points = self.data_analyzer.get_current_cumulative_progress()
+            if current_points >= 0:
+                self.project_config['current_points'] = current_points
+                logger.info(f"当前进度已刷新: {current_points} 点")
+                return True
+            else:
+                logger.warning("无法获取当前进度")
+                return False
+                
+        except Exception as e:
+            logger.error(f"刷新当前进度失败: {e}")
+            return False
