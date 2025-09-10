@@ -22,26 +22,20 @@ logger = logging.getLogger(__name__)
 class DataAnalyzer:
     """数据分析器类，用于分析历史观测数据"""
 
-    def __init__(self, workspace_path: str = None, use_real_data: bool = True):
+    def __init__(self, workspace_path: str = None):
         """
         初始化数据分析器
         
         Args:
             workspace_path: 工作空间路径，用于查找历史数据
-            use_real_data: 是否使用真实数据（默认True），False时使用模拟数据
         """
         self.workspace_path = workspace_path or os.getcwd()
-        self.use_real_data = use_real_data
         self.historical_data: pd.DataFrame = pd.DataFrame()
         self.daily_statistics: Dict[str, Any] = {}
         
         # 初始化数据连接器
-        if self.use_real_data:
-            self.data_connector = ExcelDataConnector(self.workspace_path)
-            logger.info("数据分析器初始化完成，使用真实数据源")
-        else:
-            self.data_connector = None
-            logger.info("数据分析器初始化完成，使用模拟数据源")
+        self.data_connector = ExcelDataConnector(self.workspace_path)
+        logger.info("数据分析器初始化完成")
         
     def load_historical_data(self, start_date: DateType, end_date: DateType = None) -> bool:
         """
@@ -58,103 +52,34 @@ class DataAnalyzer:
             if end_date is None:
                 end_date = DateType(datetime.now())
             
-            if self.use_real_data and self.data_connector:
-                # 使用真实数据源（Excel）
-                historical_records = self.data_connector.extract_historical_data(start_date, end_date)
-                
-                if historical_records:
-                    self.historical_data = pd.DataFrame(historical_records)
-                    self.historical_data['date'] = pd.to_datetime(self.historical_data['date'])
-                    self.historical_data = self.historical_data.sort_values('date')
-                    logger.info(f"成功从Excel加载 {len(historical_records)} 天的历史数据")
-                    return True
-                else:
-                    logger.warning("从Excel未找到历史数据")
-                    return False
+            # 使用真实数据源（Excel）
+            historical_records = self.data_connector.extract_historical_data(start_date, end_date)
+            
+            if historical_records:
+                self.historical_data = pd.DataFrame(historical_records)
+                self.historical_data['date'] = pd.to_datetime(self.historical_data['date'])
+                self.historical_data = self.historical_data.sort_values('date')
+                logger.info(f"成功从Excel加载 {len(historical_records)} 天的历史数据")
+                return True
             else:
-                # 使用模拟数据
-                date_range = self._generate_date_range(start_date, end_date)
-                historical_records = []
-                
-                for date_obj in date_range:
-                    daily_data = self._extract_daily_data(date_obj)
-                    if daily_data:
-                        historical_records.append(daily_data)
-                
-                if historical_records:
-                    self.historical_data = pd.DataFrame(historical_records)
-                    self.historical_data['date'] = pd.to_datetime(self.historical_data['date'])
-                    self.historical_data = self.historical_data.sort_values('date')
-                    logger.info(f"成功生成 {len(historical_records)} 天的模拟历史数据")
-                    return True
-                else:
-                    logger.warning("未找到历史数据")
-                    return False
+                logger.warning("从Excel未找到历史数据")
+                return False
                 
         except Exception as e:
             logger.error(f"加载历史数据失败: {e}")
             return False
     
-    def _generate_date_range(self, start_date: DateType, end_date: DateType) -> List[DateType]:
-        """生成日期范围"""
-        date_range = []
-        current = start_date.date_datetime
-        end = end_date.date_datetime
-        
-        while current <= end:
-            date_range.append(DateType(current))
-            current += timedelta(days=1)
-            
-        return date_range
     
     def _extract_daily_data(self, date_obj: DateType) -> Optional[Dict[str, Any]]:
         """
         从指定日期提取数据
-        
-        优先使用真实数据，如果启用且数据连接器可用的话
         """
         try:
-            if self.use_real_data and self.data_connector:
-                # 使用真实数据源
-                return self.data_connector.get_daily_progress_data(date_obj)
-            else:
-                # 使用模拟数据（保持原有逻辑用于测试）
-                daily_points = self._simulate_daily_points(date_obj)
-                
-                if daily_points > 0:
-                    return {
-                        'date': date_obj.yyyymmdd_str,
-                        'completed_points': daily_points,
-                        'cumulative_points': daily_points,  # 这个需要累计计算
-                        'teams_active': self._simulate_team_count(date_obj),
-                        'workday': date_obj.date_datetime.weekday() < 5  # 工作日
-                    }
-            
+            return self.data_connector.get_daily_progress_data(date_obj)
         except Exception as e:
             logger.debug(f"提取 {date_obj.yyyymmdd_str} 数据失败: {e}")
             
         return None
-    
-    def _simulate_daily_points(self, date_obj: DateType) -> int:
-        """模拟每日点数数据"""
-        # 这里应该替换为实际的数据读取逻辑
-        # 模拟数据：工作日完成更多点，周末较少
-        base_points = 50
-        weekday = date_obj.date_datetime.weekday()
-        
-        if weekday < 5:  # 工作日
-            return base_points + np.random.randint(-10, 20)
-        else:  # 周末
-            return max(0, base_points // 3 + np.random.randint(-10, 10))
-    
-    def _simulate_team_count(self, date_obj: DateType) -> int:
-        """模拟活跃团队数量"""
-        # 模拟数据：工作日有更多团队活跃
-        weekday = date_obj.date_datetime.weekday()
-        if weekday < 5:
-            return np.random.randint(3, 6)
-        else:
-            return np.random.randint(1, 3)
     
     def calculate_daily_velocity(self) -> pd.DataFrame:
         """计算每日速度统计"""
@@ -317,7 +242,7 @@ class DataAnalyzer:
             'daily_statistics': self.daily_statistics,
             'velocity_trend': self.get_velocity_trend(),
             'team_performance': self.get_team_performance(),
-            'data_source': 'real_data' if self.use_real_data else 'simulated_data'
+            'data_source': 'real_data'
         }
         
         if not self.historical_data.empty:
@@ -327,71 +252,30 @@ class DataAnalyzer:
                 'total_days': len(self.historical_data)
             }
         
-        # 如果使用真实数据，添加数据质量报告
-        if self.use_real_data and self.data_connector:
-            try:
+        # 添加数据质量报告
+        try:
+            if not self.historical_data.empty:
                 start_date = DateType(self.historical_data['date'].min())
                 end_date = DateType(self.historical_data['date'].max())
                 data_validation = self.data_connector.validate_data_availability(start_date, end_date)
                 summary['data_quality'] = data_validation
-            except Exception as e:
-                logger.warning(f"获取数据质量报告失败: {e}")
+        except Exception as e:
+            logger.warning(f"获取数据质量报告失败: {e}")
         
         return summary
     
     def get_current_cumulative_progress(self) -> int:
         """获取当前累计进度"""
-        if self.use_real_data and self.data_connector:
-            try:
-                current_date = DateType(datetime.now())
-                return self.data_connector.get_cumulative_progress(current_date)
-            except Exception as e:
-                logger.error(f"获取当前累计进度失败: {e}")
-                return 0
-        else:
-            # 使用历史数据的累计值
+        try:
+            current_date = DateType(datetime.now())
+            return self.data_connector.get_cumulative_progress(current_date)
+        except Exception as e:
+            logger.error(f"获取当前累计进度失败: {e}")
+            # 使用历史数据的累计值作为备选
             if not self.historical_data.empty:
                 return int(self.historical_data['cumulative_points'].iloc[-1])
             return 0
     
     def get_project_target_estimate(self) -> Optional[int]:
         """获取项目目标估算"""
-        if self.use_real_data and self.data_connector:
-            return self.data_connector.get_project_target()
-        return None
-    
-    def switch_to_real_data(self) -> bool:
-        """切换到真实数据源"""
-        try:
-            if not self.use_real_data:
-                self.use_real_data = True
-                self.data_connector = ExcelDataConnector(self.workspace_path)
-                # 清空现有数据，强制重新加载
-                self.historical_data = pd.DataFrame()
-                self.daily_statistics = {}
-                logger.info("已切换到真实数据源")
-                return True
-            else:
-                logger.info("已经在使用真实数据源")
-                return True
-        except Exception as e:
-            logger.error(f"切换到真实数据源失败: {e}")
-            return False
-    
-    def switch_to_simulated_data(self) -> bool:
-        """切换到模拟数据源"""
-        try:
-            if self.use_real_data:
-                self.use_real_data = False
-                self.data_connector = None
-                # 清空现有数据，强制重新加载
-                self.historical_data = pd.DataFrame()
-                self.daily_statistics = {}
-                logger.info("已切换到模拟数据源")
-                return True
-            else:
-                logger.info("已经在使用模拟数据源")
-                return True
-        except Exception as e:
-            logger.error(f"切换到模拟数据源失败: {e}")
-            return False
+        return self.data_connector.get_project_target()

@@ -3,7 +3,6 @@
 
 # 数据源配置
 data_source:
-  use_real_data: true
   excel_file_path: "data/GMAS观测数据.xlsx"
   sheet_name: "观测数据"
   date_column: "观测日期"

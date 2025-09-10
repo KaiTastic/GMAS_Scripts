@@ -35,7 +35,6 @@ class EstimationConfig:
     mode: EstimationMode = EstimationMode.ADVANCED
     days_back: int = 30
     confidence_level: float = 0.8
-    use_real_data: bool = True
     enable_charts: bool = True
     enable_integration: bool = True
     output_formats: List[str] = None
@@ -78,10 +77,7 @@ class CoreEstimator:
             data_config = self.config_manager.get_data_source_config()
             
             # 初始化数据分析器
-            self.data_analyzer = DataAnalyzer(
-                self.workspace_path, 
-                use_real_data=self.config.use_real_data
-            )
+            self.data_analyzer = DataAnalyzer(self.workspace_path)
             
             # 延迟初始化其他组件
             self.finish_estimator = None
@@ -324,8 +320,7 @@ class CoreEstimator:
             'charts': chart_results,
             'configuration': {
                 'confidence_level': self.config.confidence_level,
-                'days_back': self.config.days_back,
-                'use_real_data': self.config.use_real_data
+                'days_back': self.config.days_back
             }
         }
         

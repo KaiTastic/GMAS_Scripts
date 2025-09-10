@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DataSourceConfig:
     """数据源配置"""
-    use_real_data: bool = True
     excel_file_path: str = ""
     sheet_name: str = "观测数据"
     date_column: str = "观测日期"

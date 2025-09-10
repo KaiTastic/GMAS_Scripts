@@ -1,5 +1,47 @@
 # 变更日志
 
+## [1.1.0] - 2025-09-10
+
+### 🧹 代码清理与架构优化
+
+这是一个重要的重构版本，专注于代码质量提升和架构简化。
+
+### 🗑️ 移除功能
+- **模拟数据支持**: 移除所有模拟数据相关代码，专注真实数据处理
+  - 删除 `_simulate_daily_points()` 方法
+  - 删除 `_simulate_team_count()` 方法 
+  - 删除 `_generate_date_range()` 方法
+  - 删除 `switch_to_real_data()` 和 `switch_to_simulated_data()` 方法
+
+### 🔧 API 简化
+- **DataAnalyzer 构造函数简化**: 移除 `use_real_data` 参数
+- **EstimationConfig 简化**: 移除 `use_real_data` 配置字段
+- **配置文件简化**: estimation_settings.yaml 移除模拟数据相关配置
+
+### 📈 性能优化
+- **代码量减少**: 移除约150行冗余代码
+- **逻辑简化**: 消除不必要的条件判断分支
+- **缓存优化**: 简化缓存键生成逻辑
+
+### 🛠️ 内部重构
+- **数据加载逻辑**: 简化 `load_historical_data()` 方法
+- **统计计算**: 优化 `_calculate_daily_statistics()` 方法
+- **错误处理**: 改进异常处理和日志记录
+
+### 📝 文档更新
+- 更新模块文档和示例代码
+
+### ⚠️ 破坏性变更
+- `DataAnalyzer(workspace_path, use_real_data=True)` → `DataAnalyzer(workspace_path)`
+- 配置文件中不再支持 `data_source.use_real_data` 配置项
+
+### 🔄 向后兼容性
+- 对外主要API接口保持不变
+- 现有功能和测试继续工作
+- 配置文件结构向后兼容
+
+---
+
 ## [1.0.0] - 2025-09-10
 
 ### 🎉 全新架构版本

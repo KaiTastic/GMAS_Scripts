@@ -350,7 +350,7 @@ class EstimationFacade:
     
     def _get_estimator(self, config: EstimationConfig) -> CoreEstimator:
         """获取或创建估算器实例"""
-        cache_key = f"{config.mode.value}_{config.use_real_data}_{config.enable_integration}_{config.days_back}"
+        cache_key = f"{config.mode.value}_{config.enable_integration}_{config.days_back}"
         
         if cache_key not in self._estimator_cache:
             self._estimator_cache[cache_key] = CoreEstimator(self.workspace_path, config)

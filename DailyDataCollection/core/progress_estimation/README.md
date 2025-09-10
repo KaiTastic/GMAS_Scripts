@@ -1,12 +1,12 @@
-# 进度估算模块 v1.0.0
+# 进度估算模块 v1.1.0
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-**高性能的GMAS项目进度估算引擎**
+**GMAS项目进度估算引擎**
 
 *专为测绘项目设计的智能估算系统*
 
@@ -475,7 +475,6 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 <div align="center">
 
-**🎯 专业 · 高效 · 可靠**
 
 *为GMAS项目进度管理提供强大支持*
 
