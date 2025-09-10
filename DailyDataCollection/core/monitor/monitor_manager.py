@@ -313,5 +313,5 @@ class MonitorManager:
             print("开始实时监控文件变化...\n")
 
         else:
-            print("\n✅ 所有计划文件已收集完成!")
+            print("\n 所有计划文件已收集完成!")
         
