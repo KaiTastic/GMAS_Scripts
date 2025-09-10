@@ -1,0 +1,248 @@
+# ==============================================================================
+# GMAS Scripts - Git Ignore Configuration
+# ==============================================================================
+# This file specifies which files and directories Git should ignore
+# Suitable for projects containing Python, image processing, spectral analysis tools
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Operating System Generated Files
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ------------------------------------------------------------------------------
+# IDE and Editor Configuration Files
+# ------------------------------------------------------------------------------
+# Visual Studio Code
+.vscode/
+**/.vscode/
+
+# JetBrains IDEs (PyCharm, IntelliJ, etc.)
+.idea/
+**/.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# ------------------------------------------------------------------------------
+# Python Related Files
+# ------------------------------------------------------------------------------
+# Byte-compiled files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+**/build/
+develop-eggs/
+dist/
+**/dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+**/*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+**/test-results/
+**/test-results.xml
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+**/__pypimodules__/
+
+# ------------------------------------------------------------------------------
+# Node.js Related Files (if there are frontend components)
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
+
+# TypeScript
+tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
+tsconfig.json
+**/tsconfig.json
+tsconfig.base.json
+**/tsconfig.base.json
+
+# ------------------------------------------------------------------------------
+# Log Files
+# ------------------------------------------------------------------------------
+*.log
+**/*.log
+logs/
+**/logs/
+
+# ------------------------------------------------------------------------------
+# Project Specific Directories and Files
+# ------------------------------------------------------------------------------
+# Test data and examples
+**/__testData__/
+**/__tests__/
+**/__examples__/
+**/testImageData/
+
+# Design documents and private resources
+**/__design__/
+**/Design/
+**/private/
+**/__readme__/
+
+# Build and packaging related
+**/__packed__/
+**/__execute__/
+
+# Workspace configuration files
+*.code-workspace
+**/*.code-workspace
+
+# Batch scripts (Windows build scripts, etc.)
+*.bat
+**/*.bat
+
+# Coverage and test results
+coverage/
+**/coverage/
+
+# ------------------------------------------------------------------------------
+# Image Processing Project Specific Files
+# ------------------------------------------------------------------------------
+# ImageCutter generated split images
+testImageData/*_split_*.jpg
+testImageData/*_split_*.png
+testImageData/*_cropped_*.jpg
+testImageData/*_cropped_*.png
+
+# Temporary image files
+*.tmp
+**/*.tmp
+temp_images/
+**/temp_images/
+
+# ------------------------------------------------------------------------------
+# Data Collection Project Specific Files
+# ------------------------------------------------------------------------------
+# GMAS data collection logs
+gmas_collection.log
+**/gmas_collection.log
+inconsistent_files.log
+
+# KMZ/KML temporary files
+*.kmz.tmp
+*.kml.tmp
+
+# ------------------------------------------------------------------------------
+# Temporary Files and Cache
+# ------------------------------------------------------------------------------
+# General temporary files
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# ------------------------------------------------------------------------------
+# Security and Configuration Files (if containing sensitive information)
+# ------------------------------------------------------------------------------
+# Environment configuration files (uncomment if containing sensitive information)
+# .env
+# config/secrets.yaml
+# config/private.yaml
+
+# ------------------------------------------------------------------------------
+# Others
+# ------------------------------------------------------------------------------
+# If you need to keep certain usually ignored files, use the ! prefix
+# Example: !important.log
+
+# Compressed files (temporary)
+*.zip
+*.tar.gz
+*.rar
+*.7z
