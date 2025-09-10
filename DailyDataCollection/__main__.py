@@ -585,6 +585,12 @@ def parse_args():
         help="强制生成周报告，忽略日期检查"
     )
     
+    report_group.add_argument(
+        "--predict",
+        action='store_true',
+        help="启用进度预测功能，显示图幅完成时间预测和总体进度分析"
+    )
+    
     # ========== 调试和测试参数组 ==========
     debug_group = parser.add_argument_group('调试选项', '开发和测试用的参数')
     
@@ -775,7 +781,13 @@ class DataCollector:
            该方法使用 try-catch 结构确保异常被正确处理和记录。
         """
         try:
-            collection = CurrentDateFiles(self.collection_date)
+            # 创建CurrentDateFiles，传递predict参数
+            enable_predict = self.args and self.args.predict
+            collection = CurrentDateFiles(self.collection_date, enable_predict=enable_predict)
+            
+            # 显示进度预测（如果启用）
+            if self.args and self.args.predict:
+                self._display_progress_prediction(collection)
             
             # 显示收集报告头部
             ReportDisplay.show_header(self.collection_date)
@@ -994,6 +1006,80 @@ class DataCollector:
            weekday() 返回 0-6，分别表示周一到周日。
         """
         return self.collection_date.date_datetime.weekday() in self.config['data_collection']['weekdays']
+
+    def _display_progress_prediction(self, collection):
+        """显示进度预测信息
+        
+        调用CurrentDateFiles的进度预测功能并显示结果。
+        
+        :param collection: 数据收集对象
+        :type collection: CurrentDateFiles
+        
+        .. note::
+           该方法会调用progress estimation模块进行预测分析，
+           并将结果以用户友好的格式显示在控制台。
+        """
+        try:
+            print(f"\n{'='*60}")
+            print("进度预测分析")
+            print(f"{'='*60}")
+            
+            # 调用CurrentDateFiles的进度预测方法
+            prediction_results = collection.estimate_progress()
+            
+            if prediction_results:
+                self._show_prediction_results(prediction_results)
+            else:
+                print("无法生成预测结果 - 可能是数据不足或配置问题")
+                logger.warning("进度预测生成失败")
+            
+        except Exception as e:
+            logger.error(f"进度预测显示失败: {e}")
+            print(f"进度预测功能出现错误: {e}")
+
+    def _show_prediction_results(self, prediction_results):
+        """显示预测结果
+        
+        格式化显示预测分析的结果。
+        
+        :param prediction_results: 预测结果数据
+        :type prediction_results: dict
+        
+        .. note::
+           显示格式包括总体进度、图幅级别预测和时间估算，
+           不使用emoji以确保终端兼容性。
+        """
+        try:
+            # 显示总体进度预测
+            if 'overall_progress' in prediction_results:
+                overall = prediction_results['overall_progress']
+                print(f"\n[总体进度预测]")
+                print(f"  完成进度: {overall.get('completion_rate', 0):.1f}%")
+                print(f"  预计完成日期: {overall.get('estimated_completion', '未知')}")
+                print(f"  剩余工作量: {overall.get('remaining_workload', '未知')}")
+            
+            # 显示图幅级别预测
+            if 'mapsheet_predictions' in prediction_results:
+                mapsheets = prediction_results['mapsheet_predictions']
+                if mapsheets:
+                    print(f"\n[图幅完成预测] (显示前5个最新预测)")
+                    for i, (sheet_name, pred) in enumerate(list(mapsheets.items())[:5]):
+                        print(f"  {sheet_name}: {pred.get('estimated_completion', '未知')}")
+                        if i >= 4:  # 只显示前5个
+                            break
+            
+            # 显示质量分析
+            if 'quality_analysis' in prediction_results:
+                quality = prediction_results['quality_analysis']
+                print(f"\n[质量分析]")
+                print(f"  平均质量得分: {quality.get('average_score', 0):.1f}")
+                print(f"  质量趋势: {quality.get('trend', '未知')}")
+            
+            print(f"\n{'='*60}")
+            
+        except Exception as e:
+            logger.error(f"预测结果显示失败: {e}")
+            print(f"预测结果显示出现错误: {e}")
 
 
 # ============================================================================
@@ -1489,6 +1575,10 @@ def display_system_info(args):
         print(f"设定日期: {args.date}")
         print(f"当前系统时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
+        # 显示主要功能状态
+        if args.predict:
+            print(f"进度预测: 启用")
+        
         if args.verbose or args.debug:
             print(f"工作空间: {config['paths']['workspace']}")
             print(f"微信文件夹: {config['paths']['wechat_folder']}")
@@ -1577,6 +1667,10 @@ def execute_collection_mode(args):
         
         if args.force_weekly:
             print(f" 强制生成周报告")
+        
+        # 显示预测模式状态
+        if args.predict:
+            print(f" 进度预测: 启用")
     
     return collect_data(args.date, args)
 

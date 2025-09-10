@@ -69,6 +69,9 @@ try:
         PerformanceConfig
     )
     
+    # 全局实例缓存，避免重复初始化
+    _facade_instances = {}
+    
     # 便捷函数
     def quick_estimate(target_points: int, current_points: int = None, workspace_path: str = None) -> dict:
         """
@@ -83,7 +86,12 @@ try:
             dict: 估算结果摘要
         """
         try:
-            facade = EstimationFacade(workspace_path)
+            # 使用缓存的实例，避免重复初始化
+            cache_key = workspace_path or "default"
+            if cache_key not in _facade_instances:
+                _facade_instances[cache_key] = EstimationFacade(workspace_path)
+            
+            facade = _facade_instances[cache_key]
             return facade.quick_estimate(target_points, current_points)
         except Exception as e:
             logger.error(f"快速估算失败: {e}")
@@ -111,7 +119,12 @@ try:
             dict: 完整的估算结果
         """
         try:
-            facade = EstimationFacade(workspace_path)
+            # 使用缓存的实例，避免重复初始化
+            cache_key = workspace_path or "default"
+            if cache_key not in _facade_instances:
+                _facade_instances[cache_key] = EstimationFacade(workspace_path)
+            
+            facade = _facade_instances[cache_key]
             return facade.advanced_estimate(target_points, current_points, confidence_level)
         except Exception as e:
             logger.error(f"高级估算失败: {e}")

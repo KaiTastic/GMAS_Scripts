@@ -92,6 +92,7 @@ class MapsheetManager:
                     'Latin Name': row['Latin Name'],
                     'Team Number': row['Team Number'],
                     'Leaders': row['Leaders'],
+                    'Target Total': row['Target Total'],
                 }
                 for _, row in sorted_df.iterrows()
             }
@@ -164,6 +165,32 @@ class MapsheetManager:
             if info.get('Team Number') == team_number:
                 return info
         return None
+    
+    def get_mapsheet_target(self, roman_name: str) -> int:
+        """
+        根据罗马名称获取图幅的目标点数
+        
+        Args:
+            roman_name: 图幅的罗马名称
+            
+        Returns:
+            int: 目标点数，如果没有找到或配置错误则返回默认值3000
+        """
+        try:
+            for info in self._maps_info.values():
+                if info.get('Roman Name') == roman_name:
+                    target = info.get('Target Total')
+                    if target and isinstance(target, (int, float)) and target > 0:
+                        return int(target)
+                    break
+            
+            # 如果没有找到或目标值无效，返回默认值
+            logger.warning(f"图幅 {roman_name} 没有有效的目标点数配置，使用默认值3000")
+            return 750
+            
+        except Exception as e:
+            logger.error(f"获取图幅 {roman_name} 目标点数失败: {e}")
+            return 750
     
     def create_mapsheet_collection(
         self, 

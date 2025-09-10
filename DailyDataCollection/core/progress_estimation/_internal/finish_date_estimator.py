@@ -33,24 +33,54 @@ class FinishDateEstimator:
             'linear_regression': self._estimate_by_linear_regression,
             'monte_carlo': self._estimate_by_monte_carlo
         }
+        # 项目配置存储
+        self.project_config = {}
+    
+    def set_project_config(self, target_points: int = None, current_points: int = None, target_date = None):
+        """
+        设置项目配置
+        
+        Args:
+            target_points: 目标总点数
+            current_points: 当前已完成点数
+            target_date: 目标日期
+        """
+        if target_points is not None:
+            self.project_config['target_points'] = target_points
+        if current_points is not None:
+            self.project_config['current_points'] = current_points
+        if target_date is not None:
+            self.project_config['target_date'] = target_date
+        
+        logger.debug(f"更新项目配置: {self.project_config}")
     
     def estimate_finish_date(self, 
-                           target_points: int,
-                           current_points: int = 0,
+                           target_points: int = None,
+                           current_points: int = None,
                            method: str = 'weighted_average',
                            confidence_level: float = 0.8) -> Dict[str, Any]:
         """
         估算完成日期
         
         Args:
-            target_points: 目标总点数
-            current_points: 当前已完成点数
+            target_points: 目标总点数（如果为None，从配置中获取）
+            current_points: 当前已完成点数（如果为None，从配置中获取）
             method: 估算方法
             confidence_level: 置信度
             
         Returns:
             包含估算结果的字典
         """
+        # 从配置中获取缺失的参数
+        if target_points is None:
+            target_points = self.project_config.get('target_points')
+        if current_points is None:
+            current_points = self.project_config.get('current_points', 0)
+            
+        # 验证参数
+        if target_points is None:
+            raise ValueError("target_points 必须提供或通过 set_project_config 设置")
+        
         logger.info(f"开始完成日期估算：目标{target_points}点，当前{current_points}点")
         
         # 检查是否已完成

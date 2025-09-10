@@ -345,77 +345,107 @@ class ExcelDataConnector:
         try:
             historical_records = []
             
-            # 分析Excel结构：第一列是日期，其他列是图幅
-            if len(self.excel_data.columns) < 2:
-                logger.error("Excel数据列数不足")
+            # Excel结构：每行是图幅，每列是日期
+            # 找到图幅名称列
+            if 'Sheet Name' not in self.excel_data.columns:
+                logger.warning("未找到'Sheet Name'列")
                 return []
             
-            # 获取图幅列名（跳过第一列日期和最后一列总计）
-            mapsheet_columns = []
-            for col_name in self.excel_data.columns[1:-1]:  # 跳过第一列和最后一列
-                if 'H50E' in str(col_name):  # 图幅名称格式
-                    mapsheet_columns.append(col_name)
+            # 找到日期列（从第8列开始是日期列）
+            date_columns = []
+            for col_name in self.excel_data.columns[8:]:  # 日期从第8列开始
+                if isinstance(col_name, str) and '2025-' in col_name:  # 日期列
+                    try:
+                        # 验证是否可以解析为日期
+                        datetime.strptime(col_name, '%Y-%m-%d %H:%M:%S')
+                        date_columns.append(col_name)
+                    except:
+                        continue
             
-            if not mapsheet_columns:
-                logger.warning("未找到有效的图幅列")
+            if not date_columns:
+                logger.warning("未找到有效的日期列")
                 return []
             
-            logger.info(f"找到 {len(mapsheet_columns)} 个图幅列: {mapsheet_columns[:3]}...")
+            logger.info(f"找到 {len(date_columns)} 个日期列，图幅名称列: Sheet Name")
             
-            # 遍历每一行（每行代表一个日期的数据）
+            # 按日期聚合数据
+            date_records = {}
+            
+            # 遍历每一行（每行代表一个图幅的数据）
             for row_idx in range(len(self.excel_data)):
                 try:
-                    # 获取日期（第一列）
-                    date_value = self.excel_data.iloc[row_idx, 0]
+                    # 获取图幅名称
+                    mapsheet_name = self.excel_data.iloc[row_idx, self.excel_data.columns.get_loc('Sheet Name')]
                     
-                    if pd.isna(date_value):
+                    if pd.isna(mapsheet_name) or str(mapsheet_name).strip() == '':
                         continue
                     
-                    # 解析日期
-                    date_str = str(int(date_value)) if isinstance(date_value, (int, float)) else str(date_value).strip()
+                    mapsheet_name = str(mapsheet_name).strip()
                     
-                    # 转换为DateType对象
-                    date_obj = self._parse_date_string(date_str)
-                    if not date_obj:
-                        continue
-                    
-                    date_type = DateType(date_obj)
-                    
-                    # 检查是否在指定范围内
-                    if not (start_date.date_datetime <= date_type.date_datetime <= end_date.date_datetime):
-                        continue
-                    
-                    # 提取该日期的点数数据
-                    total_points = 0
-                    mapsheet_points = {}
-                    
-                    for col_name in mapsheet_columns:
+                    # 遍历每个日期列，提取该图幅在该日期的数据
+                    for date_col in date_columns:
                         try:
-                            col_idx = self.excel_data.columns.get_loc(col_name)
+                            # 解析日期
+                            date_obj = datetime.strptime(date_col, '%Y-%m-%d %H:%M:%S')
+                            date_type = DateType(date_obj)
+                            
+                            # 检查是否在指定范围内
+                            if not (start_date.date_datetime <= date_type.date_datetime <= end_date.date_datetime):
+                                continue
+                            
+                            date_key = date_type.yyyymmdd_str
+                            
+                            # 如果这个日期还没有记录，创建一个
+                            if date_key not in date_records:
+                                date_records[date_key] = {
+                                    'date': date_key,
+                                    'completed_points': 0,
+                                    'teams_active': 0,
+                                    'workday': date_type.date_datetime.weekday() < 5,
+                                    'mapsheet_details': {}
+                                }
+                            
+                            # 获取该日期的点数
+                            col_idx = self.excel_data.columns.get_loc(date_col)
                             points_value = self.excel_data.iloc[row_idx, col_idx]
                             
-                            if pd.notna(points_value):
-                                points = int(float(points_value))
-                                if points > 0:
-                                    mapsheet_points[col_name] = points
-                                    total_points += points
-                        except (ValueError, KeyError, IndexError):
+                            points = 0
+                            if not pd.isna(points_value):
+                                try:
+                                    points = int(float(points_value))
+                                    if points < 0:
+                                        points = 0
+                                except (ValueError, TypeError):
+                                    points = 0
+                            
+                            # 添加到该日期的记录中
+                            date_records[date_key]['mapsheet_details'][mapsheet_name] = points
+                            date_records[date_key]['completed_points'] += points
+                            
+                        except Exception as e:
+                            logger.debug(f"解析图幅 {mapsheet_name} 在 {date_col} 的数据失败: {e}")
                             continue
-                    
-                    if total_points > 0:  # 只记录有数据的日期
-                        historical_records.append({
-                            'date': date_type,
-                            'date_str': date_type.date_string_8,
-                            'mapsheet_details': mapsheet_points,
-                            'completed_points': total_points,
-                            'active_mapsheets': len(mapsheet_points)
-                        })
-                
+                        
                 except Exception as e:
-                    logger.debug(f"处理第{row_idx}行数据时出错: {e}")
+                    logger.debug(f"解析第{row_idx}行数据失败: {e}")
                     continue
             
-            logger.info(f"从Excel提取历史数据: {len(historical_records)} 条记录")
+            # 转换为列表并计算活跃团队数
+            for date_key, record in date_records.items():
+                active_mapsheets = len([p for p in record['mapsheet_details'].values() if p > 0])
+                record['teams_active'] = max(1, active_mapsheets // 3)  # 假设每3个图幅一个团队
+                historical_records.append(record)
+            
+            # 按日期排序
+            historical_records.sort(key=lambda x: x['date'])
+            
+            # 计算累计完成量
+            cumulative = 0
+            for record in historical_records:
+                cumulative += record['completed_points']
+                record['cumulative_points'] = cumulative
+            
+            logger.info(f"提取到 {len(historical_records)} 条历史记录")
             return historical_records
             
         except Exception as e:
@@ -997,46 +1027,55 @@ class ExcelDataConnector:
         try:
             mapsheet_data = {}
             
-            # 获取图幅列名（跳过第一列日期和最后一列总计）
-            mapsheet_columns = []
-            for col_name in self.excel_data.columns[1:-1]:
-                if 'H50E' in str(col_name):  # 图幅名称格式
-                    mapsheet_columns.append(col_name)
-                    mapsheet_data[col_name] = []
-            
-            if not mapsheet_columns:
-                logger.warning("未找到有效的图幅列")
+            # 找到图幅名称列
+            if 'Sheet Name' not in self.excel_data.columns:
+                logger.warning("未找到'Sheet Name'列")
                 return {}
             
-            logger.info(f"开始提取 {len(mapsheet_columns)} 个图幅的历史数据")
+            # 找到日期列（从第8列开始是日期列）
+            date_columns = []
+            for col_name in self.excel_data.columns[8:]:  # 日期从第8列开始
+                if isinstance(col_name, str) and '2025-' in col_name:  # 日期列
+                    try:
+                        # 验证是否可以解析为日期
+                        datetime.strptime(col_name, '%Y-%m-%d %H:%M:%S')
+                        date_columns.append(col_name)
+                    except:
+                        continue
             
-            # 遍历每一行（每行代表一个日期的数据）
+            if not date_columns:
+                logger.warning("未找到有效的日期列")
+                return {}
+            
+            logger.info(f"开始提取图幅历史数据 - 找到 {len(date_columns)} 个日期列")
+            
+            # 遍历每一行（每行代表一个图幅的数据）
             for row_idx in range(len(self.excel_data)):
                 try:
-                    # 获取日期（第一列）
-                    date_value = self.excel_data.iloc[row_idx, 0]
+                    # 获取图幅名称
+                    mapsheet_name = self.excel_data.iloc[row_idx, self.excel_data.columns.get_loc('Sheet Name')]
                     
-                    if pd.isna(date_value):
+                    if pd.isna(mapsheet_name) or str(mapsheet_name).strip() == '':
                         continue
                     
-                    # 解析日期
-                    date_str = str(int(date_value)) if isinstance(date_value, (int, float)) else str(date_value).strip()
+                    mapsheet_name = str(mapsheet_name).strip()
                     
-                    # 转换为DateType对象
-                    date_obj = self._parse_date_string(date_str)
-                    if not date_obj:
-                        continue
+                    if mapsheet_name not in mapsheet_data:
+                        mapsheet_data[mapsheet_name] = []
                     
-                    date_type = DateType(date_obj)
-                    
-                    # 检查是否在指定范围内
-                    if not (start_date.date_datetime <= date_type.date_datetime <= end_date.date_datetime):
-                        continue
-                    
-                    # 为每个图幅提取数据
-                    for mapsheet_name in mapsheet_columns:
+                    # 遍历每个日期列，提取该图幅在该日期的数据
+                    for date_col in date_columns:
                         try:
-                            col_idx = self.excel_data.columns.get_loc(mapsheet_name)
+                            # 解析日期
+                            date_obj = datetime.strptime(date_col, '%Y-%m-%d %H:%M:%S')
+                            date_type = DateType(date_obj)
+                            
+                            # 检查是否在指定范围内
+                            if not (start_date.date_datetime <= date_type.date_datetime <= end_date.date_datetime):
+                                continue
+                            
+                            # 获取该日期的点数
+                            col_idx = self.excel_data.columns.get_loc(date_col)
                             points_value = self.excel_data.iloc[row_idx, col_idx]
                             
                             points = 0
@@ -1059,7 +1098,7 @@ class ExcelDataConnector:
                             mapsheet_data[mapsheet_name].append(record)
                             
                         except Exception as e:
-                            logger.debug(f"解析图幅 {mapsheet_name} 在 {date_str} 的数据失败: {e}")
+                            logger.debug(f"解析图幅 {mapsheet_name} 在 {date_col} 的数据失败: {e}")
                             continue
                         
                 except Exception as e:

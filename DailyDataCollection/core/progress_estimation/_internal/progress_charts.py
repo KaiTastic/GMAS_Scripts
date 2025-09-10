@@ -20,8 +20,27 @@ from .finish_date_estimator import FinishDateEstimator
 logger = logging.getLogger(__name__)
 
 # 设置中文字体支持
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS']
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans', 'Liberation Sans']
 plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.family'] = 'sans-serif'
+
+# 确保matplotlib能正确处理特殊字符
+import matplotlib
+import unicodedata
+
+def safe_text_display(text):
+    """安全显示文本，移除可能导致字体问题的特殊字符"""
+    if not isinstance(text, str):
+        return str(text)
+    # 移除音调符号和特殊修饰符
+    normalized = unicodedata.normalize('NFD', text)
+    ascii_text = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return ascii_text
+
+matplotlib.font_manager.fontManager.addfont = lambda *args, **kwargs: None
 
 
 class ProgressCharts:
@@ -56,7 +75,7 @@ class ProgressCharts:
                               finish_estimator: FinishDateEstimator = None,
                               save_path: str = None) -> str:
         """
-        生成燃尽图
+        生成燃尽图 - 显示多个组的叠加剩余工作量
         
         Args:
             target_points: 目标总点数
@@ -72,6 +91,15 @@ class ProgressCharts:
             return ""
         
         try:
+            # 确保每次生成图表时字体设置正确
+            plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 禁用字体相关警告
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+            warnings.filterwarnings('ignore', message='.*missing from font.*')
+            
             fig, ax = plt.subplots(figsize=(12, 8))
             
             data = self.data_analyzer.historical_data.copy()
@@ -79,32 +107,52 @@ class ProgressCharts:
             # 计算剩余工作量
             data['remaining_work'] = target_points - data['cumulative_points']
             
-            # 绘制实际燃尽线
-            ax.plot(data['date'], data['remaining_work'], 
-                   color=self.colors['primary'], linewidth=2, 
-                   label='实际进度', marker='o', markersize=4)
-            
-            # 绘制理想燃尽线
-            start_date = data['date'].min()
-            today = datetime.now()
-            
-            if finish_estimator:
-                estimate = finish_estimator.get_recommended_estimate(target_points, current_points)
-                if estimate.get('estimated_date'):
-                    end_date = estimate['estimated_date']
-                else:
-                    end_date = today + timedelta(days=30)  # 默认30天后
-            else:
-                end_date = today + timedelta(days=30)
-            
-            ideal_dates = pd.date_range(start=start_date, end=end_date, freq='D')
-            ideal_remaining = np.linspace(target_points, 0, len(ideal_dates))
-            
-            ax.plot(ideal_dates, ideal_remaining, 
-                   color=self.colors['secondary'], linewidth=2, 
-                   linestyle='--', label='理想进度')
+            # 绘制各组的独立剩余工作量折线
+            if 'mapsheet_details' in data.columns and data['mapsheet_details'].notna().any():
+                # 提取各图幅的历史数据
+                mapsheet_targets = {}  # 这里需要从配置中获取各图幅的目标
+                mapsheet_progress = {}
+                dates = []
+                
+                for _, row in data.iterrows():
+                    dates.append(row['date'])
+                    if isinstance(row['mapsheet_details'], dict):
+                        for mapsheet, points in row['mapsheet_details'].items():
+                            if mapsheet not in mapsheet_progress:
+                                mapsheet_progress[mapsheet] = []
+                                # 假设每个图幅的目标是总目标的1/11（11个图幅）
+                                mapsheet_targets[mapsheet] = target_points // 11
+                            mapsheet_progress[mapsheet].append(points)
+                
+                # 绘制各图幅的独立剩余工作量折线
+                if mapsheet_progress:
+                    # 显示所有图幅的数据
+                    total_points_per_mapsheet = {k: sum(v) for k, v in mapsheet_progress.items()}
+                    all_mapsheets = sorted(total_points_per_mapsheet.items(), 
+                                         key=lambda x: x[1], reverse=True)
+                    
+                    # 为每个图幅绘制独立的剩余工作量折线
+                    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+                             '#FF8C42', '#6C5CE7', '#00B894', '#FDCB6E', '#E17055',
+                             '#74B9FF', '#81ECEC', '#FD79A8', '#55A3FF', '#26DE81']
+                    for i, (mapsheet, _) in enumerate(all_mapsheets):
+                        remaining_values = []
+                        cumsum = 0
+                        target = mapsheet_targets.get(mapsheet, target_points // 11)
+                        for points in mapsheet_progress[mapsheet]:
+                            cumsum += points
+                            remaining = max(0, target - cumsum)
+                            remaining_values.append(remaining)
+                        
+                        # 绘制该图幅的独立剩余折线
+                        clean_name = safe_text_display(mapsheet)
+                        label = f'{clean_name[:12]}...' if len(clean_name) > 12 else clean_name
+                        ax.plot(dates, remaining_values, 
+                               color=colors[i % len(colors)], linewidth=2, 
+                               label=label, marker='o', markersize=3)
             
             # 添加今日线
+            today = datetime.now()
             ax.axvline(x=today, color=self.colors['warning'], 
                       linestyle='-', alpha=0.7, label='今日')
             
@@ -119,9 +167,9 @@ class ProgressCharts:
             # 设置图表样式
             ax.set_xlabel('日期', fontsize=12)
             ax.set_ylabel('剩余工作量 (点数)', fontsize=12)
-            ax.set_title('项目燃尽图 (Burndown Chart)', fontsize=14, fontweight='bold')
+            ax.set_title('项目燃尽图 - 各组剩余趋势 (Burndown Chart)', fontsize=14, fontweight='bold')
             ax.grid(True, alpha=0.3, color=self.colors['grid'])
-            ax.legend(fontsize=10)
+            ax.legend(fontsize=8, ncol=2, loc='upper right')
             
             # 格式化日期轴
             ax.xaxis.set_major_locator(mdates.WeekdayLocator())
@@ -154,7 +202,7 @@ class ProgressCharts:
                             finish_estimator: FinishDateEstimator = None,
                             save_path: str = None) -> str:
         """
-        生成燃起图
+        生成燃起图 - 显示多个组的叠加进度
         
         Args:
             target_points: 目标总点数
@@ -170,24 +218,57 @@ class ProgressCharts:
             return ""
         
         try:
+            # 确保每次生成图表时字体设置正确
+            plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 禁用字体相关警告
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+            warnings.filterwarnings('ignore', message='.*missing from font.*')
+            
             fig, ax = plt.subplots(figsize=(12, 8))
             
             data = self.data_analyzer.historical_data.copy()
             
-            # 绘制实际完成线
-            ax.plot(data['date'], data['cumulative_points'], 
-                   color=self.colors['success'], linewidth=2, 
-                   label='实际完成', marker='o', markersize=4)
-            
-            # 绘制目标线
-            target_line_dates = pd.date_range(start=data['date'].min(), 
-                                            end=data['date'].max() + timedelta(days=30), 
-                                            freq='D')
-            target_line_values = [target_points] * len(target_line_dates)
-            
-            ax.plot(target_line_dates, target_line_values, 
-                   color=self.colors['danger'], linewidth=2, 
-                   linestyle='-', label=f'目标 ({target_points} 点)')
+            # 绘制各组的独立进度折线
+            if 'mapsheet_details' in data.columns and data['mapsheet_details'].notna().any():
+                # 提取各图幅的历史数据
+                mapsheet_progress = {}
+                dates = []
+                
+                for _, row in data.iterrows():
+                    dates.append(row['date'])
+                    if isinstance(row['mapsheet_details'], dict):
+                        for mapsheet, points in row['mapsheet_details'].items():
+                            if mapsheet not in mapsheet_progress:
+                                mapsheet_progress[mapsheet] = []
+                            mapsheet_progress[mapsheet].append(points)
+                
+                # 将各图幅数据转换为累计值并绘制独立折线
+                if mapsheet_progress:
+                    # 显示所有图幅的数据
+                    total_points_per_mapsheet = {k: sum(v) for k, v in mapsheet_progress.items()}
+                    all_mapsheets = sorted(total_points_per_mapsheet.items(), 
+                                         key=lambda x: x[1], reverse=True)
+                    
+                    # 为每个图幅绘制独立的累计进度折线
+                    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+                             '#FF8C42', '#6C5CE7', '#00B894', '#FDCB6E', '#E17055',
+                             '#74B9FF', '#81ECEC', '#FD79A8', '#55A3FF', '#26DE81']
+                    for i, (mapsheet, _) in enumerate(all_mapsheets):
+                        cumulative_values = []
+                        cumsum = 0
+                        for points in mapsheet_progress[mapsheet]:
+                            cumsum += points
+                            cumulative_values.append(cumsum)
+                        
+                        # 绘制该图幅的独立折线
+                        clean_name = safe_text_display(mapsheet)
+                        label = f'{clean_name[:12]}...' if len(clean_name) > 12 else clean_name
+                        ax.plot(dates, cumulative_values, 
+                               color=colors[i % len(colors)], linewidth=2, 
+                               label=label, marker='o', markersize=3)
             
             # 绘制理想进度线
             if finish_estimator:
@@ -209,9 +290,9 @@ class ProgressCharts:
             # 设置图表样式
             ax.set_xlabel('日期', fontsize=12)
             ax.set_ylabel('累计完成量 (点数)', fontsize=12)
-            ax.set_title('项目燃起图 (Burnup Chart)', fontsize=14, fontweight='bold')
+            ax.set_title('项目燃起图 - 各组进度趋势 (Burnup Chart)', fontsize=14, fontweight='bold')
             ax.grid(True, alpha=0.3, color=self.colors['grid'])
-            ax.legend(fontsize=10)
+            ax.legend(fontsize=8, ncol=2, loc='upper left')
             
             # 格式化日期轴
             ax.xaxis.set_major_locator(mdates.WeekdayLocator())
@@ -253,6 +334,15 @@ class ProgressCharts:
             return ""
         
         try:
+            # 确保每次生成图表时字体设置正确
+            plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 禁用字体相关警告
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+            warnings.filterwarnings('ignore', message='.*missing from font.*')
+            
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
             
             data = self.data_analyzer.historical_data.copy()
@@ -328,6 +418,15 @@ class ProgressCharts:
             return ""
         
         try:
+            # 确保每次生成图表时字体设置正确
+            plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+            
+            # 禁用字体相关警告
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib.font_manager')
+            warnings.filterwarnings('ignore', message='.*missing from font.*')
+            
             fig = plt.figure(figsize=(16, 12))
             
             # 创建子图布局

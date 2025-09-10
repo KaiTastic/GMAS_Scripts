@@ -279,3 +279,173 @@ class DataAnalyzer:
     def get_project_target_estimate(self) -> Optional[int]:
         """获取项目目标估算"""
         return self.data_connector.get_project_target()
+    
+    def get_weighted_daily_average(self, recent_weight: float = 0.7) -> float:
+        """
+        获取加权日均完成量
+        
+        Args:
+            recent_weight: 近期数据的权重，默认0.7（近期数据权重更高）
+            
+        Returns:
+            float: 加权日均完成量
+        """
+        if self.historical_data.empty:
+            return 0.0
+        
+        try:
+            # 获取每日完成量
+            daily_completed = self.historical_data['completed_points']
+            
+            if len(daily_completed) == 0:
+                return 0.0
+            
+            # 如果只有一天数据，直接返回
+            if len(daily_completed) == 1:
+                return float(daily_completed.iloc[0])
+            
+            # 计算加权平均
+            # 近期数据权重更高
+            n = len(daily_completed)
+            weights = np.linspace(1 - recent_weight, recent_weight, n)
+            weights = weights / weights.sum()  # 归一化权重
+            
+            weighted_avg = np.average(daily_completed, weights=weights)
+            
+            logger.debug(f"计算加权日均完成量: {weighted_avg:.2f} (基于 {n} 天数据)")
+            return float(weighted_avg)
+            
+        except Exception as e:
+            logger.error(f"计算加权日均完成量失败: {e}")
+            # 降级为简单平均
+            return float(self.historical_data['completed_points'].mean()) if not self.historical_data.empty else 0.0
+
+    def get_daily_average_completion(self) -> float:
+        """
+        获取简单日均完成量
+        
+        Returns:
+            float: 简单日均完成量
+        """
+        if self.historical_data.empty:
+            return 0.0
+        
+        try:
+            # 确保历史数据中有completed_points列
+            if 'completed_points' not in self.historical_data.columns:
+                logger.warning("历史数据中没有completed_points列")
+                return 0.0
+            
+            daily_avg = self.historical_data['completed_points'].mean()
+            logger.debug(f"计算简单日均完成量: {daily_avg:.2f}")
+            return float(daily_avg)
+            
+        except Exception as e:
+            logger.error(f"计算简单日均完成量失败: {e}")
+            return 0.0
+
+    def get_linear_regression_prediction(self) -> Dict[str, Any]:
+        """
+        获取线性回归预测结果
+        
+        Returns:
+            Dict[str, Any]: 包含回归预测信息的字典
+        """
+        if self.historical_data.empty:
+            return {"error": "没有历史数据进行回归分析"}
+        
+        try:
+            import numpy as np
+            from sklearn.linear_model import LinearRegression
+            
+            # 准备数据
+            dates = pd.to_datetime(self.historical_data['date'])
+            # 将日期转换为数值（从第一天开始的天数）
+            days_from_start = (dates - dates.min()).dt.days.values.reshape(-1, 1)
+            completion_points = self.historical_data['completed_points'].values
+            
+            if len(days_from_start) < 2:
+                return {"error": "数据点太少，无法进行回归分析"}
+            
+            # 执行线性回归
+            model = LinearRegression()
+            model.fit(days_from_start, completion_points)
+            
+            # 预测下一天的完成点数
+            next_day = days_from_start[-1][0] + 1
+            predicted_points = model.predict([[next_day]])[0]
+            
+            # 计算R²分数
+            r2_score = model.score(days_from_start, completion_points)
+            
+            return {
+                "predicted_daily_points": max(0, predicted_points),  # 确保非负
+                "slope": model.coef_[0],
+                "intercept": model.intercept_,
+                "r2_score": r2_score,
+                "confidence": "high" if r2_score > 0.7 else "medium" if r2_score > 0.3 else "low"
+            }
+            
+        except ImportError:
+            logger.warning("sklearn未安装，使用简单趋势预测")
+            # 降级为简单趋势分析
+            if len(self.historical_data) >= 7:
+                recent_avg = self.historical_data['completed_points'].tail(7).mean()
+                return {
+                    "predicted_daily_points": recent_avg,
+                    "method": "simple_trend",
+                    "confidence": "medium"
+                }
+            else:
+                return {
+                    "predicted_daily_points": self.get_daily_average_completion(),
+                    "method": "overall_average", 
+                    "confidence": "low"
+                }
+        except Exception as e:
+            logger.error(f"线性回归预测失败: {e}")
+            return {"error": str(e)}
+
+    def get_daily_completion_statistics(self) -> Dict[str, Any]:
+        """
+        获取每日完成统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息字典
+        """
+        if self.historical_data.empty:
+            return {"error": "没有历史数据"}
+        
+        try:
+            completed_points = self.historical_data['completed_points']
+            
+            stats = {
+                "mean": completed_points.mean(),
+                "median": completed_points.median(),
+                "std": completed_points.std(),
+                "min": completed_points.min(),
+                "max": completed_points.max(),
+                "total_days": len(completed_points),
+                "active_days": len(completed_points[completed_points > 0]),
+                "zero_days": len(completed_points[completed_points == 0]),
+                "percentiles": {
+                    "25th": completed_points.quantile(0.25),
+                    "75th": completed_points.quantile(0.75),
+                    "90th": completed_points.quantile(0.90)
+                }
+            }
+            
+            # 计算趋势
+            if len(completed_points) >= 7:
+                recent_avg = completed_points.tail(7).mean()
+                overall_avg = completed_points.mean()
+                stats["trend"] = "increasing" if recent_avg > overall_avg * 1.1 else \
+                                "decreasing" if recent_avg < overall_avg * 0.9 else "stable"
+            else:
+                stats["trend"] = "unknown"
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"计算每日完成统计失败: {e}")
+            return {"error": str(e)}
