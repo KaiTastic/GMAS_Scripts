@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
 
-from ..data_models.date_types import DateType
-from ..data_models.observation_data import ObservationData
+from ...data_models.date_types import DateType
+from ...data_models.observation_data import ObservationData
 from .excel_data_connector import ExcelDataConnector
 
 logger = logging.getLogger(__name__)
