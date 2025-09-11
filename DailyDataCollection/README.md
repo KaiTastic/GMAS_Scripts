@@ -9,7 +9,7 @@
 ![YAML Config](https://img.shields.io/badge/YAML-Configuration-orange)
 ![Rights](https://img.shields.io/badge/Rights-All%20Rights%20Reserved-red)
 
-[English](./README_en.md) | [中文](./README_cn.md)
+[English](./docs/README_en.md) | [中文](./docs/README_cn.md)
 
 A modular system for collecting and processing GMAS daily field data with intelligent file monitoring and KMZ/KML processing capabilities.
 
@@ -216,16 +216,19 @@ DailyDataCollection/
 │   ├── message_display.py     # Message display | 消息显示
 │   ├── monitor_display.py     # Monitor display | 监控显示
 │   └── report_display.py      # Report display | 报告显示
-├── tests/                     # Test files | 测试文件
-│   ├── test_modular_architecture.py # Modular architecture tests | 模块化架构测试
-│   └── __testData__/          # Test data | 测试数据
+├── docs/                      # Documentation | 文档
+│   ├── README_en.md          # English documentation | 英文文档
+│   ├── README_cn.md          # Chinese documentation | 中文文档
+│   └── Design/               # Design documents | 设计文档
+│       ├── 构造KMZ文件类的思路.md # Design concept document | 设计思路文档
+│       └── ClassDiagram.eapx  # Class diagram design | 类图设计
 ├── resource/                  # Resource files | 资源文件
 │   └── kml_xsd/              # KML schema files | KML架构文件
 │       ├── 220/              # KML 2.2.0 schema | KML 2.2.0 架构
 │       └── 230/              # KML 2.3.0 schema | KML 2.3.0 架构
-└── Design/                    # Design documents | 设计文档
-    ├── 构造KMZ文件类的思路.md # Design concept document | 设计思路文档
-    └── ClassDiagram.eapx      # Class diagram design | 类图设计
+└── tests/                     # Test files | 测试文件
+    ├── test_modular_architecture.py # Modular architecture tests | 模块化架构测试
+    └── __testData__/          # Test data | 测试数据
 ```
 
 ## Usage Methods | 使用方式
@@ -323,8 +326,8 @@ FUZZY_MATCHING_THRESHOLD = 0.8  # Higher = stricter, faster | 更高=更严格�
 For detailed documentation, please refer to:
 详细文档请参考：
 
-- **English Documentation | 英文文档**: [README_en.md](./README_en.md)
-- **Chinese Documentation | 中文文档**: [README_cn.md](./README_cn.md)
+- **English Documentation | 英文文档**: [README_en.md](./docs/README_en.md)
+- **Chinese Documentation | 中文文档**: [README_cn.md](./docs/README_cn.md)
 - **Configuration Guide | 配置指南**: [config/settings.yaml](./config/settings.yaml)
 
 ## Testing | 测试
