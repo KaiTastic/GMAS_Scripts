@@ -22,12 +22,7 @@ from .mapsheet_daily import MapsheetDailyFile
 # 使用系统配置模块
 from config.config_manager import ConfigManager
 
-# 获取配置实例
-config_manager = ConfigManager()
-WORKSPACE = config_manager.get('system.workspace')
-SHEET_NAMES_FILE = config_manager.get_resolved_path('sheet_names_file')
-SEQUENCE_MIN = config_manager.get('mapsheet.sequence_min')
-SEQUENCE_MAX = config_manager.get('mapsheet.sequence_max')
+# 移除模块级的配置获取，改为动态获取以避免初始化问题
 
 # 创建 logger 实例
 logger = logging.getLogger('Current Date Files')
@@ -203,16 +198,21 @@ class CurrentDateFiles:
         
         # 导入进度预测模块
         try:
-            from ..progress_estimation import quick_estimate, advanced_estimate
-        except ImportError:
-            logger.error("无法导入进度预测模块")
+            from ..progress_estimation import EstimationFacade
+            from config.config_manager import ConfigManager
+            
+            # 创建配置管理器和估算外观
+            config = ConfigManager()
+            estimation_facade = EstimationFacade(config)
+        except ImportError as e:
+            logger.error(f"无法导入进度预测模块: {e}")
             return {"error": "进度预测模块不可用"}
         
         # 1. 估算整体项目进度
         overall_target = sum(self.mapsheet_targets.values())
         overall_current = self.totalPointNum
         
-        overall_result = advanced_estimate(
+        overall_result = estimation_facade.advanced_estimate(
             target_points=overall_target,
             current_points=overall_current,
             confidence_level=confidence_level
@@ -422,8 +422,12 @@ class CurrentDateFiles:
         from datetime import datetime, timedelta
         
         try:
-            from ..progress_estimation import quick_estimate
-            return quick_estimate(target_points=target_points, current_points=current_points)
+            from ..progress_estimation import EstimationFacade
+            from config.config_manager import ConfigManager
+            
+            config = ConfigManager()
+            estimation_facade = EstimationFacade(config)
+            return estimation_facade.quick_estimate(target_points=target_points, current_points=current_points)
         except Exception:
             # 最基本的估算
             remaining = max(0, target_points - current_points)
@@ -736,7 +740,7 @@ class CurrentDateFiles:
                 )
             )
             output_path = os.path.join(
-                WORKSPACE, 
+                ConfigManager().get('system.workspace'), 
                 self.currentDate.yyyymm_str, 
                 self.currentDate.yyyymmdd_str, 
                 f"GMAS_Points_and_tracks_until_{self.currentDate.yyyymmdd_str}.kmz"
@@ -783,7 +787,7 @@ class CurrentDateFiles:
     def _get_excel_output_path(self) -> str:
         """获取Excel输出路径"""
         return os.path.join(
-            WORKSPACE, 
+            ConfigManager().get('system.workspace'), 
             self.currentDate.yyyymm_str, 
             self.currentDate.yyyymmdd_str, 
             f"{self.currentDate.yyyymmdd_str}_Daily_Statistics.xlsx"
@@ -791,9 +795,12 @@ class CurrentDateFiles:
 
     def _get_roman_names_list(self) -> List[str]:
         """获取罗马名称列表"""
+        config = ConfigManager()
+        sequence_min = config.get('mapsheet.sequence_min')
+        sequence_max = config.get('mapsheet.sequence_max')
         return [
             self.__class__.maps_info[sequence]['Roman Name'] 
-            for sequence in range(SEQUENCE_MIN, SEQUENCE_MAX + 1)
+            for sequence in range(sequence_min, sequence_max + 1)
         ]
 
     def _create_excel_workbook(self, output_path: str) -> None:

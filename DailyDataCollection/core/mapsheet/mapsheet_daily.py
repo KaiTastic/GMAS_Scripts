@@ -34,8 +34,8 @@ class MapsheetFileError(Exception):
 
 # 获取配置实例
 config_manager = ConfigManager()
-config = config_manager.get_config()
-platform_config = config_manager.get_platform_config()
+config = config_manager.get_all_config()
+platform_config = config.get('progress_estimation', {})
 
 # 配置常量
 WORKSPACE = config_manager.get('system.workspace')
@@ -243,7 +243,11 @@ class MapsheetDailyFile:
             self.romanName = self._maps_info[self.sequence]['Roman Name']
             self.latinName = self._maps_info[self.sequence]['Latin Name']
             self.teamNumber = self._maps_info[self.sequence]['Team Number']
-            self.teamleader = self._maps_info[self.sequence]['Leaders']
+            # 修复：使用正确的列名获取团队负责人信息
+            self.teamleader_zh = self._maps_info[self.sequence]['Leaders_zh']
+            self.teamleader_en = self._maps_info[self.sequence]['Leaders_en']
+            # 向后兼容：如果代码中有使用teamleader，优先使用中文名
+            self.teamleader = self.teamleader_zh
 
             return True
         else:
@@ -316,7 +320,14 @@ class MapsheetDailyFile:
 
     def _find_last_finished_file(self) -> None:
         """查找上一次完成的文件"""
-        traceback_date = datetime.strptime(TRACEBACK_DATE, "%Y%m%d").date()
+        try:
+            # 尝试 YYYY-MM-DD 格式 (ISO格式)
+            traceback_date = datetime.strptime(TRACEBACK_DATE, "%Y-%m-%d").date()
+        except ValueError:
+            # 默认使用60天前的日期
+            traceback_date = (datetime.now() - timedelta(days=60)).date()
+            logger.warning(f"无法解析回溯日期 '{TRACEBACK_DATE}'，使用默认值: {traceback_date}")
+    
         search_start_date = self.currentDate.date_datetime
         
         while search_start_date.date() > traceback_date:

@@ -15,10 +15,10 @@ resources:
 
 # ============ 文件路径配置 ============
 file_paths:
-  icon_file: resource/render_src/{icon_file}
+  icon_file: resource/render_src/{resources.icon_file}
   kml_schema_22: resource/kml_xsd/220/ogckml22.xsd
   kml_schema_23: resource/kml_xsd/230/ogckml23.xsd
-  sheet_names_file: resource/private/{sheet_names_lut}
+  sheet_names_file: resource/private/{resources.sheet_names_lut}
 
 # ============ 平台特定配置 ============
 platform:

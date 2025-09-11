@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 
 from .core_estimator import CoreEstimator, EstimationConfig, EstimationMode
-from .estimation_config import EstimationConfigManager
+from config.config_manager import ConfigManager
 from ._internal.excel_data_connector import ExcelDataConnector
 from ..data_models.date_types import DateType
 
@@ -29,7 +29,7 @@ class EstimationFacade:
         
         # 初始化配置管理器
         print("=== 初始化进度估算系统 ===")
-        self.config_manager = EstimationConfigManager()
+        self.config_manager = ConfigManager()
         
         # 显示配置信息
         self._display_config_info()

@@ -14,7 +14,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from ...data_models.date_types import DateType
-from ..estimation_config import EstimationConfigManager
+from config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class ExcelDataConnector:
             workspace_path: 工作空间路径
         """
         self.workspace_path = workspace_path or os.getcwd()
-        self.config_manager = EstimationConfigManager()
+        self.config_manager = ConfigManager()
         self.excel_file_path: Optional[str] = None
         self.excel_data: Optional[pd.DataFrame] = None
         

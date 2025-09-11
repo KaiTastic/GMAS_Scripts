@@ -15,7 +15,7 @@ from ._internal.data_analyzer import DataAnalyzer
 from ._internal.finish_date_estimator import FinishDateEstimator
 from ._internal.method_integrator import MethodIntegrator
 from ._internal.progress_charts import ProgressCharts
-from .estimation_config import EstimationConfigManager, DataSourceConfig, EstimationMethodConfig
+from config.config_manager import ConfigManager
 from ..data_models.date_types import DateType
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class CoreEstimator:
         self.config = config or EstimationConfig()
         
         # 初始化配置管理器
-        self.config_manager = EstimationConfigManager()
+        self.config_manager = ConfigManager()
         
         # 初始化核心组件
         self._init_components()
@@ -74,7 +74,7 @@ class CoreEstimator:
         """初始化各个组件"""
         try:
             # 获取配置
-            data_config = self.config_manager.get_data_source_config()
+            data_config = self.config_manager.get_progress_estimation_config()
             
             # 初始化数据分析器
             self.data_analyzer = DataAnalyzer(self.workspace_path)
@@ -418,14 +418,14 @@ class CoreEstimator:
     
     def _get_cached_result(self, cache_key: str) -> Optional[Dict[str, Any]]:
         """获取缓存结果"""
-        if not self.config_manager.get_performance_config().cache_enabled:
+        if not self.config_manager.get_progress_estimation_config().cache_enabled:
             return None
         
         if cache_key in self._result_cache:
             cache_time = self._cache_timestamps.get(cache_key)
             if cache_time:
                 cache_age_hours = (time.time() - cache_time) / 3600
-                ttl_hours = self.config_manager.get_performance_config().cache_ttl_hours
+                ttl_hours = self.config_manager.get_progress_estimation_config().cache_ttl_hours
                 
                 if cache_age_hours < ttl_hours:
                     return self._result_cache[cache_key]
@@ -438,7 +438,7 @@ class CoreEstimator:
     
     def _cache_result(self, cache_key: str, result: Dict[str, Any]):
         """缓存结果"""
-        if self.config_manager.get_performance_config().cache_enabled:
+        if self.config_manager.get_progress_estimation_config().cache_enabled:
             self._result_cache[cache_key] = result
             self._cache_timestamps[cache_key] = time.time()
     

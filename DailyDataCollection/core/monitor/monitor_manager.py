@@ -27,7 +27,7 @@ from display import MonitorDisplay
 
 # 初始化配置
 config_manager = ConfigManager()
-config = config_manager.get_config()
+config = config_manager.get_all_config()
 
 
 class MonitorManager:

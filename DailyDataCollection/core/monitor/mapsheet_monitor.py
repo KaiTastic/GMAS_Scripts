@@ -66,7 +66,7 @@ class MonitorMapSheet(MapsheetDailyFile):
     
     def _check_has_plan(self):
         """检查当天的计划路线文件是否存在"""
-        config = mapsheet_manager._config_manager.get_config()
+        config = mapsheet_manager._config_manager.get_all_config()
         plan_file_path = os.path.join(
             config['paths']['workspace'], 
             self.currentDate.yyyymm_str, 

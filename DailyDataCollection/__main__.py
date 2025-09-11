@@ -139,7 +139,7 @@ logger = logging.getLogger(__name__)
 
 # 初始化配置管理器
 config_manager = ConfigManager()
-config = config_manager.get_config()
+config = config_manager.get_all_config()
 
 
 # ============================================================================
@@ -1506,7 +1506,7 @@ def setup_config(args):
     # 重新初始化配置管理器（如果指定了自定义配置文件）
     if args.config:
         config_manager = ConfigManager(config_file=args.config)
-        config = config_manager.get_config()
+        config = config_manager.get_all_config()
         logger.info(f"使用自定义配置文件: {args.config}")
     
     # 覆盖配置文件中的设置
