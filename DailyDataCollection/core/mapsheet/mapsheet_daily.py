@@ -315,26 +315,36 @@ class MapsheetDailyFile:
         FileOperationHelper.set_file_permissions(file_path)
 
     def _find_last_finished_file(self) -> None:
-        """查找上一次完成的文件"""
+        """查找上一次完成的文件 - 改进版本，支持更灵活的文件名匹配"""
         traceback_date = datetime.strptime(TRACEBACK_DATE, "%Y%m%d").date()
-        search_start_date = self.currentDate.date_datetime
+        search_date = self.currentDate.date_datetime
         
-        while search_start_date.date() > traceback_date:
-            # 在工作文件夹中直接查找
-            search_date = self.currentDate.date_datetime
+        while search_date.date() > traceback_date:
+            search_date -= timedelta(days=1)
             
-            while search_date.date() > traceback_date:
-                search_date -= timedelta(days=1)
-                file_path = self._build_historical_file_path(search_date, "Finished points", "finished_points_and_tracks")
-                
-                if os.path.exists(file_path):
-                    # 延迟导入以避免循环依赖
-                    from ..data_models.date_types import DateType
+            # 方法1: 尝试精确匹配（原有逻辑）
+            # NOTE: 这里保留原有的精确匹配逻辑，以确保向后兼容, 存在的缺陷是文件名必须完全匹配，如果清除了历史文件夹则无法找到
+            exact_file_path = self._build_historical_file_path(search_date, "Finished points", "finished_points_and_tracks")
+            if os.path.exists(exact_file_path):
+                from ..data_models.date_types import DateType
+                self.lastDate = DateType(date_datetime=search_date)
+                self._handle_last_file_setup(exact_file_path)
+                logger.info(f"找到精确匹配的历史文件: {exact_file_path}")
+                return
+            
+            # 方法2: 模糊搜索该日期文件夹下所有匹配的文件（新增逻辑）
+            fuzzy_file_path = self._find_fuzzy_matching_file(search_date)
+            if fuzzy_file_path:
+                from ..data_models.date_types import DateType
+                # 从文件名中提取实际的数据日期
+                actual_date = self._extract_date_from_filename(fuzzy_file_path)
+                if actual_date:
+                    self.lastDate = DateType(date_datetime=actual_date)
+                else:
                     self.lastDate = DateType(date_datetime=search_date)
-                    self._handle_last_file_setup(file_path)
-                    return
-                    
-            search_start_date -= timedelta(days=1)
+                self._handle_last_file_setup(fuzzy_file_path)
+                logger.info(f"找到模糊匹配的历史文件: {fuzzy_file_path}")
+                return
 
     def _build_historical_file_path(self, date: datetime, folder_type: str, file_type: str) -> str:
         """构建历史文件路径"""
@@ -345,6 +355,63 @@ class MapsheetDailyFile:
             folder_type,
             f"{self.mapsheetFileName}_{file_type}_{date.strftime('%Y%m%d')}.kmz"
         )
+
+    def _find_fuzzy_matching_file(self, search_date: datetime) -> Optional[str]:
+        """在指定日期的文件夹中查找匹配图幅名称的文件"""
+        try:
+            folder_path = os.path.join(
+                WORKSPACE,
+                search_date.strftime("%Y%m"),
+                search_date.strftime("%Y%m%d"),
+                "Finished points"
+            )
+            
+            if not os.path.exists(folder_path):
+                return None
+            
+            # 搜索所有匹配图幅名称的文件
+            matching_files = []
+            for filename in os.listdir(folder_path):
+                if (filename.startswith(self.mapsheetFileName) and 
+                    filename.endswith('.kmz') and 
+                    'finished_points_and_tracks' in filename):
+                    matching_files.append(os.path.join(folder_path, filename))
+            
+            if matching_files:
+                # 如果有多个匹配文件，选择最新的（按文件名中的日期排序）
+                matching_files.sort(key=lambda x: self._extract_date_string_from_filename(x) or "00000000", reverse=True)
+                return matching_files[0]
+                
+        except Exception as e:
+            logger.warning(f"模糊搜索文件时发生错误: {e}")
+        
+        return None
+
+    def _extract_date_from_filename(self, file_path: str) -> Optional[datetime]:
+        """从文件名中提取日期"""
+        try:
+            filename = os.path.basename(file_path)
+            # 匹配文件名中的8位数字日期格式 YYYYMMDD
+            import re
+            date_match = re.search(r'_(\d{8})\.kmz$', filename)
+            if date_match:
+                date_str = date_match.group(1)
+                return datetime.strptime(date_str, "%Y%m%d")
+        except Exception as e:
+            logger.warning(f"从文件名提取日期失败 {file_path}: {e}")
+        return None
+
+    def _extract_date_string_from_filename(self, file_path: str) -> Optional[str]:
+        """从文件名中提取日期字符串，用于排序"""
+        try:
+            filename = os.path.basename(file_path)
+            import re
+            date_match = re.search(r'_(\d{8})\.kmz$', filename)
+            if date_match:
+                return date_match.group(1)
+        except Exception:
+            pass
+        return None
 
     def _handle_last_file_setup(self, file_path: str) -> None:
         """处理上一次文件的设置"""
@@ -426,10 +493,14 @@ class MapsheetDailyFile:
             self.dailyincreasePoints = {}
             self.dailyincreaseRoutes = []
 
-        # 设置总数
+        # 设置总数 - 优先使用当前文件，如果没有则使用历史文件
         if self.currentPlacemarks:
             self.currentTotalPointNum = self.currentPlacemarks.pointsCount
             self.currentTotalRouteNum = self.currentPlacemarks.routesCount
+        elif self.lastPlacemarks:
+            # 如果没有当前文件但有历史文件，使用历史文件的数据
+            self.currentTotalPointNum = self.lastPlacemarks.pointsCount
+            self.currentTotalRouteNum = self.lastPlacemarks.routesCount
         else:
             self.currentTotalPointNum = 0
             self.currentTotalRouteNum = 0

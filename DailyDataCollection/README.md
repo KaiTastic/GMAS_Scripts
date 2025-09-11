@@ -1,7 +1,7 @@
 # GMAS Daily Data Collection System - GMAS每日数据收集系统
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.4.0-blue)
+![Version](https://img.shields.io/badge/Version-2.4.2-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Modular](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -93,6 +93,14 @@ collection.onScreenDisplay()
 ```
 
 ## Key Features | 主要功能
+
+### V2.4.2 Bug Fix | V2.4.2错误修复
+
+- **🔧 Critical Historical File Matching Fix | 关键历史文件匹配修复**: Fixed data display issue where teams with non-standard filename patterns (like Team 317) showed 0 completion points instead of actual values (e.g., 800 points) | 修复非标准文件名模式的团队（如Team 317）显示0完成点而非实际值（如800点）的数据显示问题
+- **🔍 Enhanced File Search Algorithm | 增强文件搜索算法**: Implemented fuzzy matching for historical files that supports flexible filename patterns with different date conventions | 实现历史文件模糊匹配，支持不同日期约定的灵活文件名模式
+- **📊 Improved Data Accuracy | 提高数据准确性**: Total completion statistics now correctly include all team data, improving from 4886 to 5686 total points in test cases | 总完成统计现在正确包含所有团队数据，测试案例中从4886提升到5686总点数
+- **⚡ Dual Search Strategy | 双重搜索策略**: Maintains exact filename matching for standard cases while adding fuzzy matching as fallback for edge cases | 为标准情况保持精确文件名匹配，同时为边缘情况添加模糊匹配作为备选
+- **📝 Smart Date Extraction | 智能日期提取**: Automatically extracts actual data collection dates from filenames regardless of folder structure | 自动从文件名中提取实际数据收集日期，不受文件夹结构影响
 
 ### V2.4.0 Features | V2.4.0版本功能
 
@@ -318,6 +326,29 @@ from core.mapsheet import CurrentDateFiles  # ✅ Correct | 正确
 FUZZY_MATCHING_THRESHOLD = 0.8  # Higher = stricter, faster | 更高=更严格，更快
 ```
 
+#### Team Shows 0 Completion Points Despite Having Data | 团队显示0完成点但实际有数据
+
+**Problem | 问题**: A team shows 0 completion points in reports even though their KMZ files contain data (e.g., 800 points).
+
+**问题**: 团队在报告中显示0完成点，尽管他们的KMZ文件包含数据（例如800点）。
+
+**Cause | 原因**: Filename date doesn't match folder date (e.g., file `Team_317_finished_points_and_tracks_20250821.kmz` in folder `20250910`).
+
+**原因**: 文件名日期与文件夹日期不匹配（例如，文件`Team_317_finished_points_and_tracks_20250821.kmz`在文件夹`20250910`中）。
+
+**Solution | 解决方案**: 
+- ✅ **Fixed in v2.4.2** | **v2.4.2已修复**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
+- ✅ **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
+
+**Verification | 验证**:
+```bash
+# Check if issue is resolved | 检查问题是否解决
+python __main__.py --date=20250910 --verbose
+
+# Look for log messages like: | 查看类似日志信息：
+# "找到模糊匹配的历史文件: ...Thaniyyah_finished_points_and_tracks_20250821.kmz"
+```
+
 ## Documentation | 文档
 
 For detailed documentation, please refer to:
@@ -410,6 +441,8 @@ print(f'Workspace writable: {os.access(workspace, os.W_OK) if os.path.exists(wor
 
 ## Version History | 版本历史
 
+- **v2.4.2** (September 11, 2025 | 2025年9月11日): Critical bug fix for historical file matching - Enhanced file search algorithm to support flexible filename patterns, fixing data display issues for teams with non-standard file naming conventions | 历史文件匹配关键错误修复 - 增强文件搜索算法支持灵活文件名模式，修复非标准文件命名约定团队的数据显示问题
+- **v2.4.1** (September 10, 2025 | 2025年9月10日): Minor fixes and documentation enhancements - Fixed monitoring manager output formatting, removed unnecessary checkmarks, enhanced code documentation with comprehensive docstrings | 小修复和文档增强 - 修复监控管理器输出格式，移除不必要的检查标记，通过全面的文档字符串增强代码文档
 - **v2.4.0** (September 1, 2025 | 2025年9月1日): System enhancement and performance optimization | 系统功能增强与性能优化
 - **v2.3.1** (September 1, 2025 | 2025年9月1日): Centralized version management, code cleanup and optimization | 版本信息集中管理，代码清理优化
 - **v2.3.0** (August 31, 2025 | 2025年8月31日): YAML configuration system, unified MapsheetManager, project cleanup | YAML配置系统，统一图幅管理器，项目清理

@@ -40,9 +40,9 @@ data_collection:
   traceback_date: "20250710"
   # 数据提交的工作日（周一=0, 周日=6）
   weekdays: [5]  # 周六
-  # 回溯查找天数
+  # 回溯查找天数：主要是查找完成点
   traceback_days: 60
-  # 向前查找天数
+  # 向前查找天数：主要是查找工作计划
   traceforward_days: 7
   # 每周数据收集日（0=周一, 6=周日）
   collection_weekdays: [5]  # 周六

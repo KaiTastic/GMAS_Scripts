@@ -1,7 +1,7 @@
-# GMAS Daily Data Collection System V2.4.0 - System Enhancement and Performance Optimization
+# GMAS Daily Data Collection System V2.4.2 - Historical File Matching Bug Fix
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.4.0-blue)
+![Version](https://img.shields.io/badge/Version-2.4.2-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, v2.3.0's configuration modernization, v2.3.1's version management, to the v2.4.0 system enhancement and performance optimization release on September 1, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, unified component management, and centralized version control.
+This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, v2.3.0's configuration modernization, v2.3.1's version management, v2.4.0's system enhancement, v2.4.1's monitoring improvements, to the v2.4.2 critical bug fix release on September 11, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, unified component management, and robust data accuracy assurance.
 
 **Core Evolution Highlights**:
 - **v1.0→v2.0**: Fundamental refactoring from monolithic file to modular architecture
@@ -22,11 +22,17 @@ This project has undergone a complete evolution from a simple single-file tool t
 - **v2.2→v2.3.0**: Configuration system modernization, elimination of inconsistencies, unified component management
 - **v2.3.0→v2.3.1**: Centralized version management, code cleanup and optimization
 - **v2.3.1→v2.4.0**: System enhancement and performance optimization
+- **v2.4.0→v2.4.1**: Monitor output formatting improvements and enhanced code documentation
+- **v2.4.1→v2.4.2**: Critical historical file matching bug fix, significantly improved data accuracy
 
-The current v2.4.0 version builds upon previous work by further enhancing system functionality and performance, providing better user experience and higher processing efficiency.
+The current v2.4.2 version fixes a critical data display error, ensuring system data accuracy and reliability, specifically resolving data loss issues caused by non-standard file naming conventions.
 
 ## Project Status
 
+- **[Completed] Critical Bug Fix**: Enhanced historical file matching algorithm to handle non-standard filename patterns (v2.4.2)
+- **[Completed] Data Accuracy Improvement**: Fixed team completion point calculation errors, improved total statistics reliability (v2.4.2)
+- **[Completed] Monitor Output Optimization**: Removed unnecessary checkmark symbols, improved display formatting (v2.4.1)
+- **[Completed] Code Documentation Enhancement**: Added comprehensive docstrings throughout codebase (v2.4.1)
 - **[Completed] System Enhancement**: Improved system stability and processing capabilities
 - **[Completed] Performance Optimization**: Optimized core algorithms and data processing workflows
 - **[Completed] Centralized Version Management**: Unified management of all version information, eliminating scattered and inconsistent versioning
@@ -42,6 +48,39 @@ The current v2.4.0 version builds upon previous work by further enhancing system
 - **[Completed] New Feature - Monitor Module Refactoring**: Modular monitoring system implemented
 - **[Completed] New Feature - Performance Optimization**: Multi-threading support and caching mechanisms
 - **[In Progress] Continuous Improvement**: Ongoing feature optimization based on usage
+
+### V2.4.2 Critical Bug Fix | V2.4.2关键错误修复
+
+#### Problem Description | 问题描述
+**Serious Data Display Error**: Teams with non-standard file naming patterns (e.g., Team 317) showed 0 completion points, causing severe data accuracy issues.
+- **Specific Case**: Team 317 (Thaniyyah, 覃洪锋) actually completed 800 points but system displayed 0
+- **System Impact**: Total statistics incorrectly showed 4886 instead of correct 5686 points
+
+#### Root Cause Analysis | 根本原因分析  
+**File Search Algorithm Limitation**: The historical file matching system only supported strict date matching and failed when:
+- Files had dates in filename that differed from folder structure dates
+- Example: File named `Team_317_finished_points_20250821.kmz` stored in `20250910` folder
+- System couldn't locate these "mismatched" but valid historical files
+
+#### Technical Solution | 技术解决方案
+**🔍 Enhanced File Search Algorithm**: Implemented dual search strategy with intelligent fallback
+- **Exact Matching**: Maintained for standard naming conventions (`Team_321_finished_points_20250901.kmz`)
+- **Fuzzy Matching**: Added for non-standard historical files (`Team_317_finished_points_20250821.kmz`)  
+- **📊 Smart Data Statistics**: Improved total completion calculation logic - prioritize current files, fallback to historical data
+- **📝 Automatic Date Extraction**: Intelligent date parsing from filenames, independent of folder structure
+- **⚡ Performance Optimization**: Maintains high efficiency, zero impact on existing workflows
+
+#### Fix Verification | 修复验证
+```bash
+# Verify the fix effectiveness | 验证修复效果
+python __main__.py --date=20250910 --verbose
+
+# Check logs for success messages | 查看日志中的成功信息:
+# "Found fuzzy matching historical file: ...Thaniyyah_finished_points_and_tracks_20250821.kmz"
+# Team 317 now correctly shows: FINISHED = 800 ✅
+```
+
+**Impact Assessment**: Completely resolved data loss issues for teams with non-standard file naming, ensuring comprehensive and accurate data collection statistics.
 
 ## Quick Start Note
 
@@ -842,6 +881,12 @@ gps_config = create_target_config(
 
 ### Common Issues
 
+#### Team Completion Points Showing 0 (Historical File Matching Issue)
+**Symptom**: Some teams display 0 completion points despite having actual KMZ files with observation data.
+**Example**: Team 317 (Thaniyyah, 覃洪锋) shows 0 instead of 800 points.
+- ✅ **Fixed in v2.4.2**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
+- ✅ **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
+
 #### `AttributeError: 'CurrentDateFiles' object has no attribute 'dailyExcelReportUpdate'`
 **Solution**: Use core modules directly
 ```python
@@ -888,6 +933,59 @@ If problems persist:
 2. Contact maintainer: caokai_cgs@163.com
 
 ## Changelog
+
+### v2.4.2 (Critical Historical File Matching Bug Fix - September 11, 2025)
+
+#### Critical Bug Fix
+- **Enhanced File Search Algorithm**: Fixed critical data display errors caused by historical file matching failures
+  - Implemented dual search strategy: exact matching + fuzzy pattern recognition
+  - Added support for non-standard filename patterns (e.g., files with date mismatches between filename and folder location)
+  - Enhanced _find_last_finished_file() method with flexible matching capabilities
+- **Data Accuracy Improvements**: Resolved team completion point calculation errors
+  - Fixed Team 317 (Thaniyyah, 覃洪锋) displaying 0 points instead of actual 800 points
+  - Improved total statistics calculation from 4886 to 5686 completion points
+  - Enhanced dailyFinishedPoints calculation with better error handling
+- **Backward Compatibility**: Maintained all existing functionality while adding new capabilities
+  - Preserved exact matching for standard filename patterns
+  - Added fallback fuzzy matching for edge cases
+  - No breaking changes to existing APIs
+
+#### Technical Implementation
+- Enhanced `MapsheetDailyFile._find_last_finished_file()` with dual search strategy
+- Added `_find_fuzzy_matching_file()` method for flexible pattern matching
+- Implemented `_extract_date_from_filename()` for robust date pattern recognition
+- Improved error handling and logging throughout the file search process
+
+#### Impact
+- Resolved data loss issues for teams with non-standard file naming conventions
+- Significantly improved data collection accuracy and reliability
+- Enhanced system robustness for handling real-world data inconsistencies
+
+### v2.4.1 (Minor Fixes and Documentation Enhancement - September 10, 2025)
+
+#### Minor Fixes and Improvements
+- **Monitor Output Formatting**: Enhanced monitoring manager display formatting
+  - Removed unnecessary checkmark symbols (✅) from monitor output
+  - Improved console output consistency and readability
+  - Standardized status display formatting across modules
+- **Code Documentation Enhancement**: Comprehensive docstring additions
+  - Added detailed docstrings to core modules and methods
+  - Enhanced inline code documentation and comments
+  - Improved API documentation for better developer experience
+- **Code Quality Improvements**: Minor optimizations and cleanup
+  - Enhanced code maintainability and readability
+  - Improved error handling in monitoring components
+  - Standardized coding style consistency
+
+#### Technical Improvements
+- **Structured Module Documentation**: Organized documentation content by functional modules
+  - Detailed documentation for global configuration and initialization sections
+  - Complete documentation for helper functions and validators
+  - Functional descriptions for command-line argument parsers
+  - Design principles and usage methods for core functionality classes
+- Better separation of display formatting logic
+- Enhanced monitoring system output consistency
+- Improved code documentation standards compliance
 
 ### v2.4.0 (System Enhancement and Performance Optimization - September 1, 2025)
 
