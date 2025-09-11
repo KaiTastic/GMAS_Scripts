@@ -25,8 +25,8 @@ platform:
   # 工作空间路径配置（平台特定）
   workspace:
     windows: D:/RouteDesign
-    macos: /Users/username/RouteDesign
-    linux: /home/username/RouteDesign
+    macos: /Users/kai/RouteDesign
+    linux: /home/kai/RouteDesign
     default: ./workspace  # 默认相对路径，作为备选方案
   
   # 微信文件夹配置
