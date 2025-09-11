@@ -358,9 +358,167 @@ class MapsheetManager:
             
         except Exception as e:
             logger.error(f"加载历史数据失败: {e}")
-    
+
     def _load_from_excel_files(self) -> None:
-        """从Excel文件加载历史完成数据"""
+        """从Excel文件加载历史完成数据 - 使用统一的数据连接器"""
+        try:
+            # 使用新位置的数据连接器
+            from ..data_connectors.excel_data_connector import ExcelDataConnector
+            from ..data_models.date_types import DateType
+            from datetime import datetime, timedelta
+            
+            # 创建数据连接器实例
+            connector = ExcelDataConnector()
+            
+            # 检查连接状态
+            status = connector.get_connection_status()
+            if not status['excel_file']['exists']:
+                logger.warning(f"统一Excel文件不存在: {status['excel_file']['path']}")
+                # 回退到传统扫描方法
+                self._load_from_workspace_files()
+                return
+            
+            # 加载Excel数据
+            if not connector.load_excel_data():
+                logger.error("无法加载统一Excel数据")
+                self._load_from_workspace_files()
+                return
+            
+            # 1. 获取项目时间线
+            timeline = connector.get_project_timeline()
+            if timeline and timeline.get('start_date'):
+                start_date = DateType(timeline['start_date'])
+                end_date = DateType(timeline.get('latest_date', datetime.now()))
+            else:
+                # 默认获取最近90天
+                end_date = DateType(datetime.now())
+                start_date = DateType(datetime.now() - timedelta(days=90))
+            
+            # 2. 提取图幅历史数据
+            mapsheet_historical_data = connector.extract_mapsheet_historical_data(start_date, end_date)
+            
+            if not mapsheet_historical_data:
+                logger.warning("未能从统一Excel文件提取历史数据")
+                self._load_from_workspace_files()
+                return
+            
+            # 3. 提取图幅元数据（包含目标点数）
+            mapsheet_metadata = connector.extract_mapsheet_metadata()
+            
+            # 4. 更新本地历史数据结构
+            updated_count = 0
+            for mapsheet_name, daily_records in mapsheet_historical_data.items():
+                # 查找对应的图幅序号
+                sequence = self._find_sequence_by_identifier(mapsheet_name)
+                
+                if sequence is None:
+                    logger.debug(f"未找到匹配的图幅: {mapsheet_name}")
+                    continue
+                
+                if sequence not in self._historical_data:
+                    # 创建新的历史数据对象
+                    self._historical_data[sequence] = MapsheetHistoricalData(
+                        sequence=sequence,
+                        roman_name=self._maps_info[sequence]['Roman Name'],
+                        target_total=self._maps_info[sequence].get('Target Total', 750)
+                    )
+                
+                # 清空旧数据，使用新数据
+                hist_data = self._historical_data[sequence]
+                hist_data.daily_completions.clear()
+                
+                # 处理每日记录
+                prev_cumulative = 0
+                for record in sorted(daily_records, key=lambda x: x['date']):
+                    date_str = record['date']
+                    
+                    # 优先使用 daily_points，如果没有则从 cumulative_points 计算
+                    if 'daily_points' in record and record['daily_points'] is not None:
+                        daily_points = record['daily_points']
+                    elif 'cumulative_points' in record and record['cumulative_points'] is not None:
+                        # 从累计值计算当日增量
+                        cumulative = record['cumulative_points']
+                        daily_points = cumulative - prev_cumulative
+                        prev_cumulative = cumulative
+                    else:
+                        continue
+                    
+                    # 更新历史数据
+                    hist_data.update_completion(date_str, daily_points)
+                
+                updated_count += 1
+            
+            # 5. 从元数据更新目标点数
+            for mapsheet_id, metadata in mapsheet_metadata.items():
+                sequence = self._find_sequence_by_identifier(mapsheet_id)
+                
+                if sequence and sequence in self._historical_data:
+                    target = metadata.get('target_points', 750)
+                    if target > 0 and target != self._historical_data[sequence].target_total:
+                        self._historical_data[sequence].target_total = int(target)
+                        # 重新计算完成百分比
+                        hist_data = self._historical_data[sequence]
+                        hist_data.completion_percentage = (
+                            hist_data.total_completed / hist_data.target_total * 100
+                        ) if hist_data.target_total > 0 else 0
+            
+            logger.info(f"成功从统一Excel文件加载历史数据，更新了 {updated_count}/{len(self._maps_info)} 个图幅")
+            
+            # 6. 显示数据质量信息
+            data_quality = self._assess_data_quality()
+            logger.info(f"数据质量评估: 覆盖率={data_quality['coverage']:.1f}%, "
+                    f"完整性={data_quality['completeness']:.1f}%")
+            
+        except ImportError as e:
+            logger.error(f"无法导入ExcelDataConnector: {e}")
+            # 回退到传统方法
+            self._load_from_workspace_files()
+        except Exception as e:
+            logger.error(f"使用数据连接器加载失败: {e}")
+            # 回退到传统方法
+            self._load_from_workspace_files()
+
+    def _find_sequence_by_identifier(self, identifier: str) -> Optional[float]:
+        """通过各种标识符查找图幅序号"""
+        if not identifier:
+            return None
+        
+        identifier = str(identifier).strip()
+        
+        for seq, info in self._maps_info.items():
+            # 1. 尝试直接序号匹配
+            try:
+                if float(identifier) == seq:
+                    return seq
+            except ValueError:
+                pass
+            
+            # 2. 罗马名称匹配
+            if info['Roman Name'] == identifier:
+                return seq
+            
+            # 3. 文件名匹配（精确或部分）
+            if info['File Name'] == identifier or identifier in info['File Name']:
+                return seq
+            
+            # 4. Sheet ID 匹配
+            if info.get('Sheet ID') == identifier:
+                return seq
+            
+            # 5. 阿拉伯名称匹配
+            if info.get('Arabic Name') == identifier:
+                return seq
+            
+            # 6. 团队编号匹配
+            if info.get('Team Number') == identifier:
+                return seq
+        
+        return None
+
+    def _load_from_workspace_files(self) -> None:
+        """从工作空间的每日Excel文件加载（传统方法，作为备用）"""
+        logger.info("使用传统方法从工作空间扫描Excel文件")
+        
         try:
             config = self._config_manager.get_all_config()
             # 使用系统配置中的workspace作为数据目录
@@ -373,49 +531,141 @@ class MapsheetManager:
             
             # 扫描所有Excel文件
             excel_files = list(data_dir.glob("*.xlsx"))
-            logger.info(f"在 {data_dir} 找到 {len(excel_files)} 个Excel文件")
+            logger.info(f"传统方法：在 {data_dir} 找到 {len(excel_files)} 个Excel文件")
             
-            for excel_file in excel_files:
-                # 从文件名提取日期（假设格式为 YYYYMMDD_*.xlsx）
-                file_name = excel_file.stem
-                date_str = file_name.split('_')[0] if '_' in file_name else None
-                
-                if not date_str or len(date_str) != 8:
-                    continue
-                
-                # 格式化日期字符串
-                formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                
+            if not excel_files:
+                logger.warning("未找到任何Excel文件")
+                return
+            
+            # 处理每个Excel文件
+            loaded_files = 0
+            for excel_file in excel_files[:10]:  # 限制处理文件数量避免过载
                 try:
-                    # 读取Excel文件
-                    df = pd.read_excel(excel_file, sheet_name=None, engine='openpyxl')
+                    # 从文件名推断日期
+                    date_str = self._extract_date_from_filename(excel_file.name)
+                    if not date_str:
+                        continue
                     
-                    # 遍历所有工作表（每个工作表代表一个图幅）
-                    for sheet_name, sheet_df in df.items():
-                        # 通过罗马名称匹配图幅
-                        for seq, info in self._maps_info.items():
-                            if info['Roman Name'] == sheet_name:
-                                # 计算该图幅在该日期的完成点数
-                                if 'Status' in sheet_df.columns:
-                                    completed_points = len(sheet_df[sheet_df['Status'] == 'Completed'])
-                                    
-                                    # 更新历史数据
-                                    if seq in self._historical_data:
-                                        self._historical_data[seq].update_completion(
-                                            formatted_date, 
-                                            completed_points
-                                        )
-                                break
+                    # 读取Excel文件
+                    df = pd.read_excel(excel_file, sheet_name=0)
+                    
+                    if df.empty or len(df.columns) < 2:
+                        continue
+                    
+                    # 处理文件数据
+                    self._process_excel_file_data(df, date_str)
+                    loaded_files += 1
                     
                 except Exception as e:
-                    logger.warning(f"处理文件 {excel_file} 失败: {e}")
+                    logger.debug(f"处理文件 {excel_file} 失败: {e}")
                     continue
             
-            logger.info(f"成功加载历史数据")
+            logger.info(f"传统方法成功处理了 {loaded_files} 个Excel文件")
             
         except Exception as e:
-            logger.error(f"从Excel加载历史数据失败: {e}")
+            logger.error(f"传统方法加载历史数据失败: {e}")
     
+    def _extract_date_from_filename(self, filename: str) -> Optional[str]:
+        """从文件名提取日期"""
+        import re
+        
+        # 尝试匹配各种日期格式
+        date_patterns = [
+            r'(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD
+            r'(\d{4}\d{2}\d{2})',    # YYYYMMDD
+            r'(\d{2}-\d{2}-\d{4})',  # DD-MM-YYYY
+            r'(\d{2}\d{2}\d{4})'     # DDMMYYYY
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, filename)
+            if match:
+                date_part = match.group(1)
+                try:
+                    # 标准化为 YYYY-MM-DD 格式
+                    if len(date_part) == 8:  # YYYYMMDD
+                        return f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                    elif '-' in date_part:
+                        parts = date_part.split('-')
+                        if len(parts[0]) == 4:  # YYYY-MM-DD
+                            return date_part
+                        else:  # DD-MM-YYYY
+                            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+                except:
+                    continue
+        
+        return None
+    
+    def _process_excel_file_data(self, df: pd.DataFrame, date_str: str) -> None:
+        """处理单个Excel文件的数据"""
+        try:
+            # 假设第一列是图幅名称，第二列是完成点数
+            for _, row in df.iterrows():
+                mapsheet_name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+                points_value = row.iloc[1] if len(row) > 1 else 0
+                
+                if not mapsheet_name:
+                    continue
+                
+                # 转换点数
+                try:
+                    points = int(float(points_value)) if pd.notna(points_value) else 0
+                    if points < 0:
+                        points = 0
+                except (ValueError, TypeError):
+                    points = 0
+                
+                if points == 0:
+                    continue
+                
+                # 查找对应的图幅序号
+                sequence = self._find_sequence_by_identifier(mapsheet_name)
+                if not sequence:
+                    continue
+                
+                # 创建或更新历史数据
+                if sequence not in self._historical_data:
+                    self._historical_data[sequence] = MapsheetHistoricalData(
+                        sequence=sequence,
+                        roman_name=self._maps_info[sequence]['Roman Name'],
+                        target_total=self._maps_info[sequence].get('Target Total', 750)
+                    )
+                
+                # 更新该日期的完成数据
+                self._historical_data[sequence].update_completion(date_str, points)
+                
+        except Exception as e:
+            logger.debug(f"处理Excel文件数据失败: {e}")
+
+    def _assess_data_quality(self) -> Dict[str, float]:
+        """评估数据质量"""
+        total_mapsheets = len(self._maps_info)
+        mapsheets_with_data = sum(1 for h in self._historical_data.values() if h.daily_completions)
+        
+        total_days = 0
+        total_expected_days = 0
+        
+        for hist_data in self._historical_data.values():
+            if hist_data.daily_completions and hist_data.last_updated:
+                # 计算应有的天数
+                dates = sorted(hist_data.daily_completions.keys())
+                if len(dates) >= 2:
+                    first_date = datetime.strptime(dates[0], '%Y-%m-%d')
+                    last_date = datetime.strptime(dates[-1], '%Y-%m-%d')
+                    expected_days = (last_date - first_date).days + 1
+                    actual_days = len(dates)
+                    
+                    total_expected_days += expected_days
+                    total_days += actual_days
+        
+        coverage = (mapsheets_with_data / total_mapsheets * 100) if total_mapsheets > 0 else 0
+        completeness = (total_days / total_expected_days * 100) if total_expected_days > 0 else 0
+        
+        return {
+            'coverage': coverage,      # 有数据的图幅百分比
+            'completeness': completeness  # 数据完整性百分比
+        }
+
     def _load_from_cache(self) -> None:
         """从缓存文件加载历史数据"""
         try:

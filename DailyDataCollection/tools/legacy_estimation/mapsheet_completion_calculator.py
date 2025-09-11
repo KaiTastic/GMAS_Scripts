@@ -22,7 +22,7 @@ def load_and_analyze_excel_data():
     """加载并分析Excel数据"""
     print("=== 加载并分析Excel数据 ===")
     
-    from core.progress_estimation._internal.excel_data_connector import ExcelDataConnector
+    from core.data_connectors.excel_data_connector import ExcelDataConnector
     
     connector = ExcelDataConnector()
     success = connector.load_excel_data()

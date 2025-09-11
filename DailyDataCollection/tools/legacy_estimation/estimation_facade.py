@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 
 from .core_estimator import CoreEstimator, EstimationConfig, EstimationMode
 from config.config_manager import ConfigManager
-from ..data_connectors.excel_data_connector import ExcelDataConnector
-from ..data_models.date_types import DateType
+from core.data_connectors.excel_data_connector import ExcelDataConnector
+from core.data_models.date_types import DateType
 
 logger = logging.getLogger(__name__)
 

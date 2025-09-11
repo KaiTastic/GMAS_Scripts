@@ -16,7 +16,7 @@ from ._internal.finish_date_estimator import FinishDateEstimator
 from ._internal.method_integrator import MethodIntegrator
 from ._internal.progress_charts import ProgressCharts
 from config.config_manager import ConfigManager
-from ..data_models.date_types import DateType
+from core.data_models.date_types import DateType
 
 logger = logging.getLogger(__name__)
 

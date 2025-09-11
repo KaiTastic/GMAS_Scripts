@@ -8,7 +8,7 @@ from .data_analyzer import DataAnalyzer
 from .finish_date_estimator import FinishDateEstimator
 from .method_integrator import MethodIntegrator
 from .progress_charts import ProgressCharts
-from ...data_connectors.excel_data_connector import ExcelDataConnector
+from core.data_connectors.excel_data_connector import ExcelDataConnector
 
 __all__ = [
     'DataAnalyzer',
