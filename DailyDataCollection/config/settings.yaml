@@ -1,118 +1,167 @@
-# GMAS 数据收集系统配置文件
-# V4.0 YAML模块化配置
+# GMAS 数据采集系统配置文件
+# 版本: 2.0.0
+# 更新日期: 2025-09-11
 
-# 系统基础配置
+# ============ 系统配置 ============
 system:
-  workspace: "D:\\RouteDesign"
-  current_path: null  # 自动设置为脚本所在目录
-  
-# 平台相关配置
+  current_path: .  # 使用 . 代替 null，避免空值错误
+  workspace: '{platform.workspace}'  # 引用平台特定工作空间路径
+
+# ============ 资源文件配置 ============
+resources:
+  icon_file: Layer0_Symbol_Square.png
+  map_project_folder: Finished observation points of Group3
+  sheet_names_lut: 100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx
+
+# ============ 文件路径配置 ============
+file_paths:
+  icon_file: resource/render_src/{icon_file}
+  kml_schema_22: resource/kml_xsd/220/ogckml22.xsd
+  kml_schema_23: resource/kml_xsd/230/ogckml23.xsd
+  sheet_names_file: resource/private/{sheet_names_lut}
+
+# ============ 平台特定配置 ============
 platform:
-  wechat_folders:
-    windows: "D:\\Users\\lenovo\\Documents\\xwechat_files\\bringsmile_b74d\\msg\\file"
-    macos: ""
+  # 工作空间路径配置（平台特定）
+  workspace:
+    windows: D:/RouteDesign
+    macos: /Users/username/RouteDesign
+    linux: /home/username/RouteDesign
+    default: ./workspace  # 默认相对路径，作为备选方案
   
-# 监控配置
+  # 微信文件夹配置
+  wechat_folders:
+    macos: ''
+    windows: D:/Users/lenovo/Documents/xwechat_files/bringsmile_b74d/msg/file  # 保留硬编码
+    linux: ''
+    default: ''
+
+# ============ 日志配置 ============
+logging:
+  # 基础日志配置
+  level: INFO
+  console_level: INFO
+  file_level: DEBUG
+  log_dir: ./logs
+  log_file: gmas_collection.log
+  max_bytes: 5242880  # 5MB
+  backup_count: 3
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  date_format: '%Y-%m-%d %H:%M:%S'
+  
+  # 邮件通知配置（保留但默认禁用）
+  email:
+    enabled: false
+    fromaddr: your_email@example.com
+    mailhost: smtp.example.com
+    password: your_password
+    port: 587
+    subject: GMAS Application Error
+    toaddrs:
+    - recipient@example.com
+    username: your_email@example.com
+
+# ============ 数据采集配置 ============
+data_collection:
+  weekdays: [5]  # 采集日期（周六），删除重复的 collection_weekdays
+  traceback_date: '2025-07-10'  # 统一为 ISO 格式
+  traceback_days: 60
+  traceforward_days: 7
+
+# ============ 地图图幅配置 ============
+mapsheet:
+  sequence_min: 41  # 最小序号
+  sequence_max: 51  # 最大序号
+
+# ============ 模糊匹配配置 ============
+fuzzy_matching:
+  enabled: true
+  threshold: 0.65
+  debug: false
+
+# ============ 监控配置 ============
 monitoring:
-  # 文件夹刷新检查间隔（秒）
-  time_interval_seconds: 10
-  # 监视状态刷新间隔（分钟）
-  status_interval_minutes: 30
-  # 监控结束时间（小时:分钟:秒）
+  # 删除重复的模糊匹配配置，统一在 fuzzy_matching 部分
   end_time:
     hour: 20
     minute: 30
     second: 0
-  # 启用模糊匹配
-  enable_fuzzy_matching: true
-  # 模糊匹配阈值
-  fuzzy_threshold: 0.65
+  status_interval_minutes: 30
+  time_interval_seconds: 10
 
-# 图幅序号配置
-mapsheet:
-  # 图幅序号范围（Group 3.2）
-  sequence_min: 41
-  sequence_max: 51
-
-# 数据收集配置
-data_collection:
-  # 文件回溯查找起始日期
-  traceback_date: "20250710"
-  # 数据提交的工作日（周一=0, 周日=6）
-  weekdays: [5]  # 周六
-  # 回溯查找天数
-  traceback_days: 60
-  # 向前查找天数
-  traceforward_days: 7
-  # 每周数据收集日（0=周一, 6=周日）
-  collection_weekdays: [5]  # 周六
-
-# 报告输出配置
+# ============ 报告配置 ============
 reports:
-  # 统计报告配置
-  statistics:
-    # 每日统计详情文件路径
-    daily_details_file_name: "Daily_statistics_details_for_Group_3.2.xlsx"
-    daily_details_file: "{workspace}\\{daily_details_file_name}"
-    # 备用输出目录（如果主路径不可用）
-    backup_directory: "{workspace}\\backup"
-
-  # KMZ报告配置
-  kmz:
-    # 输出目录模板（支持日期变量）
-    output_directory: "{workspace}\\{year}{month}\\{date}"
-    # 文件名模板
-    filename_template: "GMAS_Points_and_tracks_until_{date}.kmz"
-  
-  # Excel报告配置
+  # Excel 报告配置
   excel:
-    # 输出目录模板
-    output_directory: "{workspace}\\{year}{month}\\{date}"
-    # 文件名模板
-    filename_template: "{date}_Daily_Statistics.xlsx"
-
-# 模糊匹配配置
-fuzzy_matching:
-  # 是否启用模糊匹配
-  enabled: true
-  # 相似度阈值（0.0-1.0）
-  threshold: 0.65
-  # 调试模式
-  debug: false
-
-# 资源文件配置
-resources:
-  # 查询表格文件
-  sheet_names_lut: "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
-  # 图标文件
-  icon_file: "Layer0_Symbol_Square.png"
-  # 制图工程文件夹
-  map_project_folder: "Finished observation points of Group3"
-
-# 文件路径配置（相对于项目根目录）
-file_paths:
-  sheet_names_file: "resource/private/{sheet_names_lut}"
-  icon_file: "resource/render_src/{icon_file}"
-  kml_schema_22: "resource/kml_xsd/220/ogckml22.xsd"
-  kml_schema_23: "resource/kml_xsd/230/ogckml23.xsd"
-
-# 日志配置
-logging:
-  # 默认日志配置
-  default:
-    name: "gmas_logger"
-    log_file: "gmas_collection.log"
-    level: "INFO"
-    max_bytes: 5242880  # 5MB
-    backup_count: 2
+    filename_template: '{date}_Daily_Statistics.xlsx'
+    output_directory: '{workspace}/{year}{month}/{date}'  # 统一使用 /
   
-  # 邮件通知配置（可选）
-  email:
-    enabled: false
-    mailhost: "smtp.example.com"
-    port: 587
-    fromaddr: "your_email@example.com"
-    toaddrs: ["recipient@example.com"]
-    subject: "GMAS Application Error"
-    username: "your_email@example.com"
-    password: "your_password"
+  # KMZ 报告配置
+  kmz:
+    filename_template: GMAS_Points_and_tracks_until_{date}.kmz
+    output_directory: '{workspace}/{year}{month}/{date}'  # 统一使用 /
+  
+  # 统计配置
+  statistics:
+    backup_directory: '{workspace}/backup'  # 统一使用 /
+    daily_details_file: '{workspace}/{daily_details_file_name}'  # 统一使用 /
+    daily_details_file_name: Daily_statistics_details_for_Group_3.2.xlsx
+
+# ============ 进度估算配置 ============
+progress_estimation:
+  # 图表配置
+  charts:
+    chart_style: professional
+    chart_types:
+    - burndown
+    - burnup
+    - velocity
+    - cumulative
+    color_scheme: professional
+    dpi: 300
+    enable_charts: true
+    figsize:
+    - 12
+    - 8
+  
+  # 数据源配置
+  data_source:
+    date_column: 观测日期
+    excel_file_path: '{reports.statistics.daily_details_file}'
+    fallback_to_mock: true
+    mapsheet_column: 图幅号
+    points_column: 每日点数
+    sheet_name: 观测数据
+  
+  # 估算方法配置
+  estimation_methods:
+    confidence_levels:
+    - 0.5
+    - 0.8
+    - 0.9
+    - 0.95
+    enable_exponential_smoothing: true
+    enable_linear_regression: true
+    enable_monte_carlo: true
+    enable_simple_average: true
+    enable_weighted_average: true
+    monte_carlo_iterations: 10000
+  
+  # 输出配置
+  output:
+    compress_output: false
+    formats:
+    - json
+    - excel
+    - pdf
+    include_charts: true
+    include_raw_data: false
+    output_dir: estimation_output
+  
+  # 性能配置
+  performance:
+    batch_size: 50
+    cache_enabled: true
+    cache_ttl_hours: 24
+    max_workers: 4
+    timeout_seconds: 300  # 5分钟超时
