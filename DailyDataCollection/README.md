@@ -1,7 +1,7 @@
 # GMAS Daily Data Collection System - GMAS每日数据收集系统
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.4.2-blue)
+![Version](https://img.shields.io/badge/Version-2.4.3-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Modular](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -94,13 +94,20 @@ collection.onScreenDisplay()
 
 ## Key Features | 主要功能
 
+### V2.4.3 Monitoring Enhancement | V2.4.3监控增强
+
+- ** Timeout Monitoring Logic Optimization | 超时监控逻辑优化**: Enhanced the `monitor_with_timeout` method to support proper monitoring behavior when no daily planned files exist | 增强`monitor_with_timeout`方法，支持当日无计划文件时的正确监控行为
+- ** Smart Collection Status Check | 智能收集状态检查**: Implemented conditional collection status checking - only monitors file collection progress when there are planned files for the day | 实现条件性收集状态检查 - 仅在当日有计划文件时才监控文件收集进度
+- ** Flexible Monitoring Strategy | 灵活监控策略**: When `planned_unfinished_count` is 0, monitoring continues until the preset `end_time` regardless of collection status | 当`planned_unfinished_count`为0时，监控将持续到预设的`end_time`而不考虑收集状态
+- ** Enhanced Loop Condition | 增强循环条件**: Improved monitoring loop logic to handle different scenarios: planned files vs. no planned files | 改进监控循环逻辑，处理不同场景：有计划文件 vs 无计划文件
+
 ### V2.4.2 Bug Fix | V2.4.2错误修复
 
-- **🔧 Critical Historical File Matching Fix | 关键历史文件匹配修复**: Fixed data display issue where teams with non-standard filename patterns (like Team 317) showed 0 completion points instead of actual values (e.g., 800 points) | 修复非标准文件名模式的团队（如Team 317）显示0完成点而非实际值（如800点）的数据显示问题
-- **🔍 Enhanced File Search Algorithm | 增强文件搜索算法**: Implemented fuzzy matching for historical files that supports flexible filename patterns with different date conventions | 实现历史文件模糊匹配，支持不同日期约定的灵活文件名模式
-- **📊 Improved Data Accuracy | 提高数据准确性**: Total completion statistics now correctly include all team data, improving from 4886 to 5686 total points in test cases | 总完成统计现在正确包含所有团队数据，测试案例中从4886提升到5686总点数
-- **⚡ Dual Search Strategy | 双重搜索策略**: Maintains exact filename matching for standard cases while adding fuzzy matching as fallback for edge cases | 为标准情况保持精确文件名匹配，同时为边缘情况添加模糊匹配作为备选
-- **📝 Smart Date Extraction | 智能日期提取**: Automatically extracts actual data collection dates from filenames regardless of folder structure | 自动从文件名中提取实际数据收集日期，不受文件夹结构影响
+- ** Critical Historical File Matching Fix | 关键历史文件匹配修复**: Fixed data display issue where teams with non-standard filename patterns (like Team 317) showed 0 completion points instead of actual values (e.g., 800 points) | 修复非标准文件名模式的团队（如Team 317）显示0完成点而非实际值（如800点）的数据显示问题
+- ** Enhanced File Search Algorithm | 增强文件搜索算法**: Implemented fuzzy matching for historical files that supports flexible filename patterns with different date conventions | 实现历史文件模糊匹配，支持不同日期约定的灵活文件名模式
+- ** Improved Data Accuracy | 提高数据准确性**: Total completion statistics now correctly include all team data, improving from 4886 to 5686 total points in test cases | 总完成统计现在正确包含所有团队数据，测试案例中从4886提升到5686总点数
+- ** Dual Search Strategy | 双重搜索策略**: Maintains exact filename matching for standard cases while adding fuzzy matching as fallback for edge cases | 为标准情况保持精确文件名匹配，同时为边缘情况添加模糊匹配作为备选
+- ** Smart Date Extraction | 智能日期提取**: Automatically extracts actual data collection dates from filenames regardless of folder structure | 自动从文件名中提取实际数据收集日期，不受文件夹结构影响
 
 ### V2.4.0 Features | V2.4.0版本功能
 
@@ -292,16 +299,16 @@ monitor_manager.start_monitoring()
 
 ## Project Status | 项目状态
 
-- **[完成] ✅ Centralized Version Management | 版本信息集中管理**: Single source of truth for all versions | 所有版本信息的唯一来源
-- **[完成] ✅ Code Quality Improvements | 代码质量改进**: Professional formatting and cross-platform compatibility | 专业格式化和跨平台兼容性
-- **[完成] ✅ YAML Configuration**: Modern YAML-based configuration system | 现代YAML配置系统
-- **[完成] ✅ Unified MapsheetManager**: Consistent mapsheet handling across modules | 跨模块一致的图幅处理
-- **[完成] ✅ Project Structure Cleanup**: Redundant files removed, optimized organization | 项目结构清理，优化组织
-- **[完成] ✅ Modular Refactoring**: Core functionality split into specialized modules | 核心功能拆分为专门模块
-- **[完成] ✅ Modern Architecture**: Clean, maintainable codebase design | 现代架构，清洁可维护的代码设计
-- **[完成] ✅ Smart Matching**: Advanced string matching system deployed | 高级字符串匹配系统部署
-- **[完成] ✅ Monitor Refactoring**: Monitoring system split into specialized modules | 监控系统拆分为专门模块
-- **[进行中] 🔄 Continuous Improvement**: Ongoing optimization based on usage | 基于使用情况的持续优化
+- **[完成] Centralized Version Management | 版本信息集中管理**: Single source of truth for all versions | 所有版本信息的唯一来源
+- **[完成] Code Quality Improvements | 代码质量改进**: Professional formatting and cross-platform compatibility | 专业格式化和跨平台兼容性
+- **[完成] YAML Configuration**: Modern YAML-based configuration system | 现代YAML配置系统
+- **[完成] Unified MapsheetManager**: Consistent mapsheet handling across modules | 跨模块一致的图幅处理
+- **[完成] Project Structure Cleanup**: Redundant files removed, optimized organization | 项目结构清理，优化组织
+- **[完成] Modular Refactoring**: Core functionality split into specialized modules | 核心功能拆分为专门模块
+- **[完成] Modern Architecture**: Clean, maintainable codebase design | 现代架构，清洁可维护的代码设计
+- **[完成] Smart Matching**: Advanced string matching system deployed | 高级字符串匹配系统部署
+- **[完成] Monitor Refactoring**: Monitoring system split into specialized modules | 监控系统拆分为专门模块
+- **[进行中] Continuous Improvement**: Ongoing optimization based on usage | 基于使用情况的持续优化
 
 ## Quick Problem Resolution | 常见问题快速解决
 
@@ -315,7 +322,7 @@ pip install pandas openpyxl lxml pyzipper xmlschema tabulate python-Levenshtein 
 
 ```python
 # Use core modules | 使用核心模块
-from core.mapsheet import CurrentDateFiles  # ✅ Correct | 正确
+from core.mapsheet import CurrentDateFiles  # Correct | 正确
 # Not: from DailyFileGenerator import CurrentDateFiles  # ❌ Wrong | 错误
 ```
 
@@ -337,8 +344,8 @@ FUZZY_MATCHING_THRESHOLD = 0.8  # Higher = stricter, faster | 更高=更严格�
 **原因**: 文件名日期与文件夹日期不匹配（例如，文件`Team_317_finished_points_and_tracks_20250821.kmz`在文件夹`20250910`中）。
 
 **Solution | 解决方案**: 
-- ✅ **Fixed in v2.4.2** | **v2.4.2已修复**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
-- ✅ **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
+- **Fixed in v2.4.2** | **v2.4.2已修复**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
+- **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
 
 **Verification | 验证**:
 ```bash
@@ -422,7 +429,7 @@ required_modules = ['pandas', 'openpyxl', 'lxml', 'pyzipper', 'xmlschema', 'tabu
 for module in required_modules:
     try:
         __import__(module)
-        print(f'✅ {module} - OK')
+        print(f'{module} - OK')
     except ImportError as e:
         print(f'❌ {module} - ERROR: {e}')
 "

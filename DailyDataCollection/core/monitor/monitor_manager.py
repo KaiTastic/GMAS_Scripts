@@ -190,7 +190,8 @@ class MonitorManager:
         """
         带超时的监控模式
         
-        在指定时间内进行监控，到达结束时间或所有文件收集完成时停止。
+        在指定时间内进行监控。如果当日有计划的文件，则在所有文件收集完成或达到结束时间时停止；
+        如果当日没有计划的文件，则一直监控到达到结束时间。
         适用于定时任务或有时间限制的监控场景。
         
         :param end_time: 监控结束的时间点
@@ -199,12 +200,20 @@ class MonitorManager:
         :type executor: Optional[Callable]
         
         .. note::
-           监控会在以下条件之一满足时结束：
-           
-           * 达到指定的结束时间
-           * 所有计划文件都已收集完成
+        监控会在以下条件之一满足时结束：
+        
+        * 达到指定的结束时间
+        * 所有当日计划文件都已收集完成（如果当日有计划文件）
         """
-        while datetime.now() < end_time and not self.event_handler.is_all_collected():
+        # 检查是否有当日计划的文件
+        planned_count, total_count, planned_unfinished_count = MonitorDisplay.get_planned_mapsheets_count(
+            self.event_handler.mapsheet_collection.mapsheet_collection
+        )
+        
+        # 如果没有当日计划的文件，则设置标志为False，表示不需要检查文件收集状态
+        check_collection_status = planned_unfinished_count > 0
+        
+        while datetime.now() < end_time and (not check_collection_status or not self.event_handler.is_all_collected()):
             if self._should_display_status(datetime.now()):
                 planned_count, total_count, planned_unfinished_count = MonitorDisplay.get_planned_mapsheets_count(
                     self.event_handler.mapsheet_collection.mapsheet_collection
@@ -300,18 +309,24 @@ class MonitorManager:
         remaining_files = self.event_handler.get_remaining_files()
         remaining_count = len(remaining_files)
 
-        # 显示详细状态信息
-        MonitorDisplay.show_status(
-            "监控系统初始化",
-            f"待收集文件数/计划收集文件数:{remaining_count}/{planned_files}",
-            self.event_handler.mapsheet_collection.mapsheet_collection
-        )
-        
-        if remaining_count > 0:
+        # 显示初始状态，如果没有待收集文件则直接显示完成消息
+        if planned_files > 0 and remaining_count == 0:
+            # 显示详细状态信息
+            MonitorDisplay.show_status(
+                "监控系统初始化",
+                f"待收集文件数/计划收集文件数:{remaining_count}/{planned_files}",
+                self.event_handler.mapsheet_collection.mapsheet_collection
+            )
+
+        if planned_files > 0 and remaining_count > 0:
 
             print("="*60)
             print("开始实时监控文件变化...\n")
 
+        elif planned_files == 0:
+            print("="*60)
+            print("今日无计划文件，进入计划文件收集状态...\n")
+
         else:
-            print("\n 所有计划文件已收集完成!")
+            print("所有计划文件已收集完成!")
         

@@ -1,7 +1,7 @@
-# GMAS Daily Data Collection System V2.4.2 - Historical File Matching Bug Fix
+# GMAS Daily Data Collection System V2.4.3 - Monitoring Logic Enhancement
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.4.2-blue)
+![Version](https://img.shields.io/badge/Version-2.4.3-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![Architecture](https://img.shields.io/badge/Architecture-Modular-orange)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, v2.3.0's configuration modernization, v2.3.1's version management, v2.4.0's system enhancement, v2.4.1's monitoring improvements, to the v2.4.2 critical bug fix release on September 11, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, unified component management, and robust data accuracy assurance.
+This project has undergone a complete evolution from a simple single-file tool to a modern modular system. Starting from the v1.0 single-file implementation in November 2024 (`DailyFileGenerator.py`, 1,790 lines, 93KB), through v2.0's complete modular refactoring, v2.1's migration integration, v2.2 series' feature enhancements, v2.3.0's configuration modernization, v2.3.1's version management, v2.4.0's system enhancement, v2.4.1's monitoring improvements, v2.4.2's critical bug fix, to the v2.4.3 monitoring logic enhancement release on September 12, 2025, the project has evolved into a professional-grade geographic data collection and processing system with YAML configuration, intelligent matching framework, real-time monitoring capabilities, unified component management, and robust data accuracy assurance.
 
 **Core Evolution Highlights**:
 - **v1.0→v2.0**: Fundamental refactoring from monolithic file to modular architecture
@@ -24,11 +24,14 @@ This project has undergone a complete evolution from a simple single-file tool t
 - **v2.3.1→v2.4.0**: System enhancement and performance optimization
 - **v2.4.0→v2.4.1**: Monitor output formatting improvements and enhanced code documentation
 - **v2.4.1→v2.4.2**: Critical historical file matching bug fix, significantly improved data accuracy
+- **v2.4.2→v2.4.3**: Monitoring logic enhancement, supporting intelligent monitoring for no-planned-files scenarios
 
-The current v2.4.2 version fixes a critical data display error, ensuring system data accuracy and reliability, specifically resolving data loss issues caused by non-standard file naming conventions.
+The current v2.4.3 version enhances the monitoring system by optimizing the timeout monitoring mode logic, enabling continuous monitoring until preset end time when no daily planned files exist, providing more flexible and intelligent monitoring strategies.
 
 ## Project Status
 
+- **[Completed] Monitoring Logic Enhancement**: Optimized timeout monitoring mode to support intelligent monitoring for no-planned-files scenarios (v2.4.3)
+- **[Completed] Smart Collection Status Check**: Implemented conditional collection status checking with flexible monitoring strategies (v2.4.3)
 - **[Completed] Critical Bug Fix**: Enhanced historical file matching algorithm to handle non-standard filename patterns (v2.4.2)
 - **[Completed] Data Accuracy Improvement**: Fixed team completion point calculation errors, improved total statistics reliability (v2.4.2)
 - **[Completed] Monitor Output Optimization**: Removed unnecessary checkmark symbols, improved display formatting (v2.4.1)
@@ -63,12 +66,12 @@ The current v2.4.2 version fixes a critical data display error, ensuring system 
 - System couldn't locate these "mismatched" but valid historical files
 
 #### Technical Solution | 技术解决方案
-**🔍 Enhanced File Search Algorithm**: Implemented dual search strategy with intelligent fallback
+**Enhanced File Search Algorithm**: Implemented dual search strategy with intelligent fallback
 - **Exact Matching**: Maintained for standard naming conventions (`Team_321_finished_points_20250901.kmz`)
 - **Fuzzy Matching**: Added for non-standard historical files (`Team_317_finished_points_20250821.kmz`)  
-- **📊 Smart Data Statistics**: Improved total completion calculation logic - prioritize current files, fallback to historical data
-- **📝 Automatic Date Extraction**: Intelligent date parsing from filenames, independent of folder structure
-- **⚡ Performance Optimization**: Maintains high efficiency, zero impact on existing workflows
+- **Smart Data Statistics**: Improved total completion calculation logic - prioritize current files, fallback to historical data
+- **Automatic Date Extraction**: Intelligent date parsing from filenames, independent of folder structure
+- **Performance Optimization**: Maintains high efficiency, zero impact on existing workflows
 
 #### Fix Verification | 修复验证
 ```bash
@@ -77,7 +80,7 @@ python __main__.py --date=20250910 --verbose
 
 # Check logs for success messages | 查看日志中的成功信息:
 # "Found fuzzy matching historical file: ...Thaniyyah_finished_points_and_tracks_20250821.kmz"
-# Team 317 now correctly shows: FINISHED = 800 ✅
+# Team 317 now correctly shows: FINISHED = 800
 ```
 
 **Impact Assessment**: Completely resolved data loss issues for teams with non-standard file naming, ensuring comprehensive and accurate data collection statistics.
@@ -884,8 +887,8 @@ gps_config = create_target_config(
 #### Team Completion Points Showing 0 (Historical File Matching Issue)
 **Symptom**: Some teams display 0 completion points despite having actual KMZ files with observation data.
 **Example**: Team 317 (Thaniyyah, 覃洪锋) shows 0 instead of 800 points.
-- ✅ **Fixed in v2.4.2**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
-- ✅ **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
+- **Fixed in v2.4.2**: Enhanced search algorithm automatically finds and matches historical files with different date patterns.
+- **v2.4.2已修复**: 增强搜索算法自动查找和匹配不同日期模式的历史文件。
 
 #### `AttributeError: 'CurrentDateFiles' object has no attribute 'dailyExcelReportUpdate'`
 **Solution**: Use core modules directly
@@ -934,6 +937,20 @@ If problems persist:
 
 ## Changelog
 
+### v2.4.3 (Monitoring Logic Enhancement - September 12, 2025)
+
+#### Monitoring System Optimization
+- **Timeout Monitoring Logic Enhancement**: Enhanced `monitor_with_timeout` method to support proper monitoring behavior when no daily planned files exist
+  - **Smart Status Checking**: Added `check_collection_status` flag to determine monitoring strategy based on whether planned files exist for the day
+  - **Flexible Monitoring Strategy**: When `planned_unfinished_count` is 0, monitoring continues until preset `end_time` instead of exiting early
+  - **Improved Loop Condition**: Optimized monitoring loop logic to handle different scenarios: planned files vs. no planned files
+- **Conditional Collection Check**: Only monitors file collection progress when there are planned files for the day, improving monitoring efficiency
+- **Enhanced Documentation**: Updated method documentation to clearly explain different monitoring mode termination conditions
+
+#### Technical Improvements
+- **Code Logic Optimization**: Simplified monitoring condition judgment, improved code readability and maintainability
+- **Feature Enhancement**: Monitoring system is more flexible in daily use, adapting to different work scenarios
+
 ### v2.4.2 (Critical Historical File Matching Bug Fix - September 11, 2025)
 
 #### Critical Bug Fix
@@ -965,7 +982,7 @@ If problems persist:
 
 #### Minor Fixes and Improvements
 - **Monitor Output Formatting**: Enhanced monitoring manager display formatting
-  - Removed unnecessary checkmark symbols (✅) from monitor output
+  - Removed unnecessary checkmark symbols from monitor output
   - Improved console output consistency and readability
   - Standardized status display formatting across modules
 - **Code Documentation Enhancement**: Comprehensive docstring additions
