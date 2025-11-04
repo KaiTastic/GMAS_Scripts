@@ -166,9 +166,9 @@ class CurrentDateFiles:
             current_count = mapsheet.currentPlacemarks.pointsCount if has_current else "N/A"
             last_count = mapsheet.lastPlacemarks.pointsCount if has_last else "N/A"
             
-            logger.warning(f"图幅 {roman_name} 无法获取完成点数，设为0。详情: "
-                         f"当前文件={has_current}(点数={current_count}), "
-                         f"历史文件={has_last}(点数={last_count})")
+            # logger.warning(f"图幅 {roman_name} 无法获取完成点数，设为0。详情: "
+            #              f"当前文件={has_current}(点数={current_count}), "
+            #              f"历史文件={has_last}(点数={last_count})")
         
         return finished_points
 

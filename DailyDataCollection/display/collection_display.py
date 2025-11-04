@@ -31,13 +31,13 @@ class CollectionDisplay:
                 current_date_files.totalPointNum
             ])
             
-            # 检查并报告异常情况
-            CollectionDisplay._check_and_report_anomalies(current_date_files)
-            
             # 显示表格
-            headers = ["TEAM", "NAME", "PERSON", "INCREASE", "PLAN", "FINISHED"]
+            headers = ["TEAM", "NAME", "PERSON IN CHARGE", "INCREASE", "PLAN", "FINISHED POINT"]
             print(tabulate(table_data, headers, tablefmt="grid"))
             
+            
+            # 检查并报告异常情况
+            CollectionDisplay._check_and_report_anomalies(current_date_files)
         except Exception as e:
             import logging
             logger = logging.getLogger('CollectionDisplay')

@@ -15,7 +15,8 @@ class ReportDisplay:
     def show_header(collection_date):
         """显示数据收集报告头部"""
         print("\n" + "="*60)
-        print(f"GMAS 每日数据收集报告 {collection_date.yyyymmdd_str}")
+        # print(f"GMAS 每日数据收集报告 {collection_date.yyyymmdd_str}")
+        print(f"GMAS Daily Data Collection Report {collection_date.yyyymmdd_str}")
         print("="*60)
 
     @staticmethod
