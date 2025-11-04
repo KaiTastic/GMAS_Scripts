@@ -30,29 +30,29 @@ monitoring:
 
 # 图幅序号配置
 mapsheet:
-  # 图幅序号范围（Group 3.2）
-  sequence_min: 41
-  sequence_max: 51
+  # 图幅序号范围（Group 4.1）
+  sequence_min: 52
+  sequence_max: 69
 
 # 数据收集配置
 data_collection:
   # 文件回溯查找起始日期
-  traceback_date: "20250710"
+  traceback_date: "20251101"
   # 数据提交的工作日（周一=0, 周日=6）
-  weekdays: [5]  # 周六
+  weekdays: [2, 5]  # 周三 周六
   # 回溯查找天数：主要是查找完成点
-  traceback_days: 60
+  traceback_days: 90
   # 向前查找天数：主要是查找工作计划
   traceforward_days: 7
   # 每周数据收集日（0=周一, 6=周日）
-  collection_weekdays: [5]  # 周六
+  collection_weekdays: [2, 5]  # # 周三 周六
 
 # 报告输出配置
 reports:
   # 统计报告配置
   statistics:
     # 每日统计详情文件路径
-    daily_details_file_name: "Daily_statistics_details_for_Group_3.2.xlsx"
+    daily_details_file_name: "Daily_statistics_details_for_Group_4.1.xlsx"
     daily_details_file: "{workspace}\\{daily_details_file_name}"
     # 备用输出目录（如果主路径不可用）
     backup_directory: "{workspace}\\backup"
