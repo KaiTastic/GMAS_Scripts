@@ -378,7 +378,7 @@ class CurrentDateFiles:
         
         # 写入表尾
         daily_stat_footer = ['Today', '', '', '']
-        total_Point_Num_footer = ['TOTAL (Group 3)', '', '', '']
+        total_Point_Num_footer = ['TOTAL (Group 4.1)', '', '', '']
         
         for col_num, value in enumerate(daily_stat_footer, start=1):
             sheet.cell(row=maxTableRows-1, column=col_num, value=value)

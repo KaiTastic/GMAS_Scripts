@@ -67,10 +67,10 @@ class ObservationData:
                             if not obspid in self.__lablePoints:
                                 self.__lablePoints[obspid] = {'longitude': float(longitude), 'latitude': float(latitude)}
                             else:
-                                error = f"点要素{obspid}的Label中存在OBSID重复"
+                                error = f"点要素{obspid}的Label中存在OBSID重复(The Lable of Point feature {obspid} is dupulicated)"
                                 self.__errorMsg.append(error)
                     else:
-                        error = f"点要素{name.text}的标签格式不符合OBSID命名规范"
+                        error = f"点要素{name.text}的标签格式不符合OBSID命名规范(The name pattern of the point feature '{name.text}' is not right)"
                         self.__errorMsg.append(error)
 
         # Step 2: 通过Description元素提取点要素
@@ -92,18 +92,18 @@ class ObservationData:
                     if not obspid in self.__ospidPoints:
                         self.__ospidPoints[obspid] = { 'longitude': longitude, 'latitude': latitude}
                     else:
-                        error = f"点要素{obspid}的属性表中存在OBSID重复"
+                        error = f"点要素{obspid}的属性表中存在OBSID重复(Dupulicated point feature {obspid} in attributed table)"
                         self.__errorMsg.append(error)
 
                 # 如果OBSID、经度和纬度中有一个为空, 则记录日志
                 if obspid and (not longitude and not latitude):
-                    error = f"点要素{obspid}的属性表中缺少经度值和纬度值"
+                    error = f"点要素{obspid}的属性表中缺少经度值和纬度值(Missing Longtitude or Lattitude value in the attribue table of point feature {obspid})"
                     self.__errorMsg.append(error)
                 elif obspid and not longitude and latitude:
-                    error = f"点要素{obspid}的属性表中缺少经度值"
+                    error = f"点要素{obspid}的属性表中缺少经度值(Missing Longtitude value in the attribue table of point feature {obspid})"
                     self.__errorMsg.append(error)
                 elif obspid and longitude and not latitude:
-                    error = f"点要素{obspid}的属性表中缺少纬度值"
+                    error = f"点要素{obspid}的属性表中缺少纬度值(Missing Lattitude value in the attribue table of point feature {obspid})"
                     self.__errorMsg.append(error)
 
         # 合并两个字点典, 如果有重复的键, 则覆盖
@@ -148,7 +148,7 @@ class ObservationData:
             
             # 如果有间断, 输出间断的位置
             if gaps:
-                msg = f"组{key}的点号间断位置: {gaps}"
+                msg = f"组{key}的点号间断位置: {gaps}(Work squad {key} number mark break at) "
             else:
                 msg = None
                 
