@@ -5,6 +5,8 @@
 system:
   workspace: "D:\\RouteDesign"
   current_path: null  # 自动设置为脚本所在目录
+  map_project_folder: "Finished observation points of Group4"
+  observation_pts_foler: "Grouop_4.1_ObsPoints"
   
 # 平台相关配置
 platform:

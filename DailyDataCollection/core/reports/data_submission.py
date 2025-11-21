@@ -18,7 +18,8 @@ from config.config_manager import ConfigManager
 
 config_manager = ConfigManager()
 WORKSPACE = config_manager.get('system.workspace')
-MAP_PROJECT_FOLDER = config_manager.get('paths.map_project_folder', '')
+MAP_PROJECT_FOLDER = config_manager.get('system.map_project_folder')
+OBS_FOLDER = config_manager.get('system.observation_pts_foler')
 
 # 创建 logger 实例
 logger = logging.getLogger('Data Submission')
@@ -78,6 +79,7 @@ class DataSubmition:
             week_report_folder = os.path.join(
                 WORKSPACE, 
                 MAP_PROJECT_FOLDER, 
+                OBS_FOLDER,
                 f"Finished_ObsPoints_Until_{self.date.yyyymmdd_str}"
             )
             
