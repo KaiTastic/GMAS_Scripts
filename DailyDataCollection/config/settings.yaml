@@ -6,12 +6,13 @@ system:
   workspace: "D:\\RouteDesign"
   current_path: null  # 自动设置为脚本所在目录
   map_project_folder: "Finished observation points of Group4"
-  observation_pts_foler: "Grouop_4.1_ObsPoints"
+  observation_pts_folder: "Group_4.2_ObsPoints"
   
 # 平台相关配置
 platform:
+  # 微信文件夹路径（根据操作系统自动选择）
   wechat_folders:
-    windows: "D:\\Users\\lenovo\\Documents\\xwechat_files\\bringsmile_b74d\\msg\\file"
+    windows: "C:\\Users\\{username}\\Documents\\WeChat Files"
     macos: ""
   
 # 监控配置
@@ -32,14 +33,14 @@ monitoring:
 
 # 图幅序号配置
 mapsheet:
-  # 图幅序号范围（Group 4.1）
-  sequence_min: 52
-  sequence_max: 69
+  # 图幅序号范围（Group 4.2）
+  sequence_min: 70
+  sequence_max: 86
 
 # 数据收集配置
 data_collection:
   # 文件回溯查找起始日期
-  traceback_date: "20251101"
+  traceback_date: "20260222"
   # 数据提交的工作日（周一=0, 周日=6）
   weekdays: [2, 5]  # 周三 周六
   # 回溯查找天数：主要是查找完成点
@@ -54,7 +55,7 @@ reports:
   # 统计报告配置
   statistics:
     # 每日统计详情文件路径
-    daily_details_file_name: "Daily_statistics_details_for_Group_4.1.xlsx"
+    daily_details_file_name: "Daily_statistics_details_for_Group_4.2.xlsx"
     daily_details_file: "{workspace}\\{daily_details_file_name}"
     # 备用输出目录（如果主路径不可用）
     backup_directory: "{workspace}\\backup"
@@ -72,6 +73,10 @@ reports:
     output_directory: "{workspace}\\{year}{month}\\{date}"
     # 文件名模板
     filename_template: "{date}_Daily_Statistics.xlsx"
+    # 模板文件布局配置
+    layout:
+      footer:
+        total_point_num_footer: "TOTAL (Group 4.2)"
 
 # 模糊匹配配置
 fuzzy_matching:
@@ -85,7 +90,7 @@ fuzzy_matching:
 # 资源文件配置
 resources:
   # 查询表格文件
-  sheet_names_lut: "100K_sheet_names_271_name_V3_after_GEOSA_edit.xlsx"
+  sheet_names_lut: "100K_sheet_names_271_name_V5_after_GEOSA_edit.xlsx"
   # 图标文件
   icon_file: "Layer0_Symbol_Square.png"
   # 制图工程文件夹

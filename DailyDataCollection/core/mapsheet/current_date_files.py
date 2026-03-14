@@ -27,6 +27,7 @@ WORKSPACE = config_manager.get('system.workspace')
 SHEET_NAMES_FILE = config_manager.get_resolved_path('sheet_names_file')
 SEQUENCE_MIN = config_manager.get('mapsheet.sequence_min')
 SEQUENCE_MAX = config_manager.get('mapsheet.sequence_max')
+FOOTER_TOTAL_TITLE = config_manager.get('reports.excel.layout.footer.total_point_num_footer')
 
 # 创建 logger 实例
 logger = logging.getLogger('Current Date Files')
@@ -378,7 +379,7 @@ class CurrentDateFiles:
         
         # 写入表尾
         daily_stat_footer = ['Today', '', '', '']
-        total_Point_Num_footer = ['TOTAL (Group 4.1)', '', '', '']
+        total_Point_Num_footer = [FOOTER_TOTAL_TITLE, '', '', '']
         
         for col_num, value in enumerate(daily_stat_footer, start=1):
             sheet.cell(row=maxTableRows-1, column=col_num, value=value)
