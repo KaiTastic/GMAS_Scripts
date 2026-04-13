@@ -19,6 +19,8 @@ A modular system for collecting and processing GMAS daily field data with intell
 
 ### Installation | 安装
 
+#### Standard Installation | 标准安装
+
 ```bash
 # Method 1: Install all dependencies at once | 方法1：一次安装所有依赖
 pip install pandas openpyxl lxml pyzipper xmlschema tabulate pyyaml python-Levenshtein rapidfuzz watchdog gdal
@@ -40,6 +42,21 @@ pip install pytest pytest-cov
 # Create requirements.txt with above packages | 创建包含上述包的requirements.txt
 pip install -r requirements.txt
 ```
+
+#### Fast Installation | 快速安装
+
+##### GDAL Support ｜ GDAL 支持
+..\resource\installation_requirements\GDAL\GDAL-3.8.2-cp310-cp310-win_amd64.whl
+```bash
+python -m pip install GDAL-3.8.2-cp310-cp310-win_amd64.whl
+```
+
+##### Using requirements file ｜ 使用requirements文件
+..\resource\installation_requirements
+```bash
+pip install -r requirements.txt
+```
+
 
 ### Quick Setup | 快速设置
 
