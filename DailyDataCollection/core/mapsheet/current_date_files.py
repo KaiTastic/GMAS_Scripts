@@ -593,7 +593,8 @@ class CurrentDateFiles:
             target_date = self.currentDate.date_datetime  # datetime对象
             
             # 检查第一行的日期列（从第9列开始，基于Excel结构分析）
-            for col in range(9, min(worksheet.max_column + 1, 110)):  # 扩展搜索范围
+            # 此处为了提高搜索效率，设置日期列搜索上限最多为150列的硬编码
+            for col in range(9, min(worksheet.max_column + 1, 150)):  # 扩展搜索范围
                 cell_value = worksheet.cell(row=1, column=col).value
                 if cell_value:
                     # 如果是datetime对象，直接比较日期
